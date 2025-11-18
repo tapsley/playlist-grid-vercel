@@ -86,13 +86,13 @@ export default function Home() {
               <h2 className="text-xl font-semibold mb-4">How to use:</h2>
               <ol className="text-left text-gray-400 space-y-3">
                 <li className="flex gap-3">
-                  <span className="text-green-500 font-bold">3.</span>
+                  <span className="text-green-500 font-bold">1.</span>
                   <span>
                     Paste any Spotify playlist URL or ID in the input above
                   </span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="text-green-500 font-bold">4.</span>
+                  <span className="text-green-500 font-bold">2.</span>
                   <span>Click "Load" to see all the album artwork!</span>
                 </li>
               </ol>
