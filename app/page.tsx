@@ -86,26 +86,6 @@ export default function Home() {
               <h2 className="text-xl font-semibold mb-4">How to use:</h2>
               <ol className="text-left text-gray-400 space-y-3">
                 <li className="flex gap-3">
-                  <span className="text-green-500 font-bold">1.</span>
-                  <span>
-                    Get your Spotify Client ID and Secret from{' '}
-                    <a
-                      href="https://developer.spotify.com/dashboard"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-green-400 hover:text-green-300 underline"
-                    >
-                      developer.spotify.com/dashboard
-                    </a>
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-green-500 font-bold">2.</span>
-                  <span>
-                    Create a <code className="bg-gray-800 px-2 py-1 rounded">.env.local</code> file in the root directory with your credentials
-                  </span>
-                </li>
-                <li className="flex gap-3">
                   <span className="text-green-500 font-bold">3.</span>
                   <span>
                     Paste any Spotify playlist URL or ID in the input above
