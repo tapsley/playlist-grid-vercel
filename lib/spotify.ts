@@ -5,16 +5,8 @@ const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/api/token';
 
 // You'll need to set these in your environment variables
-function getRequiredEnv(key: string): string {
-  const v = process.env[key];
-  if (!v || v.trim() === '') {
-    throw new Error(`Environment variable ${key} is required but was not provided`);
-  }
-  return v;
-}
-
-const CLIENT_ID = getRequiredEnv('SPOTIFY_CLIENT_ID');
-const CLIENT_SECRET = getRequiredEnv('SPOTIFY_CLIENT_SECRET');
+const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID as string;
+const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET as string;
 //
 
 let accessToken: string | null = null;
