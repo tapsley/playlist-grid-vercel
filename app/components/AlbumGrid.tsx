@@ -61,6 +61,11 @@ export default function AlbumGrid({
                   <p className="text-white text-xs">
                     {album.artistName}
                   </p>
+                  {typeof album.artistFollowers === 'number' && (
+                    <p className="text-green-400 text-xs mt-1">
+                      Followers: {album.artistFollowers.toLocaleString()}
+                    </p>
+                  )}
                 </div>
               </div>
             </>

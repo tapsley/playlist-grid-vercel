@@ -3,20 +3,22 @@
 import { useState } from 'react';
 import PlaylistInput from './components/PlaylistInput';
 import AlbumGrid from './components/AlbumGrid';
-import { getPlaylistAlbumArts, getPlaylistName, extractPlaylistId, AlbumArt } from '@/lib/spotify';
+import { getPlaylistAlbumArts, getPlaylistName, extractPlaylistId, AlbumArt, getPlaylistAlbumArtsFilteredByFollowers } from '@/lib/spotify';
 
-export default function Home() {
+
+export default function PlaylistGridPage() {
   const [albums, setAlbums] = useState<AlbumArt[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
-  const [columns, setColumns] = useState(6);
+  const [columns, setColumns] = useState(12);
+  const [maxFollowers, setMaxFollowers] = useState(0);
 
   const handleFetchPlaylist = async (input: string) => {
     setIsLoading(true);
     try {
       const playlistId = extractPlaylistId(input);
       const playlistName = await getPlaylistName(playlistId);
-      const albumArts = await getPlaylistAlbumArts(playlistId);
+      const albumArts = await getPlaylistAlbumArtsFilteredByFollowers(playlistId, minFollowers);
       setAlbums(albumArts);
       setPlaylistName(playlistName);
     } catch (error) {
@@ -38,22 +40,38 @@ export default function Home() {
               <h1 className="text-3xl font-bold">Spotify Playlist Viewer</h1>
             </div>
             {albums.length > 0 && (
-              <div className="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700">
-                <label htmlFor="columns-slider" className="text-sm font-medium text-gray-300">
-                  Columns:
-                </label>
-                <input
-                  id="columns-slider"
-                  type="range"
-                  min="1"
-                  max="25"
-                  value={columns}
-                  onChange={(e) => setColumns(Number(e.target.value))}
-                  className="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
-                />
-                <span className="text-sm font-semibold text-green-400 w-8 text-right">
-                  {columns}
-                </span>
+              <div className="flex items-center gap-6 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="columns-slider" className="text-sm font-medium text-gray-300">
+                    Columns:
+                  </label>
+                  <input
+                    id="columns-slider"
+                    type="range"
+                    min="1"
+                    max="25"
+                    value={columns}
+                    onChange={(e) => setColumns(Number(e.target.value))}
+                    className="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                  />
+                  <span className="text-sm font-semibold text-green-400 w-8 text-right">
+                    {columns}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="followers-slider" className="text-sm font-medium text-gray-300">
+                    Max Artist Followers:
+                  </label>
+                  <input
+                    id="followers-slider"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={maxFollowers}
+                    onChange={(e) => setMaxFollowers(Number(e.target.value))}
+                    className="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -77,7 +95,7 @@ export default function Home() {
         )}
 
         {/* Album Grid */}
-        <AlbumGrid albums={albums} isLoading={isLoading} columns={columns} />
+  <AlbumGrid albums={albums} isLoading={isLoading} columns={columns} />
 
         {/* Footer Info */}
         {albums.length === 0 && !isLoading && (

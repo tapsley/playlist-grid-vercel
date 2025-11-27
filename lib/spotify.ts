@@ -133,6 +133,68 @@ export interface AlbumArt {
   artistName: string;
   albumImage: string | null;
   spotifyUrl: string;
+  artistFollowers?: number;
+}
+// Helper to batch fetch artist details and cache results
+async function fetchArtistsFollowers(artistIds: string[]): Promise<Record<string, number>> {
+  const token = await getAccessToken();
+  const followers: Record<string, number> = {};
+  const batchSize = 20; // Spotify API allows up to 50, but 20 is safe
+  for (let i = 0; i < artistIds.length; i += batchSize) {
+    const batch = artistIds.slice(i, i + batchSize);
+    const url = `${SPOTIFY_API_BASE}/artists?ids=${batch.join(',')}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch artist details: ${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
+    for (const artist of data.artists) {
+      followers[artist.id] = artist.followers?.total ?? 0;
+    }
+  }
+  return followers;
+}
+
+export async function getPlaylistAlbumArtsFilteredByFollowers(
+  playlistId: string,
+  maxFollowers: number
+): Promise<AlbumArt[]> {
+  const tracks = await getPlaylistTracks(playlistId);
+  // Collect unique main artist IDs
+  const artistIdSet = new Set<string>();
+  tracks.forEach((item: any) => {
+    const track = item.track;
+    if (track && track.artists && track.artists[0]?.id) {
+      artistIdSet.add(track.artists[0].id);
+    }
+  });
+  const artistIds = Array.from(artistIdSet);
+  // Fetch followers for all artists
+  const followersMap = await fetchArtistsFollowers(artistIds);
+
+  // Map and filter tracks
+  return tracks
+    .map((item: any) => {
+      const track = item.track;
+      if (!track) return undefined;
+      const artistId = track.artists?.[0]?.id;
+      const artistFollowers = artistId ? followersMap[artistId] : undefined;
+      if (artistFollowers === undefined || artistFollowers > maxFollowers) return undefined;
+      const albumImage =
+        track.album?.images?.[0]?.url ||
+        track.album?.images?.[1]?.url ||
+        null;
+      return {
+        trackName: track.name,
+        artistName: track.artists?.[0]?.name || 'Unknown Artist',
+        albumImage,
+        spotifyUrl: track.external_urls?.spotify || '',
+        artistFollowers,
+      } as AlbumArt;
+    })
+    .filter(Boolean) as AlbumArt[];
 }
 
 export async function getPlaylistName( playlistId: string): Promise<string> {
