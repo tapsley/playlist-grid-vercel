@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SocialIcon } from 'react-social-icons';
 import PlaylistInput from './components/PlaylistInput';
 import AlbumGrid from './components/AlbumGrid';
 import { getPlaylistAlbumArts, getPlaylistName, extractPlaylistId, AlbumArt, getPlaylistAlbumArtsFilteredByFollowers } from '@/lib/spotify';
@@ -78,9 +79,20 @@ export default function PlaylistGridPage() {
           <p className="text-gray-400 text-sm">
             View all album artwork from your favorite playlists
           </p>
-          <p className="text-gray-400 text-sm">
-            Designed by Tyler Apsley
-          </p>
+          <div className="gap-2 mt-5">
+              <h1 className="text-gray-400 text-sm">
+                Designed and built by Tyler Apsley
+              </h1>
+
+            <div className="flex items-center gap-2 mt-2">
+              <SocialIcon url="https://instagram.com/tyler.apsley" className="colorscheme" style={{ width: 40, height: 40 }}/>
+              <SocialIcon url="https://linkedin.com/in/tyler-apsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
+              <SocialIcon url="https://github.com/tapsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
+              <SocialIcon url="https://open.spotify.com/user/128314269?si=7stLtgogQ4ii2PMvWnD72g"  className="colorscheme" style={{ width: 40, height: 40 }}/>
+            </div>
+          </div>
+          
+
         </div>
       </header>
 
@@ -98,7 +110,7 @@ export default function PlaylistGridPage() {
         )}
 
         {/* Album Grid */}
-  <AlbumGrid albums={albums} isLoading={isLoading} columns={columns} />
+    <AlbumGrid albums={albums} isLoading={isLoading} columns={columns} />
 
         {/* Footer Info */}
         {albums.length === 0 && !isLoading && (
@@ -114,6 +126,10 @@ export default function PlaylistGridPage() {
                 </li>
                 <li className="flex gap-3">
                   <span className="text-green-500 font-bold">2.</span>
+                  <span>You can specify the maximum number of monthly listeners if you want!</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-green-500 font-bold">3.</span>
                   <span>Click "Load" to see all the album artwork!</span>
                 </li>
               </ol>
