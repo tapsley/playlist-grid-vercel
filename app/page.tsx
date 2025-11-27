@@ -18,7 +18,7 @@ export default function PlaylistGridPage() {
     try {
       const playlistId = extractPlaylistId(input);
       const playlistName = await getPlaylistName(playlistId);
-      const albumArts = await getPlaylistAlbumArtsFilteredByFollowers(playlistId, minFollowers);
+      const albumArts = await getPlaylistAlbumArtsFilteredByFollowers(playlistId, maxFollowers);
       setAlbums(albumArts);
       setPlaylistName(playlistName);
     } catch (error) {
