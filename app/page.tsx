@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { SocialIcon } from 'react-social-icons';
 import PlaylistInput from './components/PlaylistInput';
 import AlbumGrid from './components/AlbumGrid';
+import TrackList from './components/TrackList';
 import { getPlaylistAlbumArts, getPlaylistName, extractPlaylistId, AlbumArt, getPlaylistAlbumArtsFilteredByFollowers } from '@/lib/spotify';
 
 
@@ -13,6 +14,7 @@ export default function PlaylistGridPage() {
   const [playlistName, setPlaylistName] = useState('');
   const [columns, setColumns] = useState(12);
   const [maxFollowers, setMaxFollowers] = useState(150000000);
+  const [listMode, setListMode] = useState(false);
 
   const handleFetchPlaylist = async (input: string) => {
     setIsLoading(true);
@@ -72,6 +74,15 @@ export default function PlaylistGridPage() {
                   className="w-34 px-2 py-1 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500"
                 />
               </div>
+
+              <div>
+                <button
+                  onClick={() => setListMode((prev) => !prev)}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg"
+                >
+                  {listMode ? 'Grid Mode' : 'List Mode'}
+                </button>
+              </div>
             </div>
             
           </div>
@@ -109,8 +120,11 @@ export default function PlaylistGridPage() {
         )}
 
         {/* Album Grid */}
-    <AlbumGrid albums={albums} isLoading={isLoading} columns={columns} />
-
+        {listMode ? ( 
+          <TrackList albums={albums} isLoading={isLoading} /> )
+            
+          : <AlbumGrid albums={albums} isLoading={isLoading} columns={columns} /> 
+        }
         {/* Footer Info */}
         {albums.length === 0 && !isLoading && (
           <div className="mt-16 text-center">
