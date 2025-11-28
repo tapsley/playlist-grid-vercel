@@ -41,7 +41,7 @@ export default function PlaylistGridPage() {
               <h1 className="text-3xl font-bold">Spotify Playlist Viewer</h1>
             </div>
             
-            <div className="flex items-center gap-6 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700">
+            <div className="flex flex-wrap items-center gap-6 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700">
               <div className="flex items-center gap-2">
                 <label htmlFor="columns-slider" className="text-sm font-medium text-gray-300">
                   Columns:
@@ -66,7 +66,6 @@ export default function PlaylistGridPage() {
                 <input
                   id="followers-slider"
                   type="number"
-                  min="0"
                   step="1000"
                   value={maxFollowers}
                   onChange={(e) => setMaxFollowers(Number(e.target.value))}
@@ -133,8 +132,8 @@ export default function PlaylistGridPage() {
                   <span>Click "Load" to see all the album artwork!</span>
                 </li>
               </ol>
-              <p className="text-gray-500 text-sm mt-6">
-                Example playlist URL: https://open.spotify.com/playlist/37i9dQZF1DX7K3vNL5FgHN
+              <p className="text-gray-500 text-sm mt-6 wrap-break-word">
+                Example playlist URL: https://open.spotify.com/playlist/73XrmL8vvNbqoBII7NzHEf
               </p>
             </div>
           </div>
