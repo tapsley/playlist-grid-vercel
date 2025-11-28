@@ -31,34 +31,29 @@ export default function AlbumGrid({
   }
 
   return (
-    <div>
+    <ul>
       {albums.map((album, index) => (
         <a
           key={index}
           href={album.spotifyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative"
+          className=""
         >
    
-          <div className="absolute inset-0 bg-black opacity-0 flex items-center justify-center">
-            <div className="opacity-0 text-center px-2">
-              <p className="text-white text-xs font-semibold">
-                {album.trackName}
-              </p>
-              <p className="text-white text-xs">
-                {album.artistName}
-              </p>
-              {typeof album.artistFollowers === 'number' && (
-                <p className="text-green-400 text-xs mt-1">
-                  Followers: {album.artistFollowers.toLocaleString()}
-                </p>
-              )}
-            </div>
+        <div className="flex flex-row w-full text=center px-2">
+          <div className="flex-1 text-white font-semibold italic">
+            {album.trackName} 
           </div>
+          <div className="flex-1 text-white font-semibold">{album.artistName}
+          </div>
+          {typeof album.artistFollowers === 'number' && (
+              album.artistFollowers.toLocaleString()
+          )}
+        </div>
           
         </a>
       ))}
-    </div>
+    </ul>
   );
 }

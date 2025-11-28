@@ -5,7 +5,7 @@ import { SocialIcon } from 'react-social-icons';
 import PlaylistInput from './components/PlaylistInput';
 import AlbumGrid from './components/AlbumGrid';
 import TrackList from './components/TrackList';
-import { getPlaylistAlbumArts, getPlaylistName, extractPlaylistId, AlbumArt, getPlaylistAlbumArtsFilteredByFollowers } from '@/lib/spotify';
+import { getPlaylistAlbumArts, getPlaylistName, extractPlaylistId, AlbumArt, getPlaylistAlbumArtsFilteredByFollowers, getPlaylistAlbumArtsFilteredByMonthlyListeners } from '@/lib/spotify';
 
 
 export default function PlaylistGridPage() {

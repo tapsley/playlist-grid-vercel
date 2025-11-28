@@ -1,3 +1,65 @@
+// Helper to fetch monthly listeners from RapidAPI
+async function fetchArtistsMonthlyListeners(artistIds: string[]): Promise<Record<string, number>> {
+  const listeners: Record<string, number> = {};
+  for (const artistId of artistIds) {
+    const url = `https://spotify-artist-monthly-listeners.p.rapidapi.com/artists/spotify_artist_monthly_listeners?spotify_artist_id=${artistId}`;
+    const response = await fetch(url, {
+      headers: {
+        'x-rapidapi-key': '',
+		    'x-rapidapi-host': 'spotify-artist-monthly-listeners.p.rapidapi.com',
+      },
+    });
+    if (!response.ok) {
+      listeners[artistId] = 0;
+      continue;
+    }
+    const data = await response.json();
+    console.log('RapidAPI response:', data);
+    listeners[artistId] = data.monthly_listeners ?? 0;
+  }
+  return listeners;
+}
+
+export async function getPlaylistAlbumArtsFilteredByMonthlyListeners(
+  playlistId: string,
+  maxMonthlyListeners: number
+): Promise<AlbumArt[]> {
+  const tracks = await getPlaylistTracks(playlistId);
+  // Collect unique main artist IDs
+  const artistIdSet = new Set<string>();
+  tracks.forEach((item: any) => {
+    const track = item.track;
+    if (track && track.artists && track.artists[0]?.id) {
+      artistIdSet.add(track.artists[0].id);
+    }
+  });
+  const artistIds = Array.from(artistIdSet);
+  // Fetch monthly listeners for all artists
+  const listenersMap = await fetchArtistsMonthlyListeners(artistIds);
+
+  // Map and filter tracks
+  return tracks
+    .map((item: any) => {
+      const track = item.track;
+      if (!track) return undefined;
+      const artistId = track.artists?.[0]?.id;
+      const monthlyListeners = artistId ? listenersMap[artistId] : undefined;
+      if (monthlyListeners === undefined || monthlyListeners > maxMonthlyListeners) return undefined;
+      const albumImage =
+        track.album?.images?.[0]?.url ||
+        track.album?.images?.[1]?.url ||
+        null;
+      return {
+        trackName: track.name,
+        artistName: track.artists?.[0]?.name || 'Unknown Artist',
+        albumName: track.album?.name || 'Unknown Album',
+        albumImage,
+        spotifyUrl: track.external_urls?.spotify || '',
+        artistFollowers: monthlyListeners, // repurpose field for display
+      } as AlbumArt;
+    })
+    .filter(Boolean) as AlbumArt[];
+}
 // Spotify API Service
 // Uses Client Credentials flow for authentication
 
@@ -131,6 +193,7 @@ export function extractPlaylistId(spotifyUrl: string): string {
 export interface AlbumArt {
   trackName: string;
   artistName: string;
+  albumName: string;
   albumImage: string | null;
   spotifyUrl: string;
   artistFollowers?: number;
@@ -189,6 +252,7 @@ export async function getPlaylistAlbumArtsFilteredByFollowers(
       return {
         trackName: track.name,
         artistName: track.artists?.[0]?.name || 'Unknown Artist',
+        albumName: track.album?.name || 'Unknown Album',
         albumImage,
         spotifyUrl: track.external_urls?.spotify || '',
         artistFollowers,
@@ -229,9 +293,11 @@ export async function getPlaylistAlbumArts(
       return {
         trackName: track.name,
         artistName: track.artists?.[0]?.name || 'Unknown Artist',
+        albumName: track.album?.name || 'Unknown Album',
         albumImage,
         spotifyUrl: track.external_urls?.spotify || '',
       };
     })
     .filter((item: AlbumArt | null) => item !== null);
 }
+
