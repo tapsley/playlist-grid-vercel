@@ -11,7 +11,7 @@ export default function PlaylistInput({
   onFetch,
   isLoading,
 }: PlaylistInputProps) {
-  const [input, setInput] = useState('https://open.spotify.com/playlist/73XrmL8vvNbqoBII7NzHEf');
+  const [input, setInput] = useState('https://open.spotify.com/playlist/3eQtFmSVssmGRDTtUsWzKF?si=585294243d524eec');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
