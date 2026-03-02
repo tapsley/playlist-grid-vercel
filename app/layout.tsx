@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-// @ts-ignore: suppress missing module/type errors for next/font/google in this environment
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -18,6 +17,8 @@ export const metadata: Metadata = {
   description: "A space for Tyler Apsley's experiments and musings",
 };
 
+import Header from "./components/Header";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <Header />
         {children}
       </body>
     </html>
