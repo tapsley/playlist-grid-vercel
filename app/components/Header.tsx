@@ -21,10 +21,10 @@ export default function Header() {
         <Link href="/" style={{ textDecoration: "none", fontSize: 35, color: "#fff0fc", fontWeight: 600, fontFamily: "Goudy Bookletter 1911" }}>
         Tyler Apsley 
       </Link>
-        <SocialIcon url="https://instagram.com/tyler.apsley" className="colorscheme" style={{ width: 40, height: 40 }}/>
-        <SocialIcon url="https://linkedin.com/in/tyler-apsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
-        <SocialIcon url="https://github.com/tapsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
-        <SocialIcon url="https://open.spotify.com/user/128314269?si=7stLtgogQ4ii2PMvWnD72g"  className="colorscheme" style={{ width: 40, height: 40 }}/>
+        <SocialIcon target="_blank" url="https://instagram.com/tyler.apsley" className="colorscheme" style={{ width: 40, height: 40 }}/>
+        <SocialIcon target="_blank" url="https://linkedin.com/in/tyler-apsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
+        <SocialIcon target="_blank" url="https://github.com/tapsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
+        <SocialIcon target="_blank" url="https://open.spotify.com/user/128314269?si=7stLtgogQ4ii2PMvWnD72g"  className="colorscheme" style={{ width: 40, height: 40 }}/>
         </div>
       <nav style={{ display: "flex", gap: 12 }}>
         <Link href="/playlist" style={{ color: "#111827", textDecoration: "none" }}>Projects</Link>
