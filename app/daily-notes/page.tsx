@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { DarkModeContext } from "../layout";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 function generateCalendar(year: number, month: number) {
   const firstOfMonth = new Date(year, month, 1);
@@ -30,7 +30,6 @@ function generateCalendar(year: number, month: number) {
 
 export default function DailyNotesHome() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -39,19 +38,6 @@ export default function DailyNotesHome() {
   const [notes, setNotes] = useState<Record<string, { title: string; body: string }>>({});
   // dark mode comes from context shared in root layout
   const { isDarkMode, toggle } = useContext(DarkModeContext);
-
-  // read query param "ym" like "2026-03"
-  useEffect(() => {
-    const param = searchParams.get("ym");
-    if (param) {
-      const [y, m] = param.split("-").map(Number);
-      if (!isNaN(y) && !isNaN(m)) {
-        setYear(y);
-        setMonth(m - 1);
-      }
-    }
-  }, [searchParams]);
-
 
   // load notes for the visible month from localStorage
   useEffect(() => {
