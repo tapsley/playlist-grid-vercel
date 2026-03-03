@@ -28,6 +28,7 @@ export default function Header() {
         </div>
       <nav style={{ display: "flex", gap: 12 }}>
         <Link href="/playlist" style={{ color: "#111827", textDecoration: "none" }}>Projects</Link>
+        <Link href="/daily-notes" style={{ color: "#111827", textDecoration: "none" }}>Daily Notes</Link>
         <Link href="/resume" style={{ color: "#111827", textDecoration: "none" }}>Resume</Link>
       </nav>
     </header>

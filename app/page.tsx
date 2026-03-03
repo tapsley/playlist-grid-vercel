@@ -20,6 +20,7 @@ export default function SplashPage() {
               <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                 <Link href="/resume" style={secondaryButtonStyle}>Resume</Link>
                 <Link href="/playlist" style={ctaButtonStyle}>Playlist Grid feat. Spotify</Link>
+                <Link href="/daily-notes" style={ctaButtonStyle}>Daily Notes</Link>
                 
               </div>
             </div>
