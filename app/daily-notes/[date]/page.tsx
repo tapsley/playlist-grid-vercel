@@ -14,20 +14,52 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
 
   // Load notes from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem(`note-${date}`);
-    if (stored) {
-      const { title: savedTitle, body: savedBody } = JSON.parse(stored);
-      setTitle(savedTitle || "");
-      setBody(savedBody || "");
+    let mounted = true;
+    async function loadNote() {
+      try {
+        const res = await fetch(`/api/notes/${date}`, { credentials: "same-origin" });
+        if (res.status === 401) {
+          // not signed in
+          window.location.href = "/signin";
+          return;
+        }
+        if (res.ok) {
+          const data = await res.json();
+          if (!mounted) return;
+          setTitle(data.title ?? "");
+          setBody(data.body ?? "");
+        }
+      } catch (e) {
+        // ignore network errors
+      } finally {
+        if (mounted) setIsLoaded(true);
+      }
     }
-    setIsLoaded(true);
+    loadNote();
+    return () => {
+      mounted = false;
+    };
   }, [date]);
 
-  // Save notes to localStorage whenever title or body changes
+  // Save notes to the API with debounce
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(`note-${date}`, JSON.stringify({ title, body }));
-    }
+    if (!isLoaded) return;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/notes/${date}`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, body }),
+        });
+        if (res.status === 401) {
+          window.location.href = "/signin";
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 700);
+    return () => clearTimeout(t);
   }, [title, body, date, isLoaded]);
 
   const bgColor = isDarkMode ? "#1a1a1a" : "#fff";

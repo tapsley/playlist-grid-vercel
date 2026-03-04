@@ -1,0 +1,31 @@
+// Prisma schema for Postgres
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  notes     Note[]   @relation("UserNotes")
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  user      User     @relation("UserNotes", fields: [userId], references: [id])
+  userId    String
+  date      DateTime
+  title     String?
+  body      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+}

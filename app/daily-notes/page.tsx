@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, Suspense } from "react";
 import { DarkModeContext } from "../layout";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 function generateCalendar(year: number, month: number) {
   const firstOfMonth = new Date(year, month, 1);
@@ -28,8 +29,9 @@ function generateCalendar(year: number, month: number) {
   return weeks;
 }
 
-export default function DailyNotesHome() {
+function CalendarContent() {
   const router = useRouter();
+
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -41,20 +43,25 @@ export default function DailyNotesHome() {
 
   // load notes for the visible month from localStorage
   useEffect(() => {
-    const loaded: Record<string, { title: string; body: string }> = {};
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      const raw = localStorage.getItem(`note-${dateStr}`);
-      if (raw) {
-        try {
-          loaded[dateStr] = JSON.parse(raw);
-        } catch (e) {
-          // ignore parse errors
+    async function loadMonthNotes() {
+      try {
+        const ym = `${year}-${String(month + 1).padStart(2, "0")}`;
+        const res = await fetch(`/api/notes?ym=${ym}`, { method: 'GET', credentials: "same-origin" });
+        if (!res.ok) {
+          setNotes({});
+          return;
         }
+        const data: Array<{ id: string; date: string; title?: string; body?: string }> = await res.json();
+        const loaded: Record<string, { title: string; body: string }> = {};
+        data.forEach((n) => {
+          loaded[n.date] = { title: n.title ?? "", body: n.body ?? "" };
+        });
+        setNotes(loaded);
+      } catch (e) {
+        setNotes({});
       }
     }
-    setNotes(loaded);
+    loadMonthNotes();
   }, [year, month]);
 
   const weeks = generateCalendar(year, month);
@@ -200,5 +207,27 @@ export default function DailyNotesHome() {
         </tbody>
       </table>
     </main>
+  );
+}
+
+// the default export wraps the calendar content with authentication and suspense
+export default function Page() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  if (status === "loading") {
+    return <div>Loading...</div>;
+  }
+  if (!session) {
+    if (typeof window !== "undefined") {
+      router.push("/signin");
+    }
+    return null;
+  }
+
+  return (
+    <Suspense fallback={<div>Loading calendar...</div>}>
+      <CalendarContent />
+    </Suspense>
   );
 }

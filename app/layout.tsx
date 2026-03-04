@@ -1,6 +1,7 @@
 "use client";
 
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import React, { createContext, useState, useEffect } from "react";
@@ -21,6 +22,7 @@ const metadata: Metadata = {
 };
 
 import Header from "./components/Header";
+import SessionProviderClient from "./providers/SessionProviderClient";
 
 export const DarkModeContext = createContext({
   isDarkMode: false,
@@ -54,9 +56,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <DarkModeContext.Provider value={{ isDarkMode, toggle }}>
-          <Header />
-          {children}
+          <SessionProviderClient>
+            <Header />
+            {children}
+          </SessionProviderClient>
         </DarkModeContext.Provider>
+        <Analytics />
       </body>
     </html>
   );
