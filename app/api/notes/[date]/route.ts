@@ -39,12 +39,15 @@ export async function PUT(req: Request) {
   return new Response(JSON.stringify({ id: updated.id, date: updated.date.toISOString().slice(0, 10), title: updated.title, body: updated.body }), { headers: { "Content-Type": "application/json" } });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { date: string } }) {
+export async function DELETE(_req: Request) {
   const session = await getServerSession(authOptions as any);
   if (!session || !session.user) return new Response("Unauthorized", { status: 401 });
 
-  const { date } = params;
-  const dateObj = new Date(date);
+  const url = new URL(_req.url);
+  const pathname = url.pathname; // format: /api/notes/YYYY-MM-DD
+  const parts = pathname.split("/");
+  const dateStr = parts[parts.length - 1];
+  const dateObj = new Date(dateStr);
 
   await prisma.note.deleteMany({ where: { userId: session.user.id, date: dateObj } });
   return new Response(null, { status: 204 });
