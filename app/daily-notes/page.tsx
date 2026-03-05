@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useContext, Suspense } from "react";
 import { DarkModeContext } from "../layout";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import SignOutButton from "@/components/SignOutButton";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import SignOutButton from "@/app/daily-notes/components/SignOutButton";
 
 function generateCalendar(year: number, month: number) {
   const firstOfMonth = new Date(year, month, 1);
@@ -30,8 +30,9 @@ function generateCalendar(year: number, month: number) {
   return weeks;
 }
 
-function CalendarContent() {
+function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
 
   const now = new Date();
@@ -42,12 +43,37 @@ function CalendarContent() {
   // dark mode comes from context shared in root layout
   const { isDarkMode, toggle } = useContext(DarkModeContext);
 
-  // load notes for the visible month from localStorage
   useEffect(() => {
+    const ym = searchParams.get("ym");
+    if (!ym) return;
+    const match = /^(\d{4})-(\d{2})$/.exec(ym);
+    if (!match) return;
+
+    const nextYear = Number(match[1]);
+    const nextMonth = Number(match[2]) - 1;
+    if (nextMonth < 0 || nextMonth > 11) return;
+
+    setYear((prev) => (prev === nextYear ? prev : nextYear));
+    setMonth((prev) => (prev === nextMonth ? prev : nextMonth));
+  }, [searchParams]);
+
+  // load notes for the visible month from the API
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotes({});
+      return;
+    }
+
+    const controller = new AbortController();
+
     async function loadMonthNotes() {
       try {
         const ym = `${year}-${String(month + 1).padStart(2, "0")}`;
-        const res = await fetch(`/api/notes?ym=${ym}`, { method: 'GET', credentials: "same-origin" });
+        const res = await fetch(`/api/notes?ym=${ym}`, {
+          method: "GET",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
         if (!res.ok) {
           setNotes({});
           return;
@@ -58,15 +84,26 @@ function CalendarContent() {
           loaded[n.date] = { title: n.title ?? "", body: n.body ?? "" };
         });
         setNotes(loaded);
-      } catch (e) {
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
         setNotes({});
       }
     }
     loadMonthNotes();
-  }, [year, month]);
+
+    return () => {
+      controller.abort();
+    };
+  }, [year, month, isAuthenticated]);
 
   const weeks = generateCalendar(year, month);
   const monthName = new Date(year, month).toLocaleString("default", { month: "long" });
+
+  function setCalendarMonth(nextYear: number, nextMonth: number) {
+    setYear(nextYear);
+    setMonth(nextMonth);
+    router.replace(`/daily-notes?ym=${nextYear}-${String(nextMonth + 1).padStart(2, "0")}`, { scroll: false });
+  }
 
   function changeMonth(delta: number) {
     let newMonth = month + delta;
@@ -79,25 +116,22 @@ function CalendarContent() {
       newMonth = 0;
       newYear += 1;
     }
-    setYear(newYear);
-    setMonth(newMonth);
-    router.push(`/daily-notes?ym=${newYear}-${String(newMonth + 1).padStart(2, "0")}`);
+    setCalendarMonth(newYear, newMonth);
   }
 
   function handleYearChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newYear = Number(e.target.value);
-    setYear(newYear);
-    router.push(`/daily-notes?ym=${newYear}-${String(month + 1).padStart(2, "0")}`);
+    setCalendarMonth(newYear, month);
   }
 
   function handleMonthChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newMonth = Number(e.target.value);
-    setMonth(newMonth);
-    router.push(`/daily-notes?ym=${year}-${String(newMonth + 1).padStart(2, "0")}`);
+    setCalendarMonth(year, newMonth);
   }
 
   const yearOptions = Array.from({ length: 10 }, (_, i) => year - 5 + i);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i);
+  const currentYm = `${year}-${String(month + 1).padStart(2, "0")}`;
 
   const bgColor = isDarkMode ? "#1a1a1a" : "#fff";
   const textColor = isDarkMode ? "#e5e5e5" : "#000";
@@ -114,9 +148,7 @@ function CalendarContent() {
             const today = new Date();
             const y = today.getFullYear();
             const m = today.getMonth();
-            setYear(y);
-            setMonth(m);
-            router.push(`/daily-notes?ym=${y}-${String(m + 1).padStart(2, "0")}`);
+            setCalendarMonth(y, m);
           }}
           style={{ fontSize: 18, fontWeight: 600, cursor: "pointer" }}
         >
@@ -130,7 +162,7 @@ function CalendarContent() {
         </button>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 600, position: "relative", width: "100%", color: textColor }}>
-        <button onClick={() => changeMonth(-1)} style={{ background: cellBgColor, color: textColor, border: `1px solid ${borderColor}` }}>←</button>
+        <button onClick={() => changeMonth(-1)} style={{ background: cellBgColor, cursor: "pointer", color: textColor }}>◀</button>
         <div style={{ position: "relative" }}>
           <h1 style={{ margin: 0, cursor: "pointer", userSelect: "none", display: "flex", alignItems: "center", gap: 8, color: textColor }} onClick={() => setShowDropdown(!showDropdown)}>
             {monthName} {year}
@@ -154,7 +186,7 @@ function CalendarContent() {
             </div>
           )}
         </div>
-        <button onClick={() => changeMonth(1)} style={{ background: cellBgColor, color: textColor, border: `1px solid ${borderColor}` }}>→</button>
+        <button onClick={() => changeMonth(1)} style={{ background: cellBgColor, cursor: "pointer", color: textColor }}>▶</button>
       </div>
       <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 600, marginTop: 16, border: `1px solid ${borderColor}`, tableLayout: "fixed", background: cellBgColor }}>
         <thead>
@@ -173,7 +205,7 @@ function CalendarContent() {
                 return (
                   <td key={di} style={{height: 90, border: `1px solid ${borderColor}`, textAlign: "left", verticalAlign: "top", padding: "3px 6px 6px 6px", boxSizing: "border-box", overflow: "hidden", position: "relative", background: cellBgColor, color: textColor }}>
                     {day ? (
-                      <Link href={`/daily-notes/${dateStr}`} style={{ textDecoration: "none", color: "inherit", display: "block", height: "100%" }}>
+                      <Link href={`/daily-notes/${dateStr}?ym=${currentYm}`} style={{ textDecoration: "none", color: "inherit", display: "block", height: "100%" }}>
                         <div style={{ marginBottom: 2 }}>
                           {isToday ? (
                             <span style={{ display: "inline-flex", width: 20, height: 20, borderRadius: 10, background: textColor, color: bgColor, alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 }}>{day}</span>
@@ -207,7 +239,7 @@ function CalendarContent() {
           ))}
         </tbody>
       </table>
-      <SignOutButton />
+      {isAuthenticated && <SignOutButton />}
     </main>
   );
 }
@@ -215,21 +247,108 @@ function CalendarContent() {
 // the default export wraps the calendar content with authentication and suspense
 export default function Page() {
   const { data: session, status } = useSession();
-  const router = useRouter();
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleAuthSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    if (authMode === "signup") {
+      const signupRes = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const signupBody = await signupRes.json().catch(() => ({}));
+      if (!signupRes.ok) {
+        setIsSubmitting(false);
+        setError(signupBody.error || "Could not create account");
+        return;
+      }
+    }
+
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+    setIsSubmitting(false);
+
+    if (!result || result.error) {
+      setError(authMode === "signup" ? "Account created, but sign-in failed" : "Invalid email or password");
+      return;
+    }
+
+    setEmail("");
+    setPassword("");
+  }
 
   if (status === "loading") {
     return <div>Loading...</div>;
   }
-  if (!session) {
-    if (typeof window !== "undefined") {
-      router.push("/signin");
-    }
-    return null;
-  }
 
   return (
-    <Suspense fallback={<div>Loading calendar...</div>}>
-      <CalendarContent />
-    </Suspense>
+    <>
+      <Suspense fallback={<div>Loading calendar...</div>}>
+        <CalendarContent isAuthenticated={!!session} />
+      </Suspense>
+
+      {!session && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "grid", placeItems: "center", padding: 24, background: "rgba(0,0,0,0.45)" }}>
+          <div style={{ width: "100%", maxWidth: 420, borderRadius: 12, border: "1px solid #374151", background: "#1f2937", padding: 20, color: "#e5e7eb" }}>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Daily Notes</h1>
+            <p style={{ marginTop: 8, marginBottom: 16, color: "#9ca3af" }}>
+              {authMode === "signin" ? "Sign in to continue." : "Create an account to continue."}
+            </p>
+
+            <form onSubmit={handleAuthSubmit} style={{ display: "grid", gap: 10 }}>
+              <input
+                type="text"
+                placeholder="Username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #4b5563", background: "#111827", color: "#e5e7eb" }}
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #4b5563", background: "#111827", color: "#e5e7eb" }}
+              />
+              {error && <p style={{ margin: 0, color: "#fca5a5", fontSize: 14 }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                style={{ width: "100%", padding: 10, borderRadius: 8, border: "none", background: "#ff2dd1", color: "white", fontWeight: 600, cursor: isSubmitting ? "not-allowed" : "pointer", opacity: isSubmitting ? 0.7 : 1 }}
+              >
+                {isSubmitting ? (authMode === "signin" ? "Signing in..." : "Creating account...") : authMode === "signin" ? "Sign In" : "Sign Up"}
+              </button>
+            </form>
+
+            <p style={{ marginTop: 12, marginBottom: 0, fontSize: 14, color: "#9ca3af" }}>
+              {authMode === "signin" ? "Need an account? " : "Already have an account? "}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode((m) => (m === "signin" ? "signup" : "signin"));
+                  setError("");
+                }}
+                style={{ color: "#ff2dd1", background: "transparent", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
+              >
+                {authMode === "signin" ? "Sign up" : "Sign in"}
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

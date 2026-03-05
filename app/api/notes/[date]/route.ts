@@ -2,16 +2,30 @@ import { prisma } from "../../../../lib/prisma";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { getServerSession } from "next-auth/next";
 
+function parseDateOnlyToUtc(date: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+}
+
+function getDateStrFromPath(req: Request): string {
+  const url = new URL(req.url);
+  const pathname = url.pathname;
+  const parts = pathname.split("/");
+  return decodeURIComponent(parts[parts.length - 1]);
+}
+
 export async function GET(_req: Request) {
   const session = await getServerSession(authOptions as any);
   if (!session || !(session as any).user) return new Response("Unauthorized", { status: 401 });
 
-  const url = new URL(_req.url);
-  const pathname = url.pathname; // format: /api/notes/YYYY-MM-DD
-  const parts = pathname.split("/");
-  const dateStr = parts[parts.length - 1];
-  
-  const dateObj = new Date(dateStr);
+  const dateStr = getDateStrFromPath(_req);
+  const dateObj = parseDateOnlyToUtc(dateStr);
+  if (!dateObj) return new Response("Invalid date", { status: 400 });
 
   const note = await prisma.note.findUnique({ where: { userId_date: { userId: (session as any).user.id, date: dateObj } as any } });
   if (!note) return new Response(null, { status: 404 });
@@ -22,13 +36,11 @@ export async function PUT(req: Request) {
   const session = await getServerSession(authOptions as any);
   if (!session || !(session as any).user) return new Response("Unauthorized", { status: 401 });
 
-  const url = new URL(req.url);
-  const pathname = url.pathname; // format: /api/notes/YYYY-MM-DD
-  const parts = pathname.split("/");
-  const dateStr = parts[parts.length - 1];
+  const dateStr = getDateStrFromPath(req);
   const payload = await req.json();
   const { title, body: content } = payload as { title?: string; body?: string };
-  const dateObj = new Date(dateStr);
+  const dateObj = parseDateOnlyToUtc(dateStr);
+  if (!dateObj) return new Response("Invalid date", { status: 400 });
 
   const updated = await prisma.note.upsert({
     where: { userId_date: { userId: (session as any).user.id, date: dateObj } as any },
@@ -43,11 +55,9 @@ export async function DELETE(_req: Request) {
   const session = await getServerSession(authOptions as any);
   if (!session || !(session as any).user) return new Response("Unauthorized", { status: 401 });
 
-  const url = new URL(_req.url);
-  const pathname = url.pathname; // format: /api/notes/YYYY-MM-DD
-  const parts = pathname.split("/");
-  const dateStr = parts[parts.length - 1];
-  const dateObj = new Date(dateStr);
+  const dateStr = getDateStrFromPath(_req);
+  const dateObj = parseDateOnlyToUtc(dateStr);
+  if (!dateObj) return new Response("Invalid date", { status: 400 });
 
   await prisma.note.deleteMany({ where: { userId: (session as any).user.id, date: dateObj } });
   return new Response(null, { status: 204 });
