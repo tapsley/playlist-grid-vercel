@@ -85,7 +85,7 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
   }, [title, body, date, isLoaded, session]);
 
   useEffect(() => {
-    if (!session || status === "loading") return;
+    if (status === "loading" || !session) return;
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
     });

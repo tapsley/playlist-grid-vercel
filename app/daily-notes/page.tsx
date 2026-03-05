@@ -8,6 +8,8 @@ import { signIn, useSession } from "next-auth/react";
 import SignOutButton from "@/app/daily-notes/components/SignOutButton";
 import { clearNotesCache, getCachedMonthNotes, setCachedMonthNotes } from "@/lib/notesCache";
 
+type MonthNotesMap = Record<string, { title: string; body: string }>;
+
 function generateCalendar(year: number, month: number) {
   const firstOfMonth = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
