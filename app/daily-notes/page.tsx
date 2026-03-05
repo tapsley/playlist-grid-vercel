@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useContext, Suspense } from "react";
+import React, { useState, useEffect, useContext, Suspense, useRef } from "react";
 import { DarkModeContext } from "../layout";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import SignOutButton from "@/app/daily-notes/components/SignOutButton";
+import { clearNotesCache, getCachedMonthNotes, setCachedMonthNotes } from "@/lib/notesCache";
 
 function generateCalendar(year: number, month: number) {
   const firstOfMonth = new Date(year, month, 1);
@@ -30,6 +31,10 @@ function generateCalendar(year: number, month: number) {
   return weeks;
 }
 
+function toYm(year: number, month: number) {
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
+}
+
 function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,6 +45,9 @@ function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const [month, setMonth] = useState(now.getMonth());
   const [showDropdown, setShowDropdown] = useState(false);
   const [notes, setNotes] = useState<Record<string, { title: string; body: string }>>({});
+  const [isMonthLoading, setIsMonthLoading] = useState(false);
+  const prefetchInFlightRef = useRef<Set<string>>(new Set());
+  const activeLoadIdRef = useRef(0);
   // dark mode comes from context shared in root layout
   const { isDarkMode, toggle } = useContext(DarkModeContext);
 
@@ -61,32 +69,73 @@ function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   useEffect(() => {
     if (!isAuthenticated) {
       setNotes({});
+      setIsMonthLoading(false);
+      clearNotesCache();
+      prefetchInFlightRef.current.clear();
       return;
     }
 
     const controller = new AbortController();
+    const ym = toYm(year, month);
+    const loadId = ++activeLoadIdRef.current;
+    const cached = getCachedMonthNotes(ym);
+    if (cached) {
+      setNotes(cached);
+      setIsMonthLoading(false);
+    } else {
+      setIsMonthLoading(true);
+    }
+
+    async function fetchMonth(targetYm: string, updateUi: boolean, signal?: AbortSignal) {
+      const res = await fetch(`/api/notes?ym=${targetYm}`, {
+        method: "GET",
+        credentials: "same-origin",
+        signal,
+      });
+      if (!res.ok) {
+        if (updateUi && !getCachedMonthNotes(targetYm)) setNotes({});
+        return;
+      }
+      const data: Array<{ id: string; date: string; title?: string; body?: string }> = await res.json();
+      const loaded: MonthNotesMap = {};
+      data.forEach((n) => {
+        loaded[n.date] = { title: n.title ?? "", body: n.body ?? "" };
+      });
+      setCachedMonthNotes(loaded);
+      if (updateUi) {
+        setNotes(loaded);
+      }
+    }
+
+    function prefetchMonth(targetYear: number, targetMonth: number) {
+      const targetYm = toYm(targetYear, targetMonth);
+      if (getCachedMonthNotes(targetYm) || prefetchInFlightRef.current.has(targetYm)) return;
+
+      prefetchInFlightRef.current.add(targetYm);
+      fetchMonth(targetYm, false)
+        .catch(() => {
+          // ignore prefetch errors
+        })
+        .finally(() => {
+          prefetchInFlightRef.current.delete(targetYm);
+        });
+    }
 
     async function loadMonthNotes() {
       try {
-        const ym = `${year}-${String(month + 1).padStart(2, "0")}`;
-        const res = await fetch(`/api/notes?ym=${ym}`, {
-          method: "GET",
-          credentials: "same-origin",
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          setNotes({});
-          return;
-        }
-        const data: Array<{ id: string; date: string; title?: string; body?: string }> = await res.json();
-        const loaded: Record<string, { title: string; body: string }> = {};
-        data.forEach((n) => {
-          loaded[n.date] = { title: n.title ?? "", body: n.body ?? "" };
-        });
-        setNotes(loaded);
+        await fetchMonth(ym, true, controller.signal);
+
+        const prevMonthDate = new Date(year, month - 1, 1);
+        const nextMonthDate = new Date(year, month + 1, 1);
+        prefetchMonth(prevMonthDate.getFullYear(), prevMonthDate.getMonth());
+        prefetchMonth(nextMonthDate.getFullYear(), nextMonthDate.getMonth());
       } catch (e: any) {
         if (e?.name === "AbortError") return;
-        setNotes({});
+        if (!getCachedMonthNotes(ym)) setNotes({});
+      } finally {
+        if (activeLoadIdRef.current === loadId) {
+          setIsMonthLoading(false);
+        }
       }
     }
     loadMonthNotes();
@@ -131,7 +180,7 @@ function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
 
   const yearOptions = Array.from({ length: 10 }, (_, i) => year - 5 + i);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i);
-  const currentYm = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const currentYm = toYm(year, month);
 
   const bgColor = isDarkMode ? "#1a1a1a" : "#fff";
   const textColor = isDarkMode ? "#e5e5e5" : "#000";
@@ -140,7 +189,7 @@ function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const cellBgColor = isDarkMode ? "#1f1f1f" : "#fff";
 
   return (
-    <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: 24, fontFamily: "system-ui, sans-serif", background: bgColor, color: textColor, transition: "background-color 0.2s, color 0.2s" }}>
+    <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: 24, fontFamily: "system-ui, sans-serif", background: bgColor, color: textColor, transition: "background-color 0.2s, color 0.2s", position: "relative" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 800, marginBottom: 24, width: "100%" }}>
         <div
           role="button"
@@ -239,6 +288,11 @@ function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
           ))}
         </tbody>
       </table>
+      {isMonthLoading && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDarkMode ? "rgba(0,0,0,0.28)" : "rgba(255,255,255,0.32)", pointerEvents: "none", zIndex: 20 }}>
+          <div className="animate-spin" style={{ width: 36, height: 36, borderRadius: "50%", border: `4px solid ${isDarkMode ? "#4b5563" : "#d1d5db"}`, borderTopColor: isDarkMode ? "#ff2dd1" : "#db2777" }} />
+        </div>
+      )}
       {isAuthenticated && <SignOutButton />}
     </main>
   );

@@ -4,10 +4,12 @@ import React, { useState, useEffect, useContext, useRef } from "react";
 import { DarkModeContext } from "../../layout";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getCachedNote, setCachedNote } from "@/lib/notesCache";
 
 export default function DayNotesPage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = React.use(params);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
@@ -19,6 +21,7 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const hasLocalEditsRef = useRef(false);
   const { isDarkMode, toggle } = useContext(DarkModeContext);
 
 
@@ -28,6 +31,15 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
       setIsLoaded(true);
       return;
     }
+
+    hasLocalEditsRef.current = false;
+
+    const cached = getCachedNote(date);
+    if (cached) {
+      setTitle(cached.title ?? "");
+      setBody(cached.body ?? "");
+    }
+
     let mounted = true;
     async function loadNote() {
       try {
@@ -35,8 +47,11 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
         if (res.ok) {
           const data = await res.json();
           if (!mounted) return;
-          setTitle(data.title ?? "");
-          setBody(data.body ?? "");
+          if (!hasLocalEditsRef.current) {
+            setTitle(data.title ?? "");
+            setBody(data.body ?? "");
+          }
+          setCachedNote(date, { title: data.title ?? "", body: data.body ?? "" });
         }
       } catch (e) {
         // ignore network errors
@@ -61,6 +76,7 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title, body }),
         });
+        setCachedNote(date, { title, body });
       } catch (e) {
         // ignore
       }
@@ -69,9 +85,32 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
   }, [title, body, date, isLoaded, session]);
 
   useEffect(() => {
+    if (!session || status === "loading") return;
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  }, [session, status, date]);
+
+  async function persistNoteNow() {
     if (!session || !isLoaded) return;
-    textareaRef.current?.focus();
-  }, [session, isLoaded, date]);
+    try {
+      await fetch(`/api/notes/${date}`, {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, body }),
+      });
+      setCachedNote(date, { title, body });
+    } catch {
+      // ignore and allow navigation
+    }
+  }
+
+  async function handleBackToCalendar(e: React.MouseEvent<HTMLAnchorElement>) {
+    e.preventDefault();
+    await persistNoteNow();
+    router.push(backHref);
+  }
 
   async function handleAuthSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -120,7 +159,7 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
     <main style={{ padding: 24, fontFamily: "system-ui, sans-serif",  margin: "0 auto", background: bgColor, color: textColor, minHeight: "100vh", transition: "background-color 0.2s, color 0.2s" }}>
       <div style={{ maxWidth: 800, margin: "0 auto" }}>
         <div style={{ marginBottom: 32, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Link href={backHref} style={{ color: textColor, textDecoration: "underline" }}>← Back to Calendar</Link>
+          <Link href={backHref} onClick={handleBackToCalendar} style={{ color: textColor, textDecoration: "underline" }}>← Back to Calendar</Link>
             <button
             onClick={toggle}
             style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${borderColor}`, background: cellBgColor, color: textColor, cursor: "pointer" }}
@@ -136,9 +175,13 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
         <div>
             <textarea
             ref={textareaRef}
+            autoFocus={!!session}
             placeholder="Write your notes here..."
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={(e) => {
+              hasLocalEditsRef.current = true;
+              setBody(e.target.value);
+            }}
             style={{
                 width: "100%",
                 minHeight: 300,
