@@ -5,6 +5,7 @@ import { DarkModeContext } from "../layout";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import SignOutButton from "@/components/SignOutButton";
 
 function generateCalendar(year: number, month: number) {
   const firstOfMonth = new Date(year, month, 1);
@@ -206,6 +207,7 @@ function CalendarContent() {
           ))}
         </tbody>
       </table>
+      <SignOutButton />
     </main>
   );
 }
