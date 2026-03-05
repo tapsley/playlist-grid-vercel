@@ -9,7 +9,8 @@
     "export": "next export",
     "deploy": "next build && next export && gh-pages -d out",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^4.15.0",
