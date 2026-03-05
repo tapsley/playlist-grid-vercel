@@ -158,7 +158,7 @@ export default function DayNotesPage({ params }: { params: Promise<{ date: strin
       
     </main>
     {!session && (
-      <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "grid", placeItems: "center", padding: 24, background: "rgba(0,0,0,0.45)" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 40, display: "grid", placeItems: "center", padding: 24, background: "rgba(0,0,0,0.45)" }}>
         <div style={{ width: "100%", maxWidth: 420, borderRadius: 12, border: "1px solid #374151", background: "#1f2937", padding: 20, color: "#e5e7eb" }}>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Daily Notes</h1>
           <p style={{ marginTop: 8, marginBottom: 16, color: "#9ca3af" }}>
