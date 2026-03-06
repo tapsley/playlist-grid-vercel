@@ -21,6 +21,7 @@ export default function SplashPage() {
                 <Link href="/resume" style={secondaryButtonStyle}>Resume</Link>
                 <Link href="/playlist" style={ctaButtonStyle}>Playlist Grid feat. Spotify</Link>
                 <Link href="/daily-notes" style={ctaButtonStyle}>Daily Notes</Link>
+                <Link href="/videoManager" style={ctaButtonStyle}>Video Manager</Link>
                 
               </div>
             </div>

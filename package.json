@@ -13,6 +13,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
     "@prisma/client": "^4.15.0",
     "@vercel/analytics": "^1.6.1",
     "bcrypt": "^6.0.0",

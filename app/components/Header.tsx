@@ -18,19 +18,15 @@ export default function Header() {
     }}>
       
       <div className="flex items-center gap-2 mt-2">
-        <Link href="/" style={{ textDecoration: "none", fontSize: 35, color: "#fff0fc", fontWeight: 600, fontFamily: "Goudy Bookletter 1911" }}>
+        <Link href="/" style={{ textDecoration: "none", paddingRight: 10, fontSize: 35, color: "#ff93e8", fontWeight: 600, fontFamily: "Goudy Bookletter 1911" }}>
         Tyler Apsley 
       </Link>
         <SocialIcon target="_blank" url="https://instagram.com/tyler.apsley" className="colorscheme" style={{ width: 40, height: 40 }}/>
         <SocialIcon target="_blank" url="https://linkedin.com/in/tyler-apsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
         <SocialIcon target="_blank" url="https://github.com/tapsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
         <SocialIcon target="_blank" url="https://open.spotify.com/user/128314269?si=7stLtgogQ4ii2PMvWnD72g"  className="colorscheme" style={{ width: 40, height: 40 }}/>
+        <SocialIcon target="_blank" url="mailto:tyler.apsley@gmail.com" className="colorscheme" style={{ width: 40, height: 40 }}/>
         </div>
-      <nav style={{ display: "flex", gap: 12 }}>
-        <Link href="/playlist" style={{ color: "#111827", textDecoration: "none" }}>Projects</Link>
-        <Link href="/daily-notes" style={{ color: "#111827", textDecoration: "none" }}>Daily Notes</Link>
-        <Link href="/resume" style={{ color: "#111827", textDecoration: "none" }}>Resume</Link>
-      </nav>
     </header>
   );
 }
