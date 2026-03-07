@@ -32,20 +32,6 @@ const appList = [
         path: `${BASE_PATH}/apps/StarWarsGalaxyExplorer.zip`,
         icon: `${BASE_PATH}/images/icons/star-wars-icon.png`,
     },
-    {
-        id: "home-03",
-        title: "Collisions Example",
-        version: "1.0.3",
-        path: `${BASE_PATH}/apps/Collisions.zip`,
-        icon: `${BASE_PATH}/images/icons/collisions-icon.png`,
-    },
-    {
-        id: "home-04",
-        title: "Custom Video Player",
-        version: "1.0.0",
-        path: `${BASE_PATH}/apps/custom-video-player.zip`,
-        icon: `${BASE_PATH}/images/icons/custom-video-player.png`,
-    },
 ];
 
 // App Configuration
@@ -107,8 +93,6 @@ function resolveElements() {
     appIcons = [
         document.getElementById("app01"),
         document.getElementById("app02"),
-        document.getElementById("app03"),
-        document.getElementById("app04"),
     ];
 
     return Boolean(
