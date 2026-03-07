@@ -32,6 +32,7 @@ export default function RokuPage() {
       />
       <h1 className="text-white px-4 py-2">I wanted a way to show my Roku projects on my website and I found this web player made by <a href="https://lvcabral.com/brs/?pkg=pop-roku" target="_blank" rel="noreferrer" className="underline">Marcelo Lv Cabral</a>. It's amazing! This UI is lifted from <a href="https://github.com/lvcabral/brs-engine" target="_blank" rel="noreferrer" className="underline">his work</a>, so big thanks to him!</h1>
       <h1 className="text-white px-4 py-2"> You can play the Roku apps that I have built here! Press ESC to exit the app, and be aware that the functionality may not match exactly what you would see on a real Roku.</h1>
+      <h1 className="text-white px-4 py-2">Also, if the apps don't appear at first just refresh XD</h1>
       <div
         id="container"
         className="mx-auto min-h-[80%] min-w-[1200px] max-w-[1260px] rounded-[5px] bg-[whitesmoke] px-[30px] pb-[5px] pt-[10px] shadow-[3px_3px_5px_#444]"
