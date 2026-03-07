@@ -22,6 +22,7 @@ export default function SplashPage() {
                 <Link href="/playlist" style={ctaButtonStyle}>Playlist Grid feat. Spotify</Link>
                 <Link href="/daily-notes" style={ctaButtonStyle}>Daily Notes</Link>
                 <Link href="/videoManager" style={ctaButtonStyle}>Video Manager</Link>
+                <Link href="/roku" style={ctaButtonStyle}>Roku Player</Link>
                 
               </div>
             </div>
