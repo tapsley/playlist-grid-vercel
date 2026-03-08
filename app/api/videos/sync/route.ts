@@ -59,9 +59,56 @@ function inferGame(gcsPath: string, metadataGame?: string | null) {
   return normalized || null;
 }
 
+function normalizeTitle(raw: string) {
+  const cleaned = raw
+    .trim()
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[_+.]+/g, " ")
+    .replace(/[-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+  return cleaned ? toTitleCase(cleaned) : "";
+}
+
+function inferTitle(gcsPath: string) {
+  const fileName = gcsPath.split("/").pop() ?? gcsPath;
+  const base = fileName.replace(/\.[^/.]+$/, "");
+  const parts = base.split("-").map((part) => part.trim()).filter(Boolean);
+
+  const rawTitle = parts.length > 1 ? parts.slice(1).join(" ") : base;
+  const normalized = normalizeTitle(rawTitle);
+  return normalized || normalizeTitle(base);
+}
+
 function inferName(gcsPath: string) {
   const fileName = gcsPath.split("/").pop() ?? gcsPath;
   return fileName.replace(/\.[^/.]+$/, "");
+}
+
+function parseTags(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((v) => String(v).trim().toLowerCase()).filter(Boolean))];
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return [...new Set(parsed.map((v) => String(v).trim().toLowerCase()).filter(Boolean))];
+        }
+      } catch {
+        // fallback to CSV parsing
+      }
+    }
+
+    return [...new Set(trimmed.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean))];
+  }
+
+  return [];
 }
 
 function toSafeInt(value?: string | number | null) {
@@ -113,6 +160,12 @@ export async function POST(req: Request) {
         videosFound: videos.length,
         preview: videos.slice(0, 20).map((f) => ({
           name: inferName(f.name),
+          title:
+            typeof f.metadata?.metadata?.title === "string"
+              ? normalizeTitle(f.metadata.metadata.title) || inferTitle(f.name)
+              : inferTitle(f.name),
+          description: typeof f.metadata?.metadata?.description === "string" ? f.metadata.metadata.description.trim() || null : null,
+          tags: parseTags(typeof f.metadata?.metadata?.tags === "string" ? f.metadata.metadata.tags : null),
           game: inferGame(f.name, typeof f.metadata?.metadata?.game === "string" ? f.metadata.metadata.game : null),
           gcsPath: f.name,
           url: toPublicUrl(bucketName, f.name),
@@ -130,6 +183,10 @@ export async function POST(req: Request) {
     for (const f of videos) {
       const gcsPath = f.name;
       const name = inferName(gcsPath);
+      const title =
+        typeof f.metadata?.metadata?.title === "string"
+          ? normalizeTitle(f.metadata.metadata.title) || inferTitle(gcsPath)
+          : inferTitle(gcsPath);
       const game = inferGame(gcsPath, typeof f.metadata?.metadata?.game === "string" ? f.metadata.metadata.game : null);
       const url = toPublicUrl(bucketName, gcsPath);
       const contentType = f.metadata?.contentType ?? null;
@@ -141,6 +198,7 @@ export async function POST(req: Request) {
           where: { gcsPath },
           create: {
             name,
+            title,
             game,
             contentType,
             size,
@@ -150,6 +208,7 @@ export async function POST(req: Request) {
           },
           update: {
             name,
+            title,
             game,
             contentType,
             size,

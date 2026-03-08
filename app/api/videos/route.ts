@@ -14,14 +14,31 @@ function toIntOrNull(value: unknown): number | null {
   return Math.trunc(n);
 }
 
+function parseTags(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((v) => String(v).trim().toLowerCase()).filter(Boolean))];
+  }
+
+  if (typeof value === "string") {
+    return [...new Set(value.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean))];
+  }
+
+  return [];
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const game = (searchParams.get("game") ?? "").trim();
-  const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 25), 1), 100);
+  const rawTags = (searchParams.get("tags") ?? "").trim();
+  const tags = parseTags(rawTags);
+  const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 250), 1), 1000);
 
-  const where: Prisma.VideoWhereInput = game
-    ? { game: { contains: game, mode: "insensitive" } }
-    : {};
+  const where: Prisma.VideoWhereInput = {
+    AND: [
+      game ? { game: { contains: game, mode: "insensitive" } } : {},
+      tags.length ? { tags: { hasSome: tags } } : {},
+    ],
+  };
 
   const items = await prisma.video.findMany({
     where,
@@ -41,6 +58,9 @@ export async function POST(req: Request) {
 
     // Accept both old/new key names to be resilient
     const name = String(body.name ?? body.title ?? "").trim();
+    const title = body.title ? String(body.title).trim() : null;
+    const description = body.description ? String(body.description).trim() : null;
+    const tags = parseTags(body.tags);
     const game = String(body.game ?? "").trim() || null;
     const gcsPath = String(body.gcsPath ?? body.objectName ?? "").trim();
     const url = String(body.url ?? body.publicUrl ?? "").trim();
@@ -61,6 +81,9 @@ export async function POST(req: Request) {
 
     const data = {
       name,
+      title,
+      description,
+      tags,
       game,
       gcsPath,
       url: parsedUrl.toString(),
@@ -86,5 +109,40 @@ export async function POST(req: Request) {
       );
     }
     return NextResponse.json({ error: "Failed to save video" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+
+    const id = String(body.id ?? "").trim();
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+
+    const description =
+      body.description == null ? null : String(body.description).trim() || null;
+    const game = body.game == null ? null : String(body.game).trim() || null;
+    const title = body.title == null ? null : String(body.title).trim() || null;
+    const tags = parseTags(body.tags);
+
+    const video = await prisma.video.update({
+      where: { id },
+      data: {
+        game,
+        title,
+        description,
+        tags,
+      },
+    });
+
+    return NextResponse.json(video);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ error: "Video not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ error: "Failed to update video" }, { status: 500 });
   }
 }

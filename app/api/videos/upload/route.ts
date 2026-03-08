@@ -32,6 +32,24 @@ function toPublicUrl(bucket: string, objectName: string) {
   return `https://storage.googleapis.com/${bucket}/${encoded}`;
 }
 
+function parseTags(value: FormDataEntryValue | FormDataEntryValue[] | null): string[] {
+  if (Array.isArray(value)) {
+    return [
+      ...new Set(
+        value
+          .map((entry) => String(entry).trim().toLowerCase())
+          .filter(Boolean)
+      ),
+    ];
+  }
+
+  if (typeof value === "string") {
+    return [...new Set(value.split(",").map((entry) => entry.trim().toLowerCase()).filter(Boolean))];
+  }
+
+  return [];
+}
+
 export async function POST(req: Request) {
     try{
         if (!bucketName) {
@@ -40,7 +58,10 @@ export async function POST(req: Request) {
 
         const form = await req.formData();
         const file = form.get("file");
-        const name = String(form.get("title") ?? "").trim();
+        const title = String(form.get("title") ?? "").trim();
+        const description = String(form.get("description") ?? "").trim() || null;
+        const tags = parseTags(form.getAll("tags").length ? form.getAll("tags") : form.get("tags"));
+        const name = title;
         const game = String(form.get("game") ?? "").trim();
 
         if (!(file instanceof File)) {
@@ -60,7 +81,13 @@ export async function POST(req: Request) {
             contentType: file.type || "application/octet-stream",
             resumable: false,
             metadata: {
-            metadata: { game, name },
+            metadata: {
+              game,
+              name,
+              title,
+              description: description ?? "",
+              tags: tags.join(","),
+            },
             },
         });
 
@@ -73,6 +100,9 @@ export async function POST(req: Request) {
             where: { gcsPath },
             create: {
             name,
+            title,
+            description,
+            tags,
             game: game || null,
             contentType: file.type || null,
             size,
@@ -82,6 +112,9 @@ export async function POST(req: Request) {
             },
             update: {
             name,
+            title,
+            description,
+            tags,
             game: game || null,
             contentType: file.type || null,
             size,

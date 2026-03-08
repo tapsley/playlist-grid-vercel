@@ -2,11 +2,25 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+function parseTags(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((v) => String(v).trim().toLowerCase()).filter(Boolean))];
+  }
+
+  if (typeof value === "string") {
+    return [...new Set(value.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean))];
+  }
+
+  return [];
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
   const game = (searchParams.get("game") ?? "").trim();
   const q = (searchParams.get("q") ?? "").trim();
+  const tags = parseTags(searchParams.get("tags") ?? "");
+  const normalizedQ = q.toLowerCase();
   const groupByGame = searchParams.get("groupByGame") === "true";
   const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 25), 1), 100);
 
@@ -17,11 +31,15 @@ export async function GET(req: Request) {
         ? {
             OR: [
               { name: { contains: q, mode: "insensitive" } },
+              { title: { contains: q, mode: "insensitive" } },
+              { description: { contains: q, mode: "insensitive" } },
               { gcsPath: { contains: q, mode: "insensitive" } },
               { game: { contains: q, mode: "insensitive" } },
+              ...(normalizedQ ? [{ tags: { has: normalizedQ } }] : []),
             ],
           }
         : {},
+      tags.length ? { tags: { hasSome: tags } } : {},
     ],
   };
 
