@@ -31,6 +31,7 @@ export default function AdminVideosPage() {
   const [filterText, setFilterText] = useState("");
   const [previewVideo, setPreviewVideo] = useState<{ title: string; url: string } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [gameSort, setGameSort] = useState<"asc" | "desc">("asc");
 
   async function runSync(formData: FormData) {
     setLoadingSync(true);
@@ -151,12 +152,21 @@ export default function AdminVideosPage() {
     });
   }, [filterText, videos]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredVideos.length / pageSize));
+  const sortedVideos = useMemo(() => {
+    return [...filteredVideos].sort((a, b) => {
+      const gameA = (draftById[a.id]?.game ?? a.game ?? "").trim().toLowerCase();
+      const gameB = (draftById[b.id]?.game ?? b.game ?? "").trim().toLowerCase();
+      const compared = gameA.localeCompare(gameB);
+      return gameSort === "asc" ? compared : -compared;
+    });
+  }, [draftById, filteredVideos, gameSort]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedVideos.length / pageSize));
   const pagedVideos = useMemo(() => {
     const safePage = Math.min(Math.max(currentPage, 1), totalPages);
     const start = (safePage - 1) * pageSize;
-    return filteredVideos.slice(start, start + pageSize);
-  }, [currentPage, filteredVideos, totalPages]);
+    return sortedVideos.slice(start, start + pageSize);
+  }, [currentPage, sortedVideos, totalPages]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -239,7 +249,7 @@ export default function AdminVideosPage() {
       </section>
 
       <section style={{ border: "1px solid #ddd", borderRadius: 10, padding: 16 }}>
-        <h2>All Videos</h2>
+        <h1>All Videos</h1>
         <input
           value={filterText}
           onChange={(event) => setFilterText(event.target.value)}
@@ -259,14 +269,22 @@ export default function AdminVideosPage() {
 
         {!!tableMeta && <p style={{ marginTop: 12 }}>{tableMeta}</p>}
         <p style={{ marginTop: 4, opacity: 0.8 }}>
-          Showing {pagedVideos.length} of {filteredVideos.length} filtered video(s) • Page {currentPage} of {totalPages}
+          Showing {pagedVideos.length} of {sortedVideos.length} filtered video(s) • Page {currentPage} of {totalPages}
         </p>
 
         <div style={{ marginTop: 12, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Game</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setGameSort((prev) => (prev === "asc" ? "desc" : "asc"))}
+                    className="cursor-pointer border-2 border-gray-500 rounded px-2 py-1 bg-gray-100 hover:bg-gray-200"
+                  >
+                    Game {gameSort === "asc" ? "↑" : "↓"}
+                  </button>
+                </th>
                 <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Title</th>
                 <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Description</th>
                 <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Tags</th>
