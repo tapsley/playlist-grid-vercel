@@ -32,6 +32,7 @@ export default function RokuPage() {
       />
       <h1 className="text-white px-4 py-2">I wanted a way to show my Roku projects on my website and I found this web player made by <a href="https://lvcabral.com/brs/?pkg=pop-roku" target="_blank" rel="noreferrer" className="underline">Marcelo Lv Cabral</a>. It's amazing! This UI is lifted from <a href="https://github.com/lvcabral/brs-engine" target="_blank" rel="noreferrer" className="underline">his work</a>, so big thanks to him!</h1>
       <h1 className="text-white px-4 py-2"> You can play the Roku apps that I have built here! Press ESC to exit the app, and be aware that the functionality may not match exactly what you would see on a real Roku.</h1>
+      <h1 className="text-white px-4 py-2"> My latest app is Nintendo Clips, for which I also built the entire backend. You can see how that works in the Video Manager part of this website. As part of that work I also wrote a worker that extracts a thumbnail from each video, which you will see in the Roku app. I hope you enjoy seeing my collection of mostly unremarkable clips I recorded on my Nintendo Switch!</h1>
       <h1 className="text-white px-4 py-2">Also, if the apps don't appear at first just refresh XD</h1>
       <div
         id="container"
@@ -63,7 +64,7 @@ export default function RokuPage() {
             height={480}
           ></canvas>
           <video id="player" className="fixed z-[30] opacity-0" crossOrigin="anonymous"></video>
-          <div id="appIconLayer" className="absolute left-0 top-0"></div>
+          <div id="appIconLayer" className="absolute left-0 top-0 z-[30] h-[360px] w-[900px]"></div>
           <span id="appInfo" className="absolute left-[320px] top-[560px] z-[30] text-white"></span>
           <input type="file" id="file" accept=".brs,.zip,.bpk" style={{ display: "none" }} />
           <input type="button" id="fileButton" className={fileButtonClass} value="Open a ZIP, BPK or BRS file..." />

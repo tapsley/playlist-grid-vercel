@@ -73,11 +73,17 @@ const customDeviceInfo = {
 
 // Initialize BrightScript Engine when page is ready
 function runMain() {
-    if (engineInitialized) {
-        return;
-    }
     if (!resolveElements()) {
         setTimeout(runMain, 50);
+        return;
+    }
+    if (engineInitialized) {
+        // In SPA navigation, DOM nodes can remount while this script stays loaded.
+        // Re-apply icon bindings for the current page nodes.
+        applyAppIcons();
+        if (!currentApp.running) {
+            appIconsVisibility("visible");
+        }
         return;
     }
     if (!globalThis.brs) {
@@ -100,6 +106,7 @@ function resolveElements() {
     fileSelector = document.getElementById("file");
     appIconLayer = document.getElementById("appIconLayer");
     appIcons = buildAppIcons();
+    const hasExpectedIcons = appIcons.length === appList.length;
 
     return Boolean(
         fileButton &&
@@ -111,6 +118,7 @@ function resolveElements() {
             passwordDialog &&
             fileSelector &&
             appIconLayer &&
+            hasExpectedIcons &&
             appIcons.every((icon) => Boolean(icon))
     );
 }
@@ -128,13 +136,15 @@ function buildAppIcons() {
 
     appIconLayer.innerHTML = "";
 
-    return appList.map((_, index) => {
+    return appList.map((app, index) => {
         const col = index % maxCols;
         const row = Math.floor(index / maxCols);
 
         const icon = document.createElement("img");
         icon.id = `app${String(index + 1).padStart(2, "0")}`;
-        icon.alt = `app ${index + 1}`;
+        icon.alt = app.title;
+        icon.title = app.title;
+        icon.src = app.icon;
         icon.style.position = "absolute";
         icon.style.left = `${startLeft + col * xStep}px`;
         icon.style.top = `${startTop + row * yStep}px`;
@@ -165,13 +175,7 @@ async function main() {
     bindFileSelectorEvents();
     bindDisplayEvents();
 
-    // Set App icons
-    for (const [index, icon] of appIcons.entries()) {
-        icon.src = appList[index].icon;
-        icon.title = appList[index].title;
-        icon.alt = appList[index].title;
-        icon.onclick = () => loadZip(appList[index].id);
-    }
+    applyAppIcons();
 
     // Add SceneGraph extension
     const brsSG = brs.SupportedExtension.SceneGraph;
@@ -236,6 +240,19 @@ async function main() {
         customKeys: customKeys,
         showStats: true,
     });
+}
+
+function applyAppIcons() {
+    for (const [index, icon] of appIcons.entries()) {
+        const app = appList[index];
+        if (!app || !icon) {
+            continue;
+        }
+        icon.src = app.icon;
+        icon.title = app.title;
+        icon.alt = app.title;
+        icon.onclick = () => loadZip(app.id);
+    }
 }
 
 function bindFileSelectorEvents() {
