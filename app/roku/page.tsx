@@ -63,8 +63,7 @@ export default function RokuPage() {
             height={480}
           ></canvas>
           <video id="player" className="fixed z-[30] opacity-0" crossOrigin="anonymous"></video>
-          <img id="app01" className="absolute left-[398px] top-[135px] z-[30] h-[101px] w-[134px] cursor-pointer" alt="app 1" />
-          <img id="app02" className="absolute left-[541px] top-[135px] z-[30] h-[101px] w-[134px] cursor-pointer" alt="app 2" />
+          <div id="appIconLayer" className="absolute left-0 top-0"></div>
           <span id="appInfo" className="absolute left-[320px] top-[560px] z-[30] text-white"></span>
           <input type="file" id="file" accept=".brs,.zip,.bpk" style={{ display: "none" }} />
           <input type="button" id="fileButton" className={fileButtonClass} value="Open a ZIP, BPK or BRS file..." />

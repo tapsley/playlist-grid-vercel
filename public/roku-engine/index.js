@@ -13,6 +13,7 @@ let stats;
 let loading;
 let passwordDialog;
 let fileSelector;
+let appIconLayer;
 const BASE_PATH = "/roku-engine";
 
 // App List
@@ -31,6 +32,13 @@ const appList = [
         version: "1.0.0",
         path: `${BASE_PATH}/apps/StarWarsGalaxyExplorer.zip`,
         icon: `${BASE_PATH}/images/icons/star-wars-icon.png`,
+    },
+    {
+        id: "home-03",
+        title: "Nintendo Clips",
+        version: "1.0.0",
+        path: `${BASE_PATH}/apps/NintendoClips.zip`,
+        icon: `${BASE_PATH}/images/icons/nintendo-clips-icon.png`,
     },
 ];
 
@@ -90,10 +98,8 @@ function resolveElements() {
     loading = document.getElementById("loading");
     passwordDialog = document.getElementById("passwordDialog");
     fileSelector = document.getElementById("file");
-    appIcons = [
-        document.getElementById("app01"),
-        document.getElementById("app02"),
-    ];
+    appIconLayer = document.getElementById("appIconLayer");
+    appIcons = buildAppIcons();
 
     return Boolean(
         fileButton &&
@@ -104,8 +110,42 @@ function resolveElements() {
             loading &&
             passwordDialog &&
             fileSelector &&
+            appIconLayer &&
             appIcons.every((icon) => Boolean(icon))
     );
+}
+
+function buildAppIcons() {
+    if (!appIconLayer) {
+        return [];
+    }
+
+    const startLeft = 398;
+    const startTop = 135;
+    const xStep = 143;
+    const yStep = 111;
+    const maxCols = 3;
+
+    appIconLayer.innerHTML = "";
+
+    return appList.map((_, index) => {
+        const col = index % maxCols;
+        const row = Math.floor(index / maxCols);
+
+        const icon = document.createElement("img");
+        icon.id = `app${String(index + 1).padStart(2, "0")}`;
+        icon.alt = `app ${index + 1}`;
+        icon.style.position = "absolute";
+        icon.style.left = `${startLeft + col * xStep}px`;
+        icon.style.top = `${startTop + row * yStep}px`;
+        icon.style.zIndex = "30";
+        icon.style.width = "134px";
+        icon.style.height = "101px";
+        icon.style.cursor = "pointer";
+
+        appIconLayer.appendChild(icon);
+        return icon;
+    });
 }
 
 globalThis.__rokuBrsInit = runMain;
