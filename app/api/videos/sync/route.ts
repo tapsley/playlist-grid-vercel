@@ -205,6 +205,7 @@ export async function POST(req: Request) {
             updatedAt,
             gcsPath,
             url,
+            thumbnailStatus: "pending",
           },
           update: {
             name,

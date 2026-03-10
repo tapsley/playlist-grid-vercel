@@ -10,7 +10,8 @@
     "deploy": "next build && next export && gh-pages -d out",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "thumbnail:worker": "node scripts/thumbnail-worker.mjs"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",

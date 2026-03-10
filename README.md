@@ -34,3 +34,44 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Thumbnail Worker
+
+This project includes a worker script that processes videos with `thumbnailStatus = pending`,
+extracts a JPG thumbnail using `ffmpeg`, uploads it to GCS, and updates the `Video` row.
+
+Run it:
+
+```bash
+npm run thumbnail:worker
+```
+
+Common options:
+
+```bash
+# Process up to 25 pending videos
+npm run thumbnail:worker -- --limit 25
+
+# Process a single video by id
+npm run thumbnail:worker -- --id <video-id>
+
+# Process a single video by gcsPath
+npm run thumbnail:worker -- --gcs-path <path/in/bucket.mp4>
+
+# Dry run (no writes)
+npm run thumbnail:worker -- --dry-run
+```
+
+Required env vars:
+
+- `DIRECT_URL` (Prisma/Postgres)
+- `GCS_BUCKET_NAME`
+- `GCP_PROJECT_ID` (or runtime ADC)
+
+Optional env vars:
+
+- `GCP_CLIENT_EMAIL`
+- `GCP_PRIVATE_KEY`
+- `FFMPEG_PATH` (defaults to `ffmpeg`)
+- `THUMBNAIL_SEEK_SECONDS` (default `1`)
+- `THUMBNAIL_WIDTH` (default `640`)

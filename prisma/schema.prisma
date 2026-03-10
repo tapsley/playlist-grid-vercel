@@ -42,6 +42,11 @@ model Video {
   updatedAt   DateTime?
   gcsPath     String   @unique
   url         String
+  thumbnailKey String?
+  thumbnailUrl String?
+  thumbnailStatus ThumbnailStatus @default(pending)
+  thumbnailGeneratedAt DateTime?
+  thumbnailError String?
   createdAt   DateTime @default(now())
   indexedAt   DateTime @updatedAt
 
@@ -49,4 +54,11 @@ model Video {
   @@index([name])
   @@index([title])
   @@index([updatedAt])
+  @@index([thumbnailStatus])
+}
+
+enum ThumbnailStatus {
+  pending
+  ready
+  failed
 }

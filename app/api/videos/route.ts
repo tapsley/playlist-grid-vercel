@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+const THUMBNAIL_STATUSES = ["pending", "ready", "failed"] as const;
+type ThumbnailStatus = (typeof THUMBNAIL_STATUSES)[number];
+
+function parseThumbnailStatus(value: unknown): ThumbnailStatus | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return THUMBNAIL_STATUSES.includes(normalized as ThumbnailStatus)
+    ? (normalized as ThumbnailStatus)
+    : null;
+}
+
 function toIntOrNull(value: unknown): number | null {
   if (value == null || value === "") return null;
   const n = Number(value);
@@ -67,6 +78,11 @@ export async function POST(req: Request) {
     const contentType = body.contentType ? String(body.contentType).trim() : null;
     const size = toIntOrNull(body.size ?? body.sizeBytes);
     const updatedAt = body.updatedAt ? new Date(body.updatedAt) : null;
+    const thumbnailKey = body.thumbnailKey ? String(body.thumbnailKey).trim() : null;
+    const thumbnailUrlRaw = body.thumbnailUrl ? String(body.thumbnailUrl).trim() : null;
+    const thumbnailStatus = parseThumbnailStatus(body.thumbnailStatus) ?? "pending";
+    const thumbnailGeneratedAt = body.thumbnailGeneratedAt ? new Date(body.thumbnailGeneratedAt) : null;
+    const thumbnailError = body.thumbnailError ? String(body.thumbnailError).trim() : null;
 
     if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
     if (!gcsPath) return NextResponse.json({ error: "gcsPath is required" }, { status: 400 });
@@ -77,6 +93,15 @@ export async function POST(req: Request) {
       parsedUrl = new URL(url);
     } catch {
       return NextResponse.json({ error: "url must be valid" }, { status: 400 });
+    }
+
+    let parsedThumbnailUrl: URL | null = null;
+    if (thumbnailUrlRaw) {
+      try {
+        parsedThumbnailUrl = new URL(thumbnailUrlRaw);
+      } catch {
+        return NextResponse.json({ error: "thumbnailUrl must be valid" }, { status: 400 });
+      }
     }
 
     const data = {
@@ -90,6 +115,11 @@ export async function POST(req: Request) {
       contentType,
       size,
       updatedAt,
+      thumbnailKey,
+      thumbnailUrl: parsedThumbnailUrl?.toString() ?? null,
+      thumbnailStatus,
+      thumbnailGeneratedAt,
+      thumbnailError,
     };
 
     const video = upsert
@@ -126,6 +156,39 @@ export async function PATCH(req: Request) {
     const game = body.game == null ? null : String(body.game).trim() || null;
     const title = body.title == null ? null : String(body.title).trim() || null;
     const tags = parseTags(body.tags);
+    const thumbnailKey = body.thumbnailKey == null ? undefined : String(body.thumbnailKey).trim() || null;
+    const thumbnailUrlRaw =
+      body.thumbnailUrl == null ? undefined : String(body.thumbnailUrl).trim() || null;
+    const thumbnailStatus =
+      body.thumbnailStatus == null ? undefined : parseThumbnailStatus(body.thumbnailStatus);
+    const thumbnailGeneratedAt =
+      body.thumbnailGeneratedAt == null
+        ? undefined
+        : body.thumbnailGeneratedAt
+          ? new Date(body.thumbnailGeneratedAt)
+          : null;
+    const thumbnailError =
+      body.thumbnailError == null ? undefined : String(body.thumbnailError).trim() || null;
+
+    if (body.thumbnailStatus != null && !thumbnailStatus) {
+      return NextResponse.json(
+        { error: "thumbnailStatus must be one of: pending, ready, failed" },
+        { status: 400 }
+      );
+    }
+
+    let thumbnailUrl: string | null | undefined = undefined;
+    if (thumbnailUrlRaw !== undefined) {
+      if (thumbnailUrlRaw === null) {
+        thumbnailUrl = null;
+      } else {
+        try {
+          thumbnailUrl = new URL(thumbnailUrlRaw).toString();
+        } catch {
+          return NextResponse.json({ error: "thumbnailUrl must be valid" }, { status: 400 });
+        }
+      }
+    }
 
     const video = await prisma.video.update({
       where: { id },
@@ -134,6 +197,11 @@ export async function PATCH(req: Request) {
         title,
         description,
         tags,
+        thumbnailKey,
+        thumbnailUrl,
+        thumbnailStatus: thumbnailStatus ?? undefined,
+        thumbnailGeneratedAt,
+        thumbnailError,
       },
     });
 

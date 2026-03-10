@@ -109,6 +109,7 @@ export async function POST(req: Request) {
             updatedAt: new Date(),
             gcsPath,
             url,
+            thumbnailStatus: "pending",
             },
             update: {
             name,
@@ -120,6 +121,9 @@ export async function POST(req: Request) {
             size,
             updatedAt: new Date(),
             url,
+            thumbnailStatus: "pending",
+            thumbnailGeneratedAt: null,
+            thumbnailError: null,
             },
         });
 
