@@ -1,74 +1,93 @@
+import Image from "next/image";
 import Link from "next/link";
-import React from "react";
+import styles from "./page.module.css";
+
+type ProjectCard = {
+  href: string;
+  title: string;
+  description: string;
+  imageSrc: string;
+  imageAlt: string;
+};
+
+const projectCards: ProjectCard[] = [
+  {
+    href: "/resume",
+    title: "Resume",
+    description: "A concise look at my background, projects, and experience. \n\nDownload your own copy before you leave!",
+    imageSrc: "/resumePage.png",
+    imageAlt: "Resume page preview",
+  },
+  {
+    href: "/playlist",
+    title: "Playlist Grid feat. Spotify",
+    description:
+      "Any Spotify playlist presented as a beautiful grid of album art. \n\nThis is what I use to make my yearly music wrap-up post on Instagram.",
+    imageSrc: "/playlistGrid.png",
+    imageAlt: "Playlist Grid page preview",
+  },
+  {
+    href: "/daily-notes",
+    title: "Daily Notes",
+    description:
+      "A proof of concept for a daily notes app. \n\nFrontend: React + Typescript. \nBackend: Next.js API routes + Prisma + SQLite. Authentication with NextAuth.",
+    imageSrc: "/dailyNotes.png",
+    imageAlt: "Daily Notes page preview",
+  },
+  {
+    href: "/roku",
+    title: "Roku Player",
+    description:
+      "An in-browser Roku player to experience my custom apps, including my latest one: Nintendo Clips. \n\nRoku apps built with Brightscript and SceneGraph.",
+    imageSrc: "/rokuPlayer.png",
+    imageAlt: "Roku Player page preview",
+  },
+  {
+    href: "/videoManager",
+    title: "Video Manager",
+    description:
+      "A manager for the video clips used in the Nintendo Clips Roku app. \n\nFrontend: Next.js + React + TypeScript.\nBackend: API routes + Prisma + PostgreSQL + GCS.",
+    imageSrc: "/videoManager.png",
+    imageAlt: "Video Manager page preview",
+  },
+];
 
 export default function SplashPage() {
   return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <section style={{ maxWidth: 980, width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 36 }}>Hello — My name is Tyler Apsley</h1>
-            <p style={{ margin: "6px 0 0", color: "#6b7280" }}>Welcome to my little corner of the internet. Check out some of my projects below</p>
-          </div>
-  
+    <main className={styles.page}>
+      <section className={styles.container}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>Hello, I&apos;m Tyler Apsley</h1>
+          <p className={styles.subtitle}>
+            Welcome to my little corner of the internet. Explore some of my projects
+            below.
+          </p>
         </header>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 360px" }}>
-
-              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                <Link href="/resume" style={secondaryButtonStyle}>Resume</Link>
-                <Link href="/playlist" style={ctaButtonStyle}>Playlist Grid feat. Spotify</Link>
-                <Link href="/daily-notes" style={ctaButtonStyle}>Daily Notes</Link>
-                <Link href="/videoManager" style={ctaButtonStyle}>Video Manager</Link>
-                <Link href="/roku" style={ctaButtonStyle}>Roku Player</Link>
-                
+        <div className={styles.grid}>
+          {projectCards.map((card) => (
+            <Link key={card.href} href={card.href} className={styles.card}>
+              <div className={styles.previewFrame}>
+                <Image
+                  src={card.imageSrc}
+                  alt={card.imageAlt}
+                  fill
+                  sizes="(max-width: 900px) 100vw, 33vw"
+                  className={styles.previewImage}
+                />
               </div>
-            </div>
-
-          </div>
-
-          <footer style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <small style={{ color: "#6b7280" }}>Built with care — open to opportunities.</small>
-
-          </footer>
+              <div className={styles.cardBody}>
+                <h2 className={styles.cardTitle}>{card.title}</h2>
+                <p className={styles.cardDescription}>{card.description}</p>
+              </div>
+            </Link>
+          ))}
         </div>
+
+        <footer className={styles.footer}>
+          <small>Built with care. Open to opportunities.</small>
+        </footer>
       </section>
     </main>
   );
 }
-
-const navButtonStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  background: "transparent",
-  color: "#111827",
-  textAlign: "center",
-  textDecoration: "none",
-  border: "1px solid transparent",
-};
-
-const ctaButtonStyle: React.CSSProperties = {
-  padding: "10px 16px",
-  borderRadius: 10,
-  background: "#111827",
-  color: "#fff",
-  textAlign: "center",
-  textDecoration: "none",
-};
-
-const secondaryButtonStyle: React.CSSProperties = {
-  padding: "10px 16px",
-  borderRadius: 10,
-  background: "#e5e7eb",
-  color: "#111827",
-  textAlign: "center",
-  textDecoration: "none",
-};
-
-const linkStyle: React.CSSProperties = {
-  color: "#111827",
-  textDecoration: "underline",
-  textDecorationThickness: 1,
-};
