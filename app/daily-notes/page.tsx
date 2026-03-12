@@ -292,7 +292,7 @@ function CalendarContent({ isAuthenticated }: { isAuthenticated: boolean }) {
       </table>
       {isMonthLoading && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDarkMode ? "rgba(0,0,0,0.28)" : "rgba(255,255,255,0.32)", pointerEvents: "none", zIndex: 20 }}>
-          <div className="animate-spin" style={{ width: 36, height: 36, borderRadius: "50%", border: `4px solid ${isDarkMode ? "#4b5563" : "#d1d5db"}`, borderTopColor: isDarkMode ? "#ff2dd1" : "#db2777" }} />
+          <div className="animate-spin" style={{ width: 36, height: 36, borderRadius: "50%", border: `4px solid ${isDarkMode ? "#4b5563" : "#d1d5db"}`, borderTopColor: isDarkMode ? "#598eff" : "#db2777" }} />
         </div>
       )}
       {isAuthenticated && <SignOutButton />}
@@ -383,7 +383,7 @@ export default function Page() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                style={{ width: "100%", padding: 10, borderRadius: 8, border: "none", background: "#ff70e0", color: "white", fontWeight: 600, cursor: isSubmitting ? "not-allowed" : "pointer", opacity: isSubmitting ? 0.7 : 1 }}
+                style={{ width: "100%", padding: 10, borderRadius: 8, border: "none", background: "#598eff", color: "white", fontWeight: 600, cursor: isSubmitting ? "not-allowed" : "pointer", opacity: isSubmitting ? 0.7 : 1 }}
               >
                 {isSubmitting ? (authMode === "signin" ? "Signing in..." : "Creating account...") : authMode === "signin" ? "Sign In" : "Sign Up"}
               </button>
@@ -397,7 +397,7 @@ export default function Page() {
                   setAuthMode((m) => (m === "signin" ? "signup" : "signin"));
                   setError("");
                 }}
-                style={{ color: "#ff70e0", background: "transparent", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
+                style={{ color: "#598eff", background: "transparent", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
               >
                 {authMode === "signin" ? "Sign up" : "Sign in"}
               </button>

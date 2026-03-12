@@ -1,8 +1,24 @@
+"use client";
+
 import Link from "next/link";
 import React from "react";
+import { usePathname } from "next/navigation";
 import { SocialIcon } from 'react-social-icons';
 
 export default function Header() {
+  const pathname = usePathname();
+
+  function getThemeColor(path: string) {
+    if (path.startsWith("/resume")) return "#f472b6"; // pink-400
+    if (path.startsWith("/playlist")) return "#32ce69"; // spotify green
+    if (path.startsWith("/daily-notes")) return "#598eff"; // blue
+    if (path.startsWith("/roku")) return "#9f53da"; // roku purple
+    if (path.startsWith("/videoManager")) return "#ffffff"; // white
+    return "#fd9cce"; // default/home pink-400
+  }
+
+  const nameColor = getThemeColor(pathname || "");
+
   return (
     <header style={{
       width: "100%",
@@ -18,7 +34,7 @@ export default function Header() {
     }}>
       
       <div className="flex items-center gap-2 mt-2">
-        <Link href="/" style={{ textDecoration: "none", paddingRight: 10, fontSize: 35, color: "#ff93e8", fontWeight: 600, fontFamily: "Goudy Bookletter 1911" }}>
+        <Link href="/" style={{ textDecoration: "none", paddingRight: 10, fontSize: 35, color: nameColor, fontWeight: 600, fontFamily: "Goudy Bookletter 1911" }}>
         Tyler Apsley 
       </Link>
         <SocialIcon target="_blank" url="https://instagram.com/tyler.apsley" className="colorscheme" style={{ width: 40, height: 40 }}/>

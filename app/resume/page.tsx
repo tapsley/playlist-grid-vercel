@@ -15,7 +15,7 @@ export default function ResumePage() {
               href={pdfPath}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              className="px-4 py-2 bg-pink-400 text-white rounded-md hover:bg-pink-500"
             >
               Open PDF in new tab
             </a>
