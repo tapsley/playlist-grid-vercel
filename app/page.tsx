@@ -8,6 +8,7 @@ type ProjectCard = {
   description: string;
   imageSrc: string;
   imageAlt: string;
+  openInNewTab?: boolean;
 };
 
 const projectCards: ProjectCard[] = [
@@ -50,6 +51,15 @@ const projectCards: ProjectCard[] = [
     imageSrc: "/videoManager.png",
     imageAlt: "Video Manager page preview",
   },
+  {
+    href: "https://www.utahwildultimate.org/",
+    title: "Utah Wild Ultimate",
+    description:
+      "I have proudly been the Website Manager for the Utah Wild since 2024. I keep the site up to date with the latest roster, game scores, and other information. \n\nWebsite hosted by Wix.",
+    imageSrc: "/utahWild.png",
+    imageAlt: "Utah Wild Ultimate page preview",
+    openInNewTab: true,
+  },
 ];
 
 export default function SplashPage() {
@@ -66,7 +76,13 @@ export default function SplashPage() {
 
         <div className={styles.grid}>
           {projectCards.map((card) => (
-            <Link key={card.href} href={card.href} className={styles.card}>
+            <Link
+              key={card.href}
+              href={card.href}
+              className={styles.card}
+              target={card.openInNewTab ? "_blank" : undefined}
+              rel={card.openInNewTab ? "noopener noreferrer" : undefined}
+            >
               <div className={styles.previewFrame}>
                 <Image
                   src={card.imageSrc}
