@@ -52,6 +52,7 @@ function PicrossPlayInner() {
   // Editor-only local puzzle state; main puzzle/progress live in provider
   const [editorMode, setEditorMode] = useState(false);
   const [editorPuzzle, setEditorPuzzle] = useState<boolean[][] | null>(null);
+  const findNextAbort = useRef<AbortController | null>(null);
 
   const puzzle = editorMode
     ? (editorPuzzle ?? (prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size))
@@ -59,12 +60,55 @@ function PicrossPlayInner() {
 
   const { rows: rowClues, cols: colClues } = useMemo(() => getClues(puzzle), [puzzle]);
 
+  const { data: session } = useSession();
+
+  const isPuzzleEmpty = (p: unknown): boolean => {
+    if (!Array.isArray(p)) return true;
+    try {
+      for (const row of p as unknown[]) {
+        if (Array.isArray(row)) {
+          for (const cell of row) {
+            if (cell) return false;
+          }
+        }
+      }
+    } catch {
+      return true;
+    }
+    return true;
+  };
+
+  const baseBtnStyle: React.CSSProperties = { padding: '6px 10px', fontSize: 14, borderRadius: 6, border: '1px solid #aaa', background: '#f8f8f8', cursor: 'pointer' };
+  const primaryBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#2b6cb0', color: '#fff', border: '1px solid #2b6cb0' };
+  const dangerBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#fff', color: '#c53030', border: '1px solid #c53030' };
+
+  // Get today's date in YYYY-MM-DD
+  const dateStr = new Date().toISOString().slice(0, 10);
+
+  // Use email as identifier for session
+  const userIsLoggedIn = !!session?.user?.email;
+
   const grid: CellState[][] = useMemo(() => {
     if (prefetchProgress && prefetchProgress[difficulty]) {
       return prefetchProgress[difficulty].map((row: number[]) => row.map(n => n as CellState));
     }
+    // if not logged in, check localStorage for saved progress for today's date
+    if (!userIsLoggedIn) {
+      try {
+        const key = `picross:progress:${dateStr}:${difficulty}`;
+        const raw = window.localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { grid?: number[][] } | null;
+          if (parsed?.grid && Array.isArray(parsed.grid)) {
+            return (parsed.grid as number[][]).map(row => row.map(n => n as CellState));
+          }
+        }
+      } catch (err) {
+        console.debug('localStorage read error', err);
+      }
+    }
     return Array(size).fill(0).map(() => Array(size).fill(0) as CellState[]);
-  }, [prefetchProgress, difficulty, size]);
+  }, [prefetchProgress, difficulty, size, dateStr, userIsLoggedIn]);
 
   const cleared = useMemo(() => {
     if (editorMode) return false;
@@ -107,18 +151,112 @@ function PicrossPlayInner() {
   };
 
   const handleSave = () => {
-    // In editor mode, save editorPuzzle to server/provider here (not implemented)
-    alert(`Puzzle saved for ${saveDate} (${difficulty})!`);
+    if (!saveDate || !editorPuzzle) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/picross/puzzle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: saveDate, difficulty, puzzle: editorPuzzle }),
+        });
+        if (res.ok || res.status === 201 || res.status === 204) {
+          // update provider so UI reflects new puzzle immediately
+          setPrefetch(prev => ({
+            ...prev,
+            puzzle: {
+              ...prev.puzzle,
+              [difficulty]: editorPuzzle,
+            },
+          }));
+          alert(`Saved puzzle for ${saveDate} (${difficulty})`);
+        } else {
+          const text = await res.text();
+          alert(`Save failed: ${res.status} ${text}`);
+        }
+      } catch (err) {
+        console.error(err);
+        alert(`Save error`);
+      }
+    })();
   };
 
-  const { data: session } = useSession();
+  const handleNextDate = async () => {
+    // advance saveDate by one day and load puzzle (or blank) for that date
+    const base = saveDate || new Date().toISOString().slice(0, 10);
+    const d = new Date(base);
+    d.setDate(d.getDate() + 1);
+    const ds = d.toISOString().slice(0, 10);
+    try {
+      const res = await fetch(`/api/picross/puzzle?date=${ds}`);
+      if (res.status === 404) {
+        setEditorPuzzle(getDefaultPuzzle(size));
+      } else if (res.ok) {
+        const json = await res.json();
+        const entry = json?.[difficulty];
+        if (isPuzzleEmpty(entry)) {
+          setEditorPuzzle(getDefaultPuzzle(size));
+        } else if (Array.isArray(entry)) {
+          setEditorPuzzle(entry as boolean[][]);
+        } else {
+          setEditorPuzzle(getDefaultPuzzle(size));
+        }
+      } else {
+        console.debug('next date load failed', res.status);
+        setEditorPuzzle(getDefaultPuzzle(size));
+      }
+    } catch (err) {
+      console.debug('next date fetch error', err);
+      setEditorPuzzle(getDefaultPuzzle(size));
+    }
+    setSaveDate(ds);
+  };
 
-  // Get today's date in YYYY-MM-DD
-  const dateStr = new Date().toISOString().slice(0, 10);
+  const handlePrevDate = async () => {
+    // move saveDate back by one day and load puzzle for that date
+    const base = saveDate || new Date().toISOString().slice(0, 10);
+    const d = new Date(base);
+    d.setDate(d.getDate() - 1);
+    const ds = d.toISOString().slice(0, 10);
+    try {
+      const res = await fetch(`/api/picross/puzzle?date=${ds}`);
+      if (res.status === 404) {
+        setEditorPuzzle(getDefaultPuzzle(size));
+      } else if (res.ok) {
+        const json = await res.json();
+        const entry = json?.[difficulty];
+        if (isPuzzleEmpty(entry)) {
+          setEditorPuzzle(getDefaultPuzzle(size));
+        } else if (Array.isArray(entry)) {
+          setEditorPuzzle(entry as boolean[][]);
+        } else {
+          setEditorPuzzle(getDefaultPuzzle(size));
+        }
+      } else {
+        console.debug('prev date load failed', res.status);
+        setEditorPuzzle(getDefaultPuzzle(size));
+      }
+    } catch (err) {
+      console.debug('prev date fetch error', err);
+      setEditorPuzzle(getDefaultPuzzle(size));
+    }
+    setSaveDate(ds);
+  };
 
+  const handleClearEditor = () => {
+    setEditorPuzzle(getDefaultPuzzle(size));
+  };
 
-  // Use email as identifier for session
-  const userIsLoggedIn = !!session?.user?.email;
+  const rawEmail = session?.user?.email ?? "";
+  const isEditorAllowed = rawEmail.trim().toLowerCase() === "tyler.apsley@gmail.com";
+
+  useEffect(() => {
+    if (!isEditorAllowed) {
+      setEditorMode(false);
+      setEditorPuzzle(null);
+      setSaveDate("");
+      if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} }
+    }
+  }, [isEditorAllowed]);
 
   // No local sync effect needed — provider is the source-of-truth.
 
@@ -127,9 +265,20 @@ function PicrossPlayInner() {
   // Debounce save effect
   const debounceTimeout = useRef<number | null>(null);
   useEffect(() => {
-    if (!userIsLoggedIn || editorMode) return;
+    if (editorMode) return;
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     debounceTimeout.current = window.setTimeout(async () => {
+      if (!userIsLoggedIn) {
+        // persist to localStorage for anonymous users
+        try {
+          const key = `picross:progress:${dateStr}:${difficulty}`;
+          const payload = { grid, complete: cleared };
+          window.localStorage.setItem(key, JSON.stringify(payload));
+        } catch (err) {
+          console.debug('localStorage write error', err);
+        }
+        return;
+      }
       await fetch("/api/picross/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -155,33 +304,82 @@ function PicrossPlayInner() {
         ← Back
       </button>
       <h2>Daily Picross ({size}x{size})</h2>
-      <div style={{ marginBottom: 12 }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={editorMode}
-            onChange={e => {
-              const checked = e.target.checked;
-              setEditorMode(checked);
-              if (checked) {
-                setEditorPuzzle((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
-              } else {
-                setEditorPuzzle(null);
-              }
-            }}
-          />
-          Editor Mode
-        </label>
-      </div>
+      {isEditorAllowed && (
+        <div style={{ marginBottom: 12 }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={editorMode}
+              onChange={e => {
+                const checked = e.target.checked;
+                setEditorMode(checked);
+                if (checked) {
+                  setEditorPuzzle((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
+                  // find soonest free date for this difficulty
+                  (async () => {
+                    if (findNextAbort.current) {
+                      try { findNextAbort.current.abort(); } catch {}
+                    }
+                    const ac = new AbortController();
+                    findNextAbort.current = ac;
+                    try {
+                      const today = new Date();
+                          for (let i = 0; i < 365; i++) {
+                            const d = new Date(today);
+                            d.setDate(today.getDate() + i);
+                            const ds = d.toISOString().slice(0, 10);
+                            const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
+                            if (res.status === 404) {
+                              // empty day found — show a blank editor grid for this difficulty
+                              setEditorPuzzle(getDefaultPuzzle(size));
+                              setSaveDate(ds);
+                              findNextAbort.current = null;
+                              return;
+                            }
+                            if (res.ok) {
+                              const json = await res.json();
+                              const entry = json?.[difficulty];
+                              if (isPuzzleEmpty(entry)) {
+                                setEditorPuzzle(getDefaultPuzzle(size));
+                                setSaveDate(ds);
+                                findNextAbort.current = null;
+                                return;
+                              }
+                            }
+                          }
+                      // fallback to today if none found
+                      setSaveDate(today.toISOString().slice(0, 10));
+                    } catch (err) {
+                      const maybe = err as { name?: string } | undefined;
+                      if (maybe && maybe.name === "AbortError") return;
+                      console.debug('findNextFreeDate error', err);
+                    } finally {
+                      findNextAbort.current = null;
+                    }
+                  })();
+                } else {
+                  setEditorPuzzle(null);
+                  setSaveDate("");
+                  if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} }
+                }
+              }}
+            />
+            Editor Mode
+          </label>
+        </div>
+      )}
       {editorMode && (
         <div style={{ marginBottom: 16 }}>
+          <button onClick={handleClearEditor} style={dangerBtnStyle}>Clear</button>
+          <button onClick={handlePrevDate} style={{ ...baseBtnStyle, marginRight: 8 }}>Previous</button>
           <input
             type="date"
             value={saveDate}
             onChange={e => setSaveDate(e.target.value)}
             style={{ marginRight: 8 }}
           />
-          <button onClick={handleSave} disabled={!saveDate}>Save Puzzle</button>
+          <button onClick={handleNextDate} style={{ ...baseBtnStyle, marginRight: 8 }}>Next</button>
+          <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle, marginRight: 8 }}>Save Puzzle</button>
         </div>
       )}
       {!editorMode && cleared && <div style={{ color: "green", fontWeight: "bold", margin: 8 }}>Cleared!</div>}

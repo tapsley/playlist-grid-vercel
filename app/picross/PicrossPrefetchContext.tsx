@@ -35,6 +35,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
   const [prefetch, setPrefetchState] = useState<PrefetchState>({ puzzle: {}, progress: {} });
   const { data: session } = useSession();
   const lastEmailRef = useRef<string | null>(null);
+  const currentDateRef = useRef<string | null>(null);
   const setPrefetch = useCallback((v: Partial<PrefetchState> | ((prev: PrefetchState) => Partial<PrefetchState>)) => {
     setPrefetchState(prev => {
       const patch = typeof v === "function" ? (v as (p: PrefetchState) => Partial<PrefetchState>)(deepClone(prev)) : v;
@@ -53,14 +54,36 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
           next.progress[k] = deepClone(patch.progress[k] as number[][]);
         }
       }
+
+      // If user is not logged in, persist progress changes to localStorage for current date
+      try {
+        const email = session?.user?.email || null;
+        if (!email && patch.progress) {
+          const dateKey = currentDateRef.current ?? new Date().toISOString().slice(0, 10);
+          for (const k of Object.keys(patch.progress)) {
+            const key = `picross:progress:${dateKey}:${k}`;
+            try {
+              const payload = { grid: next.progress[k] };
+              window.localStorage.setItem(key, JSON.stringify(payload));
+            } catch (err) {
+              // ignore localStorage failures
+              console.debug('persist to localStorage failed', err);
+            }
+          }
+        }
+      } catch {
+        // guards for environments without window/localStorage
+      }
+
       return next;
     });
-  }, []);
+  }, [session?.user?.email]);
 
   const fetchPrefetch = useCallback(async () => {
     try {
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10);
+        const today = new Date();
+        const dateStr = today.toISOString().slice(0, 10);
+        currentDateRef.current = dateStr;
       const puzzleRes = await fetch(`/api/picross/puzzle?date=${dateStr}`);
       const progressRes = session?.user?.email ? await fetch(`/api/picross/progress?date=${dateStr}`) : null;
       const puzzleData = puzzleRes.ok ? await puzzleRes.json() : {};
@@ -78,6 +101,29 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => Number(n as unknown) || 0) : []);
       }
 
+      // If user is not logged in, merge in any locally persisted progress for this date
+      try {
+        const email = session?.user?.email || null;
+        if (!email) {
+          for (const d of ["easy", "medium", "hard"]) {
+            try {
+              const key = `picross:progress:${dateStr}:${d}`;
+              const raw = window.localStorage.getItem(key);
+              if (raw) {
+                const parsed = JSON.parse(raw) as { grid?: number[][] } | null;
+                if (parsed?.grid && Array.isArray(parsed.grid)) {
+                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => Number(n) || 0));
+                }
+              }
+            } catch {
+              // ignore parse/localStorage errors per-key
+            }
+          }
+        }
+      } catch {
+        // guard for missing window
+      }
+
       setPrefetchState({ puzzle: deepClone(puzzle), progress: deepClone(progress) });
     } catch (err) {
       // swallow but keep a trace in dev tools
@@ -87,20 +133,19 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
 
   // Fetch once when user logs in (email transitions) or if already logged in on mount
   useEffect(() => {
-    const email = session?.user?.email || null;
-    if (!email) return;
-    if (lastEmailRef.current === email) return;
-    lastEmailRef.current = email;
+    // always fetch puzzles on mount and when session email changes; fetchPrefetch
+    // will only attempt to fetch progress when an email exists.
     fetchPrefetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.email]);
 
-  // Clear prefetch on logout so re-login always triggers a fresh fetch
+  // Clear progress on logout so re-login always fetches user progress,
+  // but keep puzzles so anonymous users still see the daily puzzle.
   useEffect(() => {
     const email = session?.user?.email || null;
     if (email) return;
     lastEmailRef.current = null;
-    setPrefetchState({ puzzle: {}, progress: {} });
+    setPrefetchState(prev => ({ puzzle: prev.puzzle, progress: {} }));
   }, [session?.user?.email]);
 
   // Always expose cloned state to consumers to avoid accidental mutation
