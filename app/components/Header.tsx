@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import React from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { SocialIcon } from 'react-social-icons';
 
 export default function Header() {
   const pathname = usePathname();
 
+const UserMenu = dynamic(() => import("./UserMenu"), { ssr: false });
   function getThemeColor(path: string) {
     if (path.startsWith("/resume")) return "#f472b6"; // pink-400
     if (path.startsWith("/playlist")) return "#32ce69"; // spotify green

@@ -21,8 +21,10 @@ const metadata: Metadata = {
   description: "A space for Tyler Apsley's experiments and musings",
 };
 
+
 import Header from "./components/Header";
 import SessionProviderClient from "./providers/SessionProviderClient";
+import { PicrossPrefetchProvider } from "./picross/PicrossPrefetchContext";
 
 export const DarkModeContext = createContext({
   isDarkMode: false,
@@ -57,8 +59,10 @@ export default function RootLayout({
       >
         <DarkModeContext.Provider value={{ isDarkMode, toggle }}>
           <SessionProviderClient>
-            <Header />
-            {children}
+            <PicrossPrefetchProvider>
+              <Header />
+              {children}
+            </PicrossPrefetchProvider>
           </SessionProviderClient>
         </DarkModeContext.Provider>
         <Analytics />

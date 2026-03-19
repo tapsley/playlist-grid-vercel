@@ -1,3 +1,26 @@
+model PicrossProgress {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  date      DateTime
+  easy      Json     // 5x5 array of numbers (progress)
+  medium    Json     // 10x10 array of numbers (progress)
+  hard      Json     // 15x15 array of numbers (progress)
+  easyComplete   Boolean @default(false)
+  mediumComplete Boolean @default(false)
+  hardComplete   Boolean @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+}
+model PicrossPuzzle {
+  id         String   @id @default(uuid())
+  date       DateTime @unique
+  easy       Json     // 5x5 array of booleans (the puzzle)
+  medium     Json   // 10x10 array of booleans (the puzzle)
+  hard       Json     // 15x15 array of booleans (the puzzle)
+  createdAt  DateTime @default(now())
+}
 // Prisma schema for Postgres
 
 generator client {
@@ -15,6 +38,7 @@ model User {
   password  String
   createdAt DateTime @default(now())
   notes     Note[]   @relation("UserNotes")
+  picrossProgresses PicrossProgress[]
 }
 
 model Note {
