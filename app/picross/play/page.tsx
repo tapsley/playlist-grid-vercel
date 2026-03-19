@@ -31,8 +31,8 @@ function getClues(puzzle: boolean[][]) {
   });
   const cols = [];
   for (let c = 0; c < puzzle[0].length; c++) {
+    const clues = [] as number[];
     let count = 0;
-    const clues = [];
     for (let r = 0; r < puzzle.length; r++) {
       if (puzzle[r][c]) count++;
       else if (count) { clues.push(count); count = 0; }
@@ -43,7 +43,7 @@ function getClues(puzzle: boolean[][]) {
   return { rows, cols };
 }
 
-export default function PicrossPage() {
+function PicrossPlayInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const difficulty = searchParams.get("difficulty") || "easy";
@@ -105,10 +105,6 @@ export default function PicrossPage() {
       },
     }));
   };
-
-  
-
-  
 
   const handleSave = () => {
     // In editor mode, save editorPuzzle to server/provider here (not implemented)
@@ -224,5 +220,13 @@ export default function PicrossPage() {
           : "Left click: fill → X → empty. Right click: X → empty."}
       </div>
     </div>
+  );
+}
+
+export default function PicrossPage() {
+  return (
+    <React.Suspense fallback={<div>Loading Picross...</div>}>
+      <PicrossPlayInner />
+    </React.Suspense>
   );
 }

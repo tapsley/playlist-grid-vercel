@@ -1,7 +1,16 @@
 "use client";
 
-import React, { createContext, useContext, useState, useRef, useEffect } from "react";
+import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
+
+// small safe deep clone helper — uses structuredClone when available
+const deepClone = <T,>(val: T): T => {
+  const maybeStructured = (globalThis as unknown as { structuredClone?: (v: unknown) => unknown }).structuredClone;
+  if (typeof maybeStructured === "function") {
+    return maybeStructured(val) as T;
+  }
+  return JSON.parse(JSON.stringify(val));
+};
 
 export type PrefetchState = {
   puzzle: Record<string, boolean[][]>;
@@ -26,17 +35,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
   const [prefetch, setPrefetchState] = useState<PrefetchState>({ puzzle: {}, progress: {} });
   const { data: session } = useSession();
   const lastEmailRef = useRef<string | null>(null);
-
-  // small safe deep clone helper — uses structuredClone when available
-  const deepClone = <T,>(val: T): T => {
-    const maybeStructured = (globalThis as unknown as { structuredClone?: (v: unknown) => unknown }).structuredClone;
-    if (typeof maybeStructured === "function") {
-      return maybeStructured(val) as T;
-    }
-    return JSON.parse(JSON.stringify(val));
-  };
-
-  const setPrefetch = (v: Partial<PrefetchState> | ((prev: PrefetchState) => Partial<PrefetchState>)) => {
+  const setPrefetch = useCallback((v: Partial<PrefetchState> | ((prev: PrefetchState) => Partial<PrefetchState>)) => {
     setPrefetchState(prev => {
       const patch = typeof v === "function" ? (v as (p: PrefetchState) => Partial<PrefetchState>)(deepClone(prev)) : v;
       // merge immutably, cloning arrays/objects to avoid external mutation
@@ -56,9 +55,9 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
       }
       return next;
     });
-  };
+  }, []);
 
-  const fetchPrefetch = async () => {
+  const fetchPrefetch = useCallback(async () => {
     try {
       const today = new Date();
       const dateStr = today.toISOString().slice(0, 10);
@@ -74,17 +73,17 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         if (Array.isArray(val)) puzzle[k] = val.map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(Boolean) as boolean[] : []);
       }
       const progress: Record<string, number[][]> = {};
-        for (const k of Object.keys(progressData || {})) {
-          const val = progressData[k];
-          if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => Number(n as unknown) || 0) : []);
-        }
+      for (const k of Object.keys(progressData || {})) {
+        const val = progressData[k];
+        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => Number(n as unknown) || 0) : []);
+      }
 
       setPrefetchState({ puzzle: deepClone(puzzle), progress: deepClone(progress) });
     } catch (err) {
       // swallow but keep a trace in dev tools
       console.debug("fetchPrefetch error", err);
     }
-  };
+  }, [session?.user?.email]);
 
   // Fetch once when user logs in (email transitions) or if already logged in on mount
   useEffect(() => {
@@ -105,8 +104,15 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
   }, [session?.user?.email]);
 
   // Always expose cloned state to consumers to avoid accidental mutation
+  const value = useMemo(() => ({
+    puzzle: deepClone(prefetch.puzzle),
+    progress: deepClone(prefetch.progress),
+    setPrefetch,
+    fetchPrefetch,
+  }), [prefetch, setPrefetch, fetchPrefetch]);
+
   return (
-    <PicrossPrefetchContext.Provider value={{ puzzle: deepClone(prefetch.puzzle), progress: deepClone(prefetch.progress), setPrefetch, fetchPrefetch }}>
+    <PicrossPrefetchContext.Provider value={value}>
       {children}
     </PicrossPrefetchContext.Provider>
   );
