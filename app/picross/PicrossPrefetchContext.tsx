@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 
+export type CellState = 0 | 1 | 2 | 3;
+
 // small safe deep clone helper — uses structuredClone when available
 const deepClone = <T,>(val: T): T => {
   const maybeStructured = (globalThis as unknown as { structuredClone?: (v: unknown) => unknown }).structuredClone;
@@ -14,7 +16,7 @@ const deepClone = <T,>(val: T): T => {
 
 export type PrefetchState = {
   puzzle: Record<string, boolean[][]>;
-  progress: Record<string, number[][]>;
+  progress: Record<string, CellState[][]>;
 };
 
 export type PrefetchShape = {
@@ -51,7 +53,15 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
       }
       if (patch.progress) {
         for (const k of Object.keys(patch.progress)) {
-          next.progress[k] = deepClone(patch.progress[k] as number[][]);
+          const raw = patch.progress[k] as unknown;
+          if (Array.isArray(raw)) {
+            next.progress[k] = deepClone((raw as unknown[]).map(row => Array.isArray(row) ? (row as unknown[]).map(n => {
+              const num = Number(n as unknown) || 0;
+              return (Math.max(0, Math.min(3, Math.trunc(num)))) as CellState;
+            }) : []));
+          } else {
+            next.progress[k] = deepClone([] as CellState[][]);
+          }
         }
       }
 
@@ -95,10 +105,13 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         const val = puzzleData[k];
         if (Array.isArray(val)) puzzle[k] = val.map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(Boolean) as boolean[] : []);
       }
-      const progress: Record<string, number[][]> = {};
+      const progress: Record<string, CellState[][]> = {};
       for (const k of Object.keys(progressData || {})) {
         const val = progressData[k];
-        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => Number(n as unknown) || 0) : []);
+        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => {
+          const num = Number(n as unknown) || 0;
+          return (Math.max(0, Math.min(3, Math.trunc(num)))) as CellState;
+        }) : []);
       }
 
       // If user is not logged in, merge in any locally persisted progress for this date
@@ -112,7 +125,10 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
               if (raw) {
                 const parsed = JSON.parse(raw) as { grid?: number[][] } | null;
                 if (parsed?.grid && Array.isArray(parsed.grid)) {
-                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => Number(n) || 0));
+                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => {
+                    const num = Number(n) || 0;
+                    return (Math.max(0, Math.min(3, Math.trunc(num)))) as CellState;
+                  }));
                 }
               }
             } catch {

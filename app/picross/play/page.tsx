@@ -2,6 +2,7 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import type { PrefetchShape } from "../PicrossPrefetchContext";
+import type { CellState } from "../PicrossPrefetchContext";
 import { usePicrossPrefetch } from "../PicrossPrefetchContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -16,7 +17,6 @@ function getDefaultPuzzle(size: number): boolean[][] {
   return Array(size).fill(0).map(() => Array(size).fill(false));
 }
 
-type CellState = 0 | 1 | 2;
 
 function getClues(puzzle: boolean[][]) {
   const rows = puzzle.map(row => {
@@ -53,6 +53,10 @@ function PicrossPlayInner() {
   const [editorMode, setEditorMode] = useState(false);
   const [editorPuzzle, setEditorPuzzle] = useState<boolean[][] | null>(null);
   const findNextAbort = useRef<AbortController | null>(null);
+  const [inputMode, setInputMode] = useState<"fill" | "maybe" | "x">("fill");
+  const pointerActiveRef = useRef(false);
+  const pointerActionRef = useRef<"fill" | "erase" | "fillX" | "fillMaybe" | "eraseMaybe" | null>(null);
+  const [hoveredMode, setHoveredMode] = useState<"fill" | "maybe" | "x" | null>(null);
 
   const puzzle = editorMode
     ? (editorPuzzle ?? (prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size))
@@ -81,16 +85,25 @@ function PicrossPlayInner() {
   const baseBtnStyle: React.CSSProperties = { padding: '6px 10px', fontSize: 14, borderRadius: 6, border: '1px solid #aaa', background: '#f8f8f8', cursor: 'pointer' };
   const primaryBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#2b6cb0', color: '#fff', border: '1px solid #2b6cb0' };
   const dangerBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#fff', color: '#c53030', border: '1px solid #c53030' };
+  const hoverBtnStyle: React.CSSProperties = { boxShadow: '0 2px 6px rgba(0,0,0,0.12)' };
+  const selectedBtnStyle: React.CSSProperties = { background: '#3182ce', color: '#fff', border: '1px solid #2b6cb0' };
 
   // Get today's date in YYYY-MM-DD
   const dateStr = new Date().toISOString().slice(0, 10);
+  const formattedDate = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Layout constants: keep grid cells the same, reduce number regions
+  const CELL_PX = 40; // size of a single grid cell (px)
+  const LEFT_PX = 80; // slightly larger left clue width (matches top clue area)
+  const CLUE_FONT_PX = 18; // slightly larger clue font for readability
+  const DEFAULT_FONT = '"Courier New", monospace';
 
   // Use email as identifier for session
   const userIsLoggedIn = !!session?.user?.email;
 
   const grid: CellState[][] = useMemo(() => {
     if (prefetchProgress && prefetchProgress[difficulty]) {
-      return prefetchProgress[difficulty].map((row: number[]) => row.map(n => n as CellState));
+      return (prefetchProgress[difficulty] as CellState[][]).map((row: CellState[]) => row.map(n => (Math.max(0, Math.min(3, Math.trunc(Number(n as unknown) || 0))) as CellState)));
     }
     // if not logged in, check localStorage for saved progress for today's date
     if (!userIsLoggedIn) {
@@ -107,7 +120,7 @@ function PicrossPlayInner() {
         console.debug('localStorage read error', err);
       }
     }
-    return Array(size).fill(0).map(() => Array(size).fill(0) as CellState[]);
+    return Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
   }, [prefetchProgress, difficulty, size, dateStr, userIsLoggedIn]);
 
   const cleared = useMemo(() => {
@@ -121,10 +134,73 @@ function PicrossPlayInner() {
     }
     return win;
   }, [grid, puzzle, size, editorMode]);
+  const [celebrateGrid, setCelebrateGrid] = useState<boolean[][] | null>(null);
+  const celebrationTimeouts = useRef<number[]>([]);
+
+  // Run celebration when `cleared` transitions to true or when user returns (no active celebrateGrid).
+  useEffect(() => {
+    if (!cleared) {
+      // reset and clear pending timeouts only when puzzle is not cleared
+      setCelebrateGrid(null);
+      for (const t of celebrationTimeouts.current) window.clearTimeout(t);
+      celebrationTimeouts.current = [];
+      return;
+    }
+
+    if (cleared && !celebrateGrid) {
+      // Clear Maybe/X marks in provider before animating (doesn't affect filled cells)
+      try {
+        setPrefetch(prev => {
+          const cur = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+          const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (v === 2 || v === 3) ? 0 : v));
+          return {
+            ...prev,
+            progress: {
+              ...prev.progress,
+              [difficulty]: next,
+            },
+          };
+        });
+      } catch (err) {
+        console.debug('clear maybe/x before celebration failed', err);
+      }
+
+      // collect filled cells (only those that should be filled in puzzle)
+      const filled: Array<[number, number]> = [];
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (puzzle[r][c] && grid[r][c] === 1) filled.push([r, c]);
+        }
+      }
+
+      const init = Array.from({ length: size }, () => Array.from({ length: size }, () => false));
+      setCelebrateGrid(init);
+
+      const delay = 60;
+      filled.forEach(([r, c], i) => {
+        const t = window.setTimeout(() => {
+          setCelebrateGrid(prev => {
+            if (!prev) return prev;
+            const next = prev.map(row => row.slice());
+            next[r][c] = true;
+            return next;
+          });
+        }, i * delay);
+        celebrationTimeouts.current.push(t as unknown as number);
+      });
+
+      // cleanup only runs when cleared becomes false or component unmounts
+      return () => {
+        // don't clear timeouts here since we want the animation to finish unless cleared becomes false
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleared]);
   const [saveDate, setSaveDate] = useState("");
 
   const handleCellClick = (r: number, c: number, e: React.MouseEvent) => {
     e.preventDefault();
+    if (cleared) return;
     if (editorMode) {
       // initialize editorPuzzle from provider if needed
       setEditorPuzzle(prev => {
@@ -136,19 +212,82 @@ function PicrossPlayInner() {
       return;
     }
 
-    const next = grid.map(row => [...row] as CellState[]);
-    if (e.button === 0) next[r][c] = ((next[r][c] as number) + 1) % 3 as CellState;
-    else if (e.button === 2) next[r][c] = next[r][c] === 2 ? 0 : 2;
-
-    // Optimistically update provider state (single source of truth)
-    setPrefetch(prev => ({
-      ...prev,
-      progress: {
-        ...prev.progress,
-        [difficulty]: next,
-      },
-    }));
+    // Fallback click behavior: toggle through states when pointer events aren't available
+    setPrefetch(prev => {
+      const current = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+      const next: CellState[][] = current.map((row: CellState[]) => row.map(v => (Math.max(0, Math.min(3, Math.trunc(Number(v as unknown) || 0))) as CellState)));
+      const val = next[r][c] as number;
+      let newVal: number;
+      if (inputMode === 'x') {
+        // X-mode fallback: clicking a filled (1) or X (3) erases; otherwise set X
+        if (val === 1 || val === 3) newVal = 0;
+        else newVal = 3;
+      } else {
+        // cycle 0 -> 1 -> 2 (maybe) -> 3 (X) -> 0
+        newVal = (val + 1) % 4;
+      }
+      next[r][c] = newVal as CellState;
+      return {
+        ...prev,
+        progress: {
+          ...prev.progress,
+          [difficulty]: next,
+        },
+      };
+    });
   };
+
+  // Apply action to a specific cell (used by pointer drag)
+  const applyActionToCell = (r: number, c: number, action: "fill" | "erase" | "fillX" | "fillMaybe" | "eraseMaybe") => {
+    if (editorMode) return;
+    if (cleared) return;
+    setPrefetch(prev => {
+      const cur = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+      const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (Math.max(0, Math.min(3, Math.trunc(Number(v as unknown) || 0))) as CellState)));
+      const currentVal = next[r][c] as number;
+      if (action === "fill") {
+        // Fill: set to filled (1). Do not replace an X (3).
+        if (currentVal === 3) return prev;
+        if (currentVal === 1) return prev;
+        next[r][c] = 1;
+      } else if (action === "erase") {
+        // Erase everything to empty
+        if (currentVal === 0) return prev;
+        next[r][c] = 0;
+      } else if (action === "fillX") {
+        // X mode: set X (3). Do not replace filled (1).
+        if (currentVal === 1) return prev;
+        if (currentVal === 3) return prev;
+        next[r][c] = 3;
+      } else if (action === "fillMaybe") {
+        // Maybe mode: only set maybe (2) on empty cells; do not replace filled (1) or X (3)
+        if (currentVal === 1 || currentVal === 3) return prev;
+        if (currentVal === 2) return prev;
+        next[r][c] = 2;
+      } else if (action === "eraseMaybe") {
+        // Erase only maybe marks
+        if (currentVal !== 2) return prev;
+        next[r][c] = 0;
+      }
+      return {
+        ...prev,
+        progress: {
+          ...prev.progress,
+          [difficulty]: next,
+        },
+      };
+    });
+  };
+
+  // Pointer lifecycle handlers
+  useEffect(() => {
+    const onPointerUp = () => {
+      pointerActiveRef.current = false;
+      pointerActionRef.current = null;
+    };
+    window.addEventListener("pointerup", onPointerUp);
+    return () => window.removeEventListener("pointerup", onPointerUp);
+  }, []);
 
   const handleSave = () => {
     if (!saveDate || !editorPuzzle) return;
@@ -295,15 +434,54 @@ function PicrossPlayInner() {
     };
   }, [grid, cleared, difficulty, userIsLoggedIn, editorMode, dateStr]);
 
+  // Helpers to determine user-filled runs for rows/columns (used to gray-out fulfilled clues)
+  const isFilledCell = (r: number, c: number) => {
+    if (editorMode) {
+      const p = editorPuzzle ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
+      return !!(p && p[r] && p[r][c]);
+    }
+    const v = (grid && grid[r] && typeof grid[r][c] !== 'undefined') ? grid[r][c] : 0;
+    return v === 1;
+  };
+
+  const getRunsForRow = (r: number) => {
+    const runs: number[] = [];
+    let count = 0;
+    for (let c = 0; c < size; c++) {
+      if (isFilledCell(r, c)) count++;
+      else if (count) { runs.push(count); count = 0; }
+    }
+    if (count) runs.push(count);
+    return runs;
+  };
+
+  const getRunsForCol = (c: number) => {
+    const runs: number[] = [];
+    let count = 0;
+    for (let r = 0; r < size; r++) {
+      if (isFilledCell(r, c)) count++;
+      else if (count) { runs.push(count); count = 0; }
+    }
+    if (count) runs.push(count);
+    return runs;
+  };
+
+  // fixed font for grid/clues
+  const [fontFamily] = useState<string>(DEFAULT_FONT);
+  const fontWeight = 700;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 32 }}>
-      <button
-        onClick={() => router.push("/picross")}
-        style={{ alignSelf: "flex-start", marginBottom: 16, marginLeft: 8, padding: "4px 12px", fontSize: 16, borderRadius: 6, border: "1px solid #aaa", background: "#f8f8f8", cursor: "pointer" }}
-      >
-        ← Back
-      </button>
-      <h2>Daily Picross ({size}x{size})</h2>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, background: '#cca3ff', minHeight: '100vh', width: '100%' }}>
+      <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-start', marginBottom: 8 }}>
+        <button
+          onClick={() => router.push("/picross")}
+          aria-label="Back"
+          style={{ background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', color: '#000', fontWeight: 800 }}
+        >
+          ❮
+        </button>
+        <h2 style={{ margin: 5, paddingLeft: 20, fontFamily: "Courier", fontWeight:"600", fontSize:25}}>{formattedDate}</h2>
+      </div>
       {isEditorAllowed && (
         <div style={{ marginBottom: 12 }}>
           <label>
@@ -324,29 +502,29 @@ function PicrossPlayInner() {
                     findNextAbort.current = ac;
                     try {
                       const today = new Date();
-                          for (let i = 0; i < 365; i++) {
-                            const d = new Date(today);
-                            d.setDate(today.getDate() + i);
-                            const ds = d.toISOString().slice(0, 10);
-                            const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
-                            if (res.status === 404) {
-                              // empty day found — show a blank editor grid for this difficulty
-                              setEditorPuzzle(getDefaultPuzzle(size));
-                              setSaveDate(ds);
-                              findNextAbort.current = null;
-                              return;
-                            }
-                            if (res.ok) {
-                              const json = await res.json();
-                              const entry = json?.[difficulty];
-                              if (isPuzzleEmpty(entry)) {
-                                setEditorPuzzle(getDefaultPuzzle(size));
-                                setSaveDate(ds);
-                                findNextAbort.current = null;
-                                return;
-                              }
-                            }
+                      for (let i = 0; i < 365; i++) {
+                        const d = new Date(today);
+                        d.setDate(today.getDate() + i);
+                        const ds = d.toISOString().slice(0, 10);
+                        const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
+                        if (res.status === 404) {
+                          // empty day found — show a blank editor grid for this difficulty
+                          setEditorPuzzle(getDefaultPuzzle(size));
+                          setSaveDate(ds);
+                          findNextAbort.current = null;
+                          return;
+                        }
+                        if (res.ok) {
+                          const json = await res.json();
+                          const entry = json?.[difficulty];
+                          if (isPuzzleEmpty(entry)) {
+                            setEditorPuzzle(getDefaultPuzzle(size));
+                            setSaveDate(ds);
+                            findNextAbort.current = null;
+                            return;
                           }
+                        }
+                      }
                       // fallback to today if none found
                       setSaveDate(today.toISOString().slice(0, 10));
                     } catch (err) {
@@ -382,41 +560,186 @@ function PicrossPlayInner() {
           <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle, marginRight: 8 }}>Save Puzzle</button>
         </div>
       )}
-      {!editorMode && cleared && <div style={{ color: "green", fontWeight: "bold", margin: 8 }}>Cleared!</div>}
-      <div style={{ display: "flex" }}>
-        <div style={{ width: 40 }} />
-        {colClues.map((clue, i) => (
-          <div key={i} style={{ width: 40, textAlign: "center", fontSize: 14, marginBottom: 4 }}>
-            {clue.map((n, j) => <div key={j}>{n}</div>)}
-          </div>
-        ))}
-      </div>
-      {(editorMode ? puzzle : grid).map((row: (boolean[] | CellState[]), r: number) => (
-        <div key={r} style={{ display: "flex" }}>
-          <div style={{ width: 40, textAlign: "right", fontSize: 14, marginRight: 4 }}>
-            {rowClues[r].map((n: number, j: number) => <span key={j} style={{ marginLeft: 2 }}>{n}</span>)}
-          </div>
+      {/* cleared message removed; celebratory text will appear at bottom during celebration */}
+      <div onPointerMove={e => {
+        if (cleared) return;
+        if (!pointerActiveRef.current || !pointerActionRef.current) return;
+        const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+        if (!el) return;
+        const cellEl = el.closest('[data-picross-cell]') as HTMLElement | null;
+        if (!cellEl) return;
+        const rr = Number(cellEl.dataset.r);
+        const cc = Number(cellEl.dataset.c);
+        if (Number.isNaN(rr) || Number.isNaN(cc)) return;
+                if (editorMode) {
+          if (pointerActionRef.current === 'fill' || pointerActionRef.current === 'erase') {
+            const doFill = pointerActionRef.current === 'fill';
+            setEditorPuzzle(prev => {
+              const base = prev ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
+              const next = base.map(row => [...row]);
+              if (next[rr][cc] !== doFill) next[rr][cc] = doFill;
+              return next;
+            });
+          }
+                } else {
+          applyActionToCell(rr, cc, pointerActionRef.current);
+        }
+      }} style={{ touchAction: 'none', fontFamily: fontFamily, fontWeight: fontWeight }}>
+        <div style={{ display: "flex" }}>
+          <div style={{ width: LEFT_PX }} />
+          {colClues.map((clue, i) => {
+            const runs = getRunsForCol(i);
+            return (
+              <div key={i} style={{ width: CELL_PX, minHeight: LEFT_PX, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', fontSize: CLUE_FONT_PX, marginBottom: 0, paddingBottom: 2, background: (i % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
+                {clue.map((n, j) => {
+                  const fulfilled = typeof runs[j] !== 'undefined' && runs[j] === n;
+                  return <div key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</div>;
+                })}
+              </div>
+            );
+          })}
+        </div>
+        {(editorMode ? puzzle : grid).map((row: (boolean[] | CellState[]), r: number) => (
+          <div key={r} style={{ display: "flex" }}>
+            <div style={{ width: LEFT_PX, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{rowClues[r].map((n: number, j: number) => {
+                const runs = getRunsForRow(r);
+                const fulfilled = typeof runs[j] !== 'undefined' && runs[j] === n;
+                return <span key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</span>;
+              })}</div>
+            </div>
           {row.map((cell: boolean | CellState, c: number) => (
             <div
               key={c}
-              onClick={e => handleCellClick(r, c, e)}
-              onContextMenu={e => handleCellClick(r, c, e)}
+              data-picross-cell
+              data-r={String(r)}
+              data-c={String(c)}
+              onPointerDown={e => {
+                // start pointer drag
+                e.preventDefault();
+                if (cleared) return;
+                pointerActiveRef.current = true;
+                if (editorMode) {
+                  // toggle cell in editor and set drag action to continue filling or erasing
+                  const cur = (editorPuzzle && editorPuzzle[r] && typeof editorPuzzle[r][c] !== 'undefined')
+                    ? !!editorPuzzle[r][c]
+                    : !!(prefetchPuzzle && prefetchPuzzle[difficulty] && prefetchPuzzle[difficulty][r] && prefetchPuzzle[difficulty][r][c]);
+                  const newVal = !cur;
+                  setEditorPuzzle(prev => {
+                    const base = prev ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
+                    const next = base.map(row => [...row]);
+                    next[r][c] = newVal;
+                    return next;
+                  });
+                  pointerActionRef.current = newVal ? 'fill' : 'erase';
+                  return;
+                }
+                const val = (prefetchProgress && prefetchProgress[difficulty] && prefetchProgress[difficulty][r] && prefetchProgress[difficulty][r][c]) ?? 0;
+                // determine action based on current input mode and clicked cell
+                if (inputMode === 'fill') {
+                  pointerActionRef.current = (val === 1 ? 'erase' : 'fill');
+                } else if (inputMode === 'x') {
+                  // X mode: clicking a filled square should erase it; clicking empty sets X
+                  if (val === 1 || val === 3) pointerActionRef.current = 'erase';
+                  else pointerActionRef.current = 'fillX';
+                } else {
+                  // maybe
+                  pointerActionRef.current = (val === 2 ? 'eraseMaybe' : 'fillMaybe');
+                }
+                if (pointerActionRef.current) applyActionToCell(r, c, pointerActionRef.current);
+              }}
+              onPointerEnter={() => {
+                if (cleared) return;
+                if (!pointerActiveRef.current || !pointerActionRef.current) return;
+                if (editorMode) {
+                  // continue applying fill/erase to editor puzzle while dragging
+                  if (pointerActionRef.current === 'fill' || pointerActionRef.current === 'erase') {
+                    const doFill = pointerActionRef.current === 'fill';
+                    setEditorPuzzle(prev => {
+                      const base = prev ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
+                      const next = base.map(row => [...row]);
+                      if (next[r][c] !== doFill) next[r][c] = doFill;
+                      return next;
+                    });
+                  }
+                  return;
+                }
+                applyActionToCell(r, c, pointerActionRef.current);
+              }}
+              onContextMenu={e => e.preventDefault()}
               style={{
-                width: 40, height: 40, border: "1px solid #888", display: "flex", alignItems: "center", justifyContent: "center",
-                background: editorMode ? (cell ? "#222" : "#fff") : (cell === 1 ? "#222" : "#fff"),
-                cursor: "pointer", fontSize: 24, userSelect: "none"
+                width: CELL_PX, height: CELL_PX, border: "1px solid #888", display: "flex", alignItems: "center", justifyContent: "center",
+                background: (() => {
+                  // celebration override: if celebrateGrid marks this cell, show gold
+                  if (celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c]) return '#d4af37';
+                  if (editorMode) return (cell ? "#222" : "#fff");
+                  const val = (cell as unknown) as CellState;
+                  if (val === 1) return '#222';
+                  if (val === 2) return '#f0f0f0';
+                  return '#fff';
+                })(),
+                cursor: "pointer", fontSize: 24, userSelect: "none", touchAction: 'none'
               }}
             >
-              {!editorMode && cell === 2 ? "✕" : ""}
+              {!editorMode && ((cell as unknown) as CellState) === 3 && (
+                <div style={{ color: '#c53030', fontWeight: 800, fontSize: 28, lineHeight: '1' }}>✕</div>
+              )}
+              {!editorMode && ((cell as unknown) as CellState) === 2 && (
+                <div style={{ width: 10, height: 10, borderRadius: 6, background: '#666' }} />
+              )}
+              {celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c] && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }} />
+              )}
             </div>
           ))}
         </div>
-      ))}
-      <div style={{ marginTop: 16, fontSize: 12, color: "#888" }}>
-        {editorMode
-          ? "Click to toggle filled/empty. Set date and save."
-          : "Left click: fill → X → empty. Right click: X → empty."}
-      </div>
+      ))}</div>
+      {/* Mode selector bar -> replaced by celebration text when animation starts */}
+      {celebrateGrid ? (
+        <div style={{ marginTop: 18, width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, fontSize: 24, padding: '12px 16px', borderRadius: 8, textShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
+            Puzzle Complete!
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: 18, width: '100%', display: 'flex', justifyContent: 'center', gap: 12 }}>
+          {(["fill", "maybe", "x"] as const).map(m => {
+            let icon: React.ReactNode = null;
+            const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+            if (m === 'fill') {
+              icon = <div style={{ ...iconBox, background: '#222', borderRadius: 2 }} />;
+            } else if (m === 'maybe') {
+              icon = (
+                <div style={iconBox}>
+                  <div style={{ width: 8, height: 8, borderRadius: 6, background: '#666' }} />
+                </div>
+              );
+            } else {
+              icon = <div style={{ ...iconBox, color: '#c53030', fontWeight: 800, fontSize: 16 }}>✕</div>;
+            }
+            const label = m === 'fill' ? 'Fill' : m === 'maybe' ? 'Maybe' : 'X';
+            const isSelected = inputMode === m;
+            const isHovered = hoveredMode === m;
+            const style: React.CSSProperties = { ...baseBtnStyle, minWidth: 56, textAlign: 'center' };
+            if (isSelected) Object.assign(style, selectedBtnStyle);
+            else if (isHovered) Object.assign(style, hoverBtnStyle);
+            return (
+              <button
+                key={m}
+                onClick={() => setInputMode(m)}
+                onMouseEnter={() => setHoveredMode(m)}
+                onMouseLeave={() => setHoveredMode(null)}
+                style={style}
+                aria-label={label}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {icon}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

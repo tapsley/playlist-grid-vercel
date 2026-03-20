@@ -20,6 +20,14 @@ const projectCards: ProjectCard[] = [
     imageAlt: "Resume page preview",
   },
   {
+    href: "/picross",
+    title: "Daily Picross",
+    description:
+      "Take a break with a little Picross! \n\nCome back every day for a new puzzle!",
+    imageSrc: "/dailyPicross.png",
+    imageAlt: "Daily Picross page preview",
+  },
+  {
     href: "/playlist",
     title: "Playlist Grid feat. Spotify",
     description:

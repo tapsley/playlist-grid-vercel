@@ -16,6 +16,7 @@ const UserMenu = dynamic(() => import("./UserMenu"), { ssr: false });
     if (path.startsWith("/daily-notes")) return "#598eff"; // blue
     if (path.startsWith("/roku")) return "#9f53da"; // roku purple
     if (path.startsWith("/videoManager")) return "#ffffff"; // white
+    if (path.startsWith("/picross")) return "#cca3ff"; //picross purple
     return "#fd9cce"; // default/home pink-400
   }
 
