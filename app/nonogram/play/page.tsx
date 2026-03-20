@@ -746,7 +746,7 @@ function PicrossPlayInner() {
 
 export default function PicrossPage() {
   return (
-    <React.Suspense fallback={<div>Loading Picross...</div>}>
+    <React.Suspense fallback={<div>Loading Nonogram...</div>}>
       <PicrossPlayInner />
     </React.Suspense>
   );

@@ -62,7 +62,7 @@ export default function PicrossSplash() {
       <div style={{ position: "absolute", top: 16, right: 24 }}>
         <UserMenu />
       </div>
-      <h1 style={{ fontSize: 56, lineHeight: 1, margin: 25, fontWeight: 800, letterSpacing: 1, color: '#111' }}>Daily Picross</h1>
+      <h1 style={{ fontSize: 56, lineHeight: 1, margin: 25, fontWeight: 800, letterSpacing: 1, color: '#111' }}>Daily Nonogram</h1>
       <div style={{ display: "flex", gap: 40, margin: 50, alignItems: 'flex-end' }}>
         {difficulties.map(d => {
           const disabled = d.value !== 'easy' && !isTyler;
@@ -70,14 +70,14 @@ export default function PicrossSplash() {
           return (
             <div key={d.value} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               {disabled ? (
-                <div className="picross-difficulty-btn disabled" style={containerStyle}>
+                <div className="nonogram-difficulty-btn disabled" style={containerStyle}>
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.8)', borderRadius: 8, fontWeight: 700, color: '#333' }}>Coming soon</div>
                 </div>
               ) : (
                 <Link
                   href={`/picross/play?difficulty=${d.value}`}
-                  className="picross-difficulty-btn"
+                  className="nonogram-difficulty-btn"
                   style={containerStyle}
                   prefetch={true}
                 >
@@ -89,12 +89,50 @@ export default function PicrossSplash() {
           );
         })}
       </div>
+      <div style={{ width: 'min(1000px, 92%)', background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', marginBottom: 48 }}>
+        <h2 style={{ fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
+        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 420px', minWidth: 260 }}>
+            <p style={{ marginTop: 0, marginBottom: 12, color: '#333' }}>
+              Solve the puzzle by filling the correct squares so the pattern matches the hidden picture.
+              Numbers on the left and top tell you how many filled squares appear in each row and column,
+              and in what order. For example, “3 1” means a run of 3 filled squares, then at least one empty, then a single filled square.
+            </p>
+            <ol style={{ paddingLeft: 18, marginTop: 0, color: '#333' }}>
+              <li><strong>Fill:</strong> Tap or click a cell to mark it filled.</li>
+              <li><strong>Maybe:</strong> Use the bottom toolbar to mark a cell as Maybe when you're unsure.</li>
+              <li><strong>Mark X:</strong> Mark a cell with X to indicate it should remain empty.</li>
+              <li><strong>Drag:</strong> Hold and drag to fill many cells quickly.</li>
+            </ol>
+            <p style={{ marginTop: 12, color: '#333' }}>
+              Hints: start with rows/columns that have large numbers or few gaps. Use Maybe and X marks to keep track of possibilities.
+            </p>
+          </div>
+          <div style={{ flex: '0 0 260px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ width: 92, height: 92, background: '#f8f8f8', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="56" height="56" viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0.6" y="0.6" width="2.8" height="2.8" fill="#222" rx="0.2" />
+              </svg>
+            </div>
+            <div style={{ width: 92, height: 92, background: '#f8f8f8', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="56" height="56" viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="2" cy="2" r="0.6" fill="#666" />
+              </svg>
+            </div>
+            <div style={{ width: 92, height: 92, background: '#f8f8f8', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="56" height="56" viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
+                <text x="2" y="2.6" textAnchor="middle" fontSize="2.8" fontWeight="700" fill="#c00">✕</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
       <style jsx>{`
-        .picross-difficulty-btn {
+        .nonogram-difficulty-btn {
           border: 3px solid #7c7c7c;
           transition: border-color 120ms, transform 120ms, box-shadow 120ms;
         }
-        .picross-difficulty-btn:not(.disabled):hover {
+        .nonogram-difficulty-btn:not(.disabled):hover {
           border: 3px solid #0070f3 !important;
           transform: translateY(-4px);
           box-shadow: 0 8px 24px rgba(3,102,214,0.12);

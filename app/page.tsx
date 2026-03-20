@@ -21,11 +21,11 @@ const projectCards: ProjectCard[] = [
   },
   {
     href: "/picross",
-    title: "Daily Picross",
+    title: "Daily Nonogram",
     description:
-      "Take a break with a little Picross! \n\nCome back every day for a new puzzle!",
+      "Take a break with a little Picros- I mean Nonogram! \n\nCome back every day for a new puzzle!",
     imageSrc: "/dailyPicross.png",
-    imageAlt: "Daily Picross page preview",
+    imageAlt: "Daily Nonogram page preview",
   },
   {
     href: "/playlist",
