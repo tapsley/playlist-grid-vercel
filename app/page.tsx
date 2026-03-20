@@ -20,7 +20,7 @@ const projectCards: ProjectCard[] = [
     imageAlt: "Resume page preview",
   },
   {
-    href: "/picross",
+    href: "/nonogram",
     title: "Daily Nonogram",
     description:
       "Take a break with a little Picros- I mean Nonogram! \n\nCome back every day for a new puzzle!",

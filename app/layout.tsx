@@ -24,7 +24,7 @@ const metadata: Metadata = {
 
 import Header from "./components/Header";
 import SessionProviderClient from "./providers/SessionProviderClient";
-import { PicrossPrefetchProvider } from "./picross/PicrossPrefetchContext";
+import { PicrossPrefetchProvider } from "./nonogram/PicrossPrefetchContext";
 
 export const DarkModeContext = createContext({
   isDarkMode: false,

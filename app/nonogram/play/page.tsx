@@ -474,7 +474,7 @@ function PicrossPlayInner() {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, background: '#cca3ff', minHeight: '100vh', width: '100%' }}>
       <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-start', marginBottom: 8 }}>
         <button
-          onClick={() => router.push("/picross")}
+          onClick={() => router.push("/nonogram")}
           aria-label="Back"
           style={{ background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', color: '#000', fontWeight: 800 }}
         >

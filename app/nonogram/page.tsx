@@ -63,7 +63,7 @@ export default function PicrossSplash() {
         <UserMenu />
       </div>
       <h1 style={{ fontSize: 56, lineHeight: 1, margin: 25, fontWeight: 800, letterSpacing: 1, color: '#111' }}>Daily Nonogram</h1>
-      <div style={{ display: "flex", gap: 40, margin: 50, alignItems: 'flex-end' }}>
+      <div className="difficulty-row">
         {difficulties.map(d => {
           const disabled = d.value !== 'easy' && !isTyler;
           const containerStyle: React.CSSProperties = { border: "3px solid #7c7c7c", borderRadius: 12, background: "#fff", padding: 12, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
@@ -76,7 +76,7 @@ export default function PicrossSplash() {
                 </div>
               ) : (
                 <Link
-                  href={`/picross/play?difficulty=${d.value}`}
+                  href={`/nonogram/play?difficulty=${d.value}`}
                   className="nonogram-difficulty-btn"
                   style={containerStyle}
                   prefetch={true}
@@ -128,6 +128,25 @@ export default function PicrossSplash() {
         </div>
       </div>
       <style jsx>{`
+        .difficulty-row {
+          display: flex;
+          gap: 40px;
+          margin: 50px;
+          align-items: flex-end;
+          flex-wrap: wrap;
+        }
+        @media (max-width: 600px) {
+          .difficulty-row {
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            margin: 24px;
+          }
+          .nonogram-difficulty-btn {
+            width: 100%;
+            max-width: 320px;
+          }
+        }
         .nonogram-difficulty-btn {
           border: 3px solid #7c7c7c;
           transition: border-color 120ms, transform 120ms, box-shadow 120ms;
