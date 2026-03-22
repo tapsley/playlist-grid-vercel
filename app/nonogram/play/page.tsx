@@ -217,15 +217,13 @@ function PicrossPlayInner() {
       const current = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
       const next: CellState[][] = current.map((row: CellState[]) => row.map(v => (Math.max(0, Math.min(3, Math.trunc(Number(v as unknown) || 0))) as CellState)));
       const val = next[r][c] as number;
-      let newVal: number;
-      if (inputMode === 'x') {
-        // X-mode fallback: clicking a filled (1) or X (3) erases; otherwise set X
-        if (val === 1 || val === 3) newVal = 0;
-        else newVal = 3;
-      } else {
-        // cycle 0 -> 1 -> 2 (maybe) -> 3 (X) -> 0
-        newVal = (val + 1) % 4;
-      }
+      let newVal: CellState = 0;
+      if (inputMode === 'fill') {
+        // clicking an X while in fill mode should make it blank (erase), not fill it
+        if (val === 3) newVal = 0;
+        else newVal = ((val + 1) % 4) as CellState;
+      } else if (inputMode === 'maybe') newVal = (val === 2 ? 0 : 2) as CellState;
+      else newVal = (val === 3 ? 0 : 3) as CellState;
       next[r][c] = newVal as CellState;
       return {
         ...prev,
@@ -246,9 +244,12 @@ function PicrossPlayInner() {
       const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (Math.max(0, Math.min(3, Math.trunc(Number(v as unknown) || 0))) as CellState)));
       const currentVal = next[r][c] as number;
       if (action === "fill") {
-        // Fill: set to filled (1). Do not replace an X (3).
-        if (currentVal === 3) return prev;
+        // Fill: set to filled (1). Do NOT overwrite X (3) marks while dragging.
         if (currentVal === 1) return prev;
+        if (currentVal === 3) {
+          // keep Xs untouched during fill drags
+          return prev;
+        }
         next[r][c] = 1;
       } else if (action === "erase") {
         // Erase everything to empty
@@ -637,16 +638,45 @@ function PicrossPlayInner() {
                 const val = (prefetchProgress && prefetchProgress[difficulty] && prefetchProgress[difficulty][r] && prefetchProgress[difficulty][r][c]) ?? 0;
                 // determine action based on current input mode and clicked cell
                 if (inputMode === 'fill') {
-                  pointerActionRef.current = (val === 1 ? 'erase' : 'fill');
+                  if (val === 1) {
+                    // clicking a filled cell toggles to erase
+                    pointerActionRef.current = 'erase';
+                    applyActionToCell(r, c, 'erase');
+                  } else if (val === 3) {
+                    // clicking an X in fill mode should make it blank (erase) for the click,
+                    // but dragging afterwards should act as a normal fill drag (and should NOT overwrite other Xs).
+                    // So perform a one-off erase here, then set drag action to 'fill'.
+                    setPrefetch(prev => {
+                      const cur = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+                      const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (Math.max(0, Math.min(3, Math.trunc(Number(v as unknown) || 0))) as CellState)));
+                      next[r][c] = 0;
+                      return {
+                        ...prev,
+                        progress: {
+                          ...prev.progress,
+                          [difficulty]: next,
+                        },
+                      };
+                    });
+                    pointerActionRef.current = 'fill';
+                  } else {
+                    pointerActionRef.current = 'fill';
+                    applyActionToCell(r, c, 'fill');
+                  }
                 } else if (inputMode === 'x') {
                   // X mode: clicking a filled square should erase it; clicking empty sets X
-                  if (val === 1 || val === 3) pointerActionRef.current = 'erase';
-                  else pointerActionRef.current = 'fillX';
+                  if (val === 1 || val === 3) {
+                    pointerActionRef.current = 'erase';
+                    applyActionToCell(r, c, 'erase');
+                  } else {
+                    pointerActionRef.current = 'fillX';
+                    applyActionToCell(r, c, 'fillX');
+                  }
                 } else {
                   // maybe
                   pointerActionRef.current = (val === 2 ? 'eraseMaybe' : 'fillMaybe');
+                  applyActionToCell(r, c, pointerActionRef.current);
                 }
-                if (pointerActionRef.current) applyActionToCell(r, c, pointerActionRef.current);
               }}
               onPointerEnter={() => {
                 if (cleared) return;
@@ -682,7 +712,7 @@ function PicrossPlayInner() {
               }}
             >
               {!editorMode && ((cell as unknown) as CellState) === 3 && (
-                <div style={{ color: '#c53030', fontWeight: 800, fontSize: 28, lineHeight: '1' }}>✕</div>
+                <div style={{ color: '#c53030', fontWeight: 800, fontSize: 28, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(2px)' }}>✕</div>
               )}
               {!editorMode && ((cell as unknown) as CellState) === 2 && (
                 <div style={{ width: 10, height: 10, borderRadius: 6, background: '#666' }} />

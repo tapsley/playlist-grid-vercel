@@ -36,10 +36,13 @@ export default function DifficultyIcon({ grid, progress, size, celebrate }: Diff
                 {val === 3 && (
                   <text
                     x={c * cellSize + cellSize / 2}
-                    y={r * cellSize + cellSize / 2 + 2}
+                    y={r * cellSize + cellSize / 2}
                     textAnchor="middle"
+                    dominantBaseline="middle"
                     fontSize={cellSize * 0.7}
                     fill="#c00"
+                    style={{ fontWeight: 800 }}
+                    transform={`translate(0,2)`}
                   >
                     ✕
                   </text>
@@ -74,7 +77,7 @@ export default function DifficultyIcon({ grid, progress, size, celebrate }: Diff
             <g key={`${r}-${c}`}>
               <rect x={c} y={r} width={1} height={1} fill={fill} stroke="#888" strokeWidth={0.05} rx={0.12} />
               {val === 3 && (
-                <text x={c + 0.5} y={r + 0.6} textAnchor="middle" fontSize={0.7} fill="#c00" style={{ fontWeight: 800 }}>✕</text>
+                <text x={c + 0.5} y={r + 0.5} textAnchor="middle" dominantBaseline="middle" fontSize={0.7} fill="#c00" style={{ fontWeight: 800 }} transform={`translate(0,0.08)`}>✕</text>
               )}
               {val === 2 && (
                 <circle cx={c + 0.5} cy={r + 0.5} r={0.12} fill="#666" />

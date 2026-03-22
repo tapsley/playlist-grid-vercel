@@ -151,6 +151,42 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
   useEffect(() => {
     // always fetch puzzles on mount and when session email changes; fetchPrefetch
     // will only attempt to fetch progress when an email exists.
+    try {
+      // minimal approach: check a last-loaded date saved in localStorage and
+      // clear any prior progress if the date changed since last load. This
+      // avoids interval timers and only resets when the app mounts or when
+      // session email changes.
+      const today = new Date().toISOString().slice(0, 10);
+      const last = window.localStorage.getItem('picross:lastLoadedDate');
+      if (last !== today) {
+        // clear previous-day progress so users start fresh each day
+        setPrefetchState(prev => ({ puzzle: prev.puzzle, progress: {} }));
+        try { window.localStorage.setItem('picross:lastLoadedDate', today); } catch {}
+
+        // Also clear server-side progress for today for logged-in users so
+        // the server doesn't carry over any stale progress. We POST empty
+        // grids for each difficulty; the API will upsert the row.
+        if (session?.user?.email) {
+          (async () => {
+            try {
+              const defaultEasy = Array(5).fill(0).map(() => Array(5).fill(0));
+              const defaultMedium = Array(10).fill(0).map(() => Array(10).fill(0));
+              const defaultHard = Array(15).fill(0).map(() => Array(15).fill(0));
+              await fetch('/api/picross/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: today, easy: defaultEasy, medium: defaultMedium, hard: defaultHard, easyComplete: false, mediumComplete: false, hardComplete: false }),
+              });
+            } catch (err) {
+              // ignore server clear failures
+              console.debug('clear server-side progress failed', err);
+            }
+          })();
+        }
+      }
+    } catch {
+      // ignore localStorage errors
+    }
     fetchPrefetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.email]);
