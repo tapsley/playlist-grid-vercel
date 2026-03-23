@@ -59,8 +59,13 @@ export default function PicrossSplash() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%' }}>
-      <div style={{ position: "absolute", top: 16, right: 24 }}>
+      <div style={{ position: "absolute", top: 16, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         <UserMenu />
+        {!session && (
+          <div style={{ width: 110, marginTop: 6, fontSize: 12, color: '#333', opacity: 0.9 }}>
+            Sign in to save your progress and stats!
+          </div>
+        )}
       </div>
       <h1 style={{ fontSize: 56, lineHeight: 1, margin: 25, fontWeight: 800, letterSpacing: 1, color: '#111' }}>Daily Nonogram</h1>
       <div className="difficulty-row">
