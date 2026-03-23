@@ -115,7 +115,7 @@ export default function PicrossSplash() {
               <b>Happy Solving!</b>
             </p>
           </div>
-          <div style={{ flex: '0 0 400px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: '0 0 350px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ width: '100%', marginTop: 12 }}>
               <img src="/demoNonogram.gif" alt="Demo Nonogram" style={{ width: '100%', borderRadius: 8 }} />
             </div>
