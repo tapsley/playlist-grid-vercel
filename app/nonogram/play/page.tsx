@@ -92,11 +92,26 @@ function PicrossPlayInner() {
   const dateStr = new Date().toISOString().slice(0, 10);
   const formattedDate = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
-  // Layout constants: keep grid cells the same, reduce number regions
-  const CELL_PX = 40; // size of a single grid cell (px)
-  const LEFT_PX = 80; // slightly larger left clue width (matches top clue area)
-  const CLUE_FONT_PX = 18; // slightly larger clue font for readability
+  // Layout constants: responsive cell size so the full grid can fit on small devices
+  const BASE_LEFT_PX = 0; // base left/top clue area (px)
+  const [cellPx, setCellPx] = useState<number>(0);
+  const CLUE_FONT_PX = Math.max(12, Math.round(cellPx * 0.45));
   const DEFAULT_FONT = '"Courier New", monospace';
+
+  // fixed gap sizes per difficulty for clue number spacing
+  const GAP_SIZES: Record<string, number> = { easy: 15, medium: 11, hard: 7 };
+  const clueGap = GAP_SIZES[difficulty] ?? 11;
+
+  // Fixed clue-area sizes per difficulty: keep three tunable values only.
+  const CLUE_AREA_SIZES: Record<string, { left: number; top: number }> = {
+    easy: { left: 90, top: 90 },
+    medium: { left: 100, top: 100 },
+    hard: { left: 125, top: 125 },
+  };
+  const { left: leftWidth, top: topHeight } = CLUE_AREA_SIZES[difficulty] ?? CLUE_AREA_SIZES.medium;
+
+  // Divider styling: easy to change color/width for the mid-grid highlight
+  const DIVIDER_COLOR = '#00eb27';
 
   // Use email as identifier for session
   const userIsLoggedIn = !!session?.user?.email;
@@ -471,9 +486,33 @@ function PicrossPlayInner() {
   const [fontFamily] = useState<string>(DEFAULT_FONT);
   const fontWeight = 700;
 
+  // Compute a responsive `cellPx` so the entire grid (including clue areas)
+  // fits inside the viewport on small devices. We reserve `slots` clue
+  // columns/rows (fixed to up to 5) and compute cellPx from the available
+  // viewport so the user cannot scroll the play screen.
+  useEffect(() => {
+    const calc = () => {
+      try {
+        const slots = Math.min(5, size);
+        const denom = size + slots; // total slots horizontally/vertically consumed by grid+clues
+        const marginW = 32; // page padding
+        const marginH = 140; // header + controls area reserved vertically
+        const cellPxW = Math.floor((window.innerWidth - marginW) / denom);
+        const cellPxH = Math.floor((window.innerHeight - marginH) / denom);
+        const px = Math.max(16, Math.min(40, Math.max(8, Math.min(cellPxW, cellPxH))));
+        setCellPx(px);
+      } catch {
+        setCellPx(40);
+      }
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, [size]);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, background: '#cca3ff', minHeight: '100vh', width: '100%' }}>
-      <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-start', marginBottom: 8 }}>
+    <div style={{ position: 'fixed', inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 132 }}>
+      <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-start', zIndex: 30 }}>
         <button
           onClick={() => router.push("/nonogram")}
           aria-label="Back"
@@ -482,85 +521,73 @@ function PicrossPlayInner() {
           ❮
         </button>
         <h2 style={{ margin: 5, paddingLeft: 20, fontFamily: "Courier", fontWeight:"600", fontSize:25}}>{formattedDate}</h2>
-      </div>
-      {isEditorAllowed && (
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            <input
-              type="checkbox"
-              checked={editorMode}
-              onChange={e => {
-                const checked = e.target.checked;
-                setEditorMode(checked);
-                if (checked) {
-                  setEditorPuzzle((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
-                  // find soonest free date for this difficulty
-                  (async () => {
-                    if (findNextAbort.current) {
-                      try { findNextAbort.current.abort(); } catch {}
-                    }
-                    const ac = new AbortController();
-                    findNextAbort.current = ac;
-                    try {
-                      const today = new Date();
-                      for (let i = 0; i < 365; i++) {
-                        const d = new Date(today);
-                        d.setDate(today.getDate() + i);
-                        const ds = d.toISOString().slice(0, 10);
-                        const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
-                        if (res.status === 404) {
-                          // empty day found — show a blank editor grid for this difficulty
-                          setEditorPuzzle(getDefaultPuzzle(size));
-                          setSaveDate(ds);
-                          findNextAbort.current = null;
-                          return;
-                        }
-                        if (res.ok) {
-                          const json = await res.json();
-                          const entry = json?.[difficulty];
-                          if (isPuzzleEmpty(entry)) {
+      
+        {isEditorAllowed && (
+          <div style={{ marginBottom: 12 }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={editorMode}
+                onChange={e => {
+                  const checked = e.target.checked;
+                  setEditorMode(checked);
+                  if (checked) {
+                    setEditorPuzzle((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
+                    // find soonest free date for this difficulty
+                    (async () => {
+                      if (findNextAbort.current) {
+                        try { findNextAbort.current.abort(); } catch {}
+                      }
+                      const ac = new AbortController();
+                      findNextAbort.current = ac;
+                      try {
+                        const today = new Date();
+                        for (let i = 0; i < 365; i++) {
+                          const d = new Date(today);
+                          d.setDate(today.getDate() + i);
+                          const ds = d.toISOString().slice(0, 10);
+                          const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
+                          if (res.status === 404) {
+                            // empty day found — show a blank editor grid for this difficulty
                             setEditorPuzzle(getDefaultPuzzle(size));
                             setSaveDate(ds);
                             findNextAbort.current = null;
                             return;
                           }
+                          if (res.ok) {
+                            const json = await res.json();
+                            const entry = json?.[difficulty];
+                            if (isPuzzleEmpty(entry)) {
+                              setEditorPuzzle(getDefaultPuzzle(size));
+                              setSaveDate(ds);
+                              findNextAbort.current = null;
+                              return;
+                            }
+                          }
                         }
+                        // fallback to today if none found
+                        setSaveDate(today.toISOString().slice(0, 10));
+                      } catch (err) {
+                        const maybe = err as { name?: string } | undefined;
+                        if (maybe && maybe.name === "AbortError") return;
+                        console.debug('findNextFreeDate error', err);
+                      } finally {
+                        findNextAbort.current = null;
                       }
-                      // fallback to today if none found
-                      setSaveDate(today.toISOString().slice(0, 10));
-                    } catch (err) {
-                      const maybe = err as { name?: string } | undefined;
-                      if (maybe && maybe.name === "AbortError") return;
-                      console.debug('findNextFreeDate error', err);
-                    } finally {
-                      findNextAbort.current = null;
-                    }
-                  })();
-                } else {
-                  setEditorPuzzle(null);
-                  setSaveDate("");
-                  if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} }
-                }
-              }}
-            />
-            Editor Mode
-          </label>
-        </div>
-      )}
-      {editorMode && (
-        <div style={{ marginBottom: 16 }}>
-          <button onClick={handleClearEditor} style={dangerBtnStyle}>Clear</button>
-          <button onClick={handlePrevDate} style={{ ...baseBtnStyle, marginRight: 8 }}>Previous</button>
-          <input
-            type="date"
-            value={saveDate}
-            onChange={e => setSaveDate(e.target.value)}
-            style={{ marginRight: 8 }}
-          />
-          <button onClick={handleNextDate} style={{ ...baseBtnStyle, marginRight: 8 }}>Next</button>
-          <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle, marginRight: 8 }}>Save Puzzle</button>
-        </div>
-      )}
+                    })();
+                  } else {
+                    setEditorPuzzle(null);
+                    setSaveDate("");
+                    if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} }
+                  }
+                }}
+              />
+              Editor Mode
+            </label>
+          </div>
+        )}
+      </div>
+      {/* editor menu moved to bottom controls area */}
       {/* cleared message removed; celebratory text will appear at bottom during celebration */}
       <div onPointerMove={e => {
         if (cleared) return;
@@ -587,13 +614,16 @@ function PicrossPlayInner() {
         }
       }} style={{ touchAction: 'none', fontFamily: fontFamily, fontWeight: fontWeight }}>
         <div style={{ display: "flex" }}>
-          <div style={{ width: LEFT_PX }} />
+          <div style={{ width: leftWidth }} />
           {colClues.map((clue, i) => {
             const runs = getRunsForCol(i);
             return (
-              <div key={i} style={{ width: CELL_PX, minHeight: LEFT_PX, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', fontSize: CLUE_FONT_PX, marginBottom: 0, paddingBottom: 2, background: (i % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
+              <div key={i} style={{ width: cellPx, minHeight: topHeight, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', fontSize: CLUE_FONT_PX, marginBottom: 0, paddingBottom: 2, background: (i % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
                 {clue.map((n, j) => {
-                  const fulfilled = typeof runs[j] !== 'undefined' && runs[j] === n;
+                  // For a 0 clue: show as gray when there are no filled cells in the column,
+                  // and dark if any filled cell exists (indicates an incorrect fill).
+                  const anyFilledInCol = getRunsForCol(i).length > 0;
+                  const fulfilled = n === 0 ? !anyFilledInCol : (runs.length === clue.length && typeof runs[j] !== 'undefined' && runs[j] === n);
                   return <div key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</div>;
                 })}
               </div>
@@ -602,10 +632,11 @@ function PicrossPlayInner() {
         </div>
         {(editorMode ? puzzle : grid).map((row: (boolean[] | CellState[]), r: number) => (
           <div key={r} style={{ display: "flex" }}>
-            <div style={{ width: LEFT_PX, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{rowClues[r].map((n: number, j: number) => {
+            <div style={{ width: leftWidth, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
+              <div style={{ display: 'flex', gap: clueGap, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{rowClues[r].map((n: number, j: number) => {
                 const runs = getRunsForRow(r);
-                const fulfilled = typeof runs[j] !== 'undefined' && runs[j] === n;
+                const anyFilledInRow = runs.length > 0;
+                const fulfilled = n === 0 ? !anyFilledInRow : (runs.length === rowClues[r].length && typeof runs[j] !== 'undefined' && runs[j] === n);
                 return <span key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</span>;
               })}</div>
             </div>
@@ -698,7 +729,17 @@ function PicrossPlayInner() {
               }}
               onContextMenu={e => e.preventDefault()}
               style={{
-                width: CELL_PX, height: CELL_PX, border: "1px solid #888", display: "flex", alignItems: "center", justifyContent: "center",
+                width: cellPx, height: cellPx, display: "flex", alignItems: "center", justifyContent: "center",
+                borderStyle: 'solid', borderWidth: 1, borderColor: '#888',
+                // mid/grid divider highlights: keep default 1px grid lines and bump the relevant side to a thicker green
+                borderRightWidth: 1,
+                borderRightColor: ((size >= 10 && c === 4) || (size === 15 && c === 9)) ? DIVIDER_COLOR : '#888',
+                borderLeftWidth: 1,
+                borderLeftColor: ((size >= 10 && c === 5) || (size === 15 && c === 10)) ? DIVIDER_COLOR : '#888',
+                borderBottomWidth: 1,
+                borderBottomColor: ((size >= 10 && r === 4) || (size === 15 && r === 9)) ? DIVIDER_COLOR : '#888',
+                borderTopWidth: 1,
+                borderTopColor: ((size >= 10 && r === 5) || (size === 15 && r === 10)) ? DIVIDER_COLOR : '#888',
                 background: (() => {
                   // celebration override: if celebrateGrid marks this cell, show gold
                   if (celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c]) return '#d4af37';
@@ -708,14 +749,14 @@ function PicrossPlayInner() {
                   if (val === 2) return '#f0f0f0';
                   return '#fff';
                 })(),
-                cursor: "pointer", fontSize: 24, userSelect: "none", touchAction: 'none'
+                cursor: "pointer", fontSize: Math.max(12, Math.round(cellPx * 0.65)), userSelect: "none", touchAction: 'none'
               }}
             >
               {!editorMode && ((cell as unknown) as CellState) === 3 && (
-                <div style={{ color: '#c53030', fontWeight: 800, fontSize: 28, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(2px)' }}>✕</div>
+                <div style={{ color: '#c53030', fontWeight: 800, fontSize: Math.round(cellPx * 0.7), lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(2px)' }}>✕</div>
               )}
               {!editorMode && ((cell as unknown) as CellState) === 2 && (
-                <div style={{ width: 10, height: 10, borderRadius: 6, background: '#666' }} />
+                <div style={{ width: Math.max(6, Math.round(cellPx * 0.25)), height: Math.max(6, Math.round(cellPx * 0.25)), borderRadius: 6, background: '#666' }} />
               )}
               {celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c] && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }} />
@@ -732,42 +773,52 @@ function PicrossPlayInner() {
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: 18, width: '100%', display: 'flex', justifyContent: 'center', gap: 12 }}>
-          {(["fill", "maybe", "x"] as const).map(m => {
-            let icon: React.ReactNode = null;
-            const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' };
-            if (m === 'fill') {
-              icon = <div style={{ ...iconBox, background: '#222', borderRadius: 2 }} />;
-            } else if (m === 'maybe') {
-              icon = (
-                <div style={iconBox}>
-                  <div style={{ width: 8, height: 8, borderRadius: 6, background: '#666' }} />
-                </div>
+        <div style={{ marginTop: 15, width: '100%', display: 'flex', justifyContent: 'center', gap: 12 }}>
+          {editorMode ? (
+            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+              <button onClick={handleClearEditor} style={dangerBtnStyle}>Clear</button>
+              <button onClick={handlePrevDate} style={{ ...baseBtnStyle }}>Previous</button>
+              <button onClick={handleNextDate} style={{ ...baseBtnStyle }}>Next</button>
+              <input type="date" value={saveDate} onChange={e => setSaveDate(e.target.value)} style={{ marginLeft: 8, marginRight: 8 }} />
+              <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle }}>Save</button>
+            </div>
+          ) : (
+            (["fill", "maybe", "x"] as const).map(m => {
+              let icon: React.ReactNode = null;
+              const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+              if (m === 'fill') {
+                icon = <div style={{ ...iconBox, background: '#222', borderRadius: 2 }} />;
+              } else if (m === 'maybe') {
+                icon = (
+                  <div style={iconBox}>
+                    <div style={{ width: 8, height: 8, borderRadius: 6, background: '#666' }} />
+                  </div>
+                );
+              } else {
+                icon = <div style={{ ...iconBox, color: '#c53030', fontWeight: 800, fontSize: 16 }}>✕</div>;
+              }
+              const label = m === 'fill' ? 'Fill' : m === 'maybe' ? 'Maybe' : 'X';
+              const isSelected = inputMode === m;
+              const isHovered = hoveredMode === m;
+              const style: React.CSSProperties = { ...baseBtnStyle, minWidth: 56, textAlign: 'center' };
+              if (isSelected) Object.assign(style, selectedBtnStyle);
+              else if (isHovered) Object.assign(style, hoverBtnStyle);
+              return (
+                <button
+                  key={m}
+                  onClick={() => setInputMode(m)}
+                  onMouseEnter={() => setHoveredMode(m)}
+                  onMouseLeave={() => setHoveredMode(null)}
+                  style={style}
+                  aria-label={label}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {icon}
+                  </div>
+                </button>
               );
-            } else {
-              icon = <div style={{ ...iconBox, color: '#c53030', fontWeight: 800, fontSize: 16 }}>✕</div>;
-            }
-            const label = m === 'fill' ? 'Fill' : m === 'maybe' ? 'Maybe' : 'X';
-            const isSelected = inputMode === m;
-            const isHovered = hoveredMode === m;
-            const style: React.CSSProperties = { ...baseBtnStyle, minWidth: 56, textAlign: 'center' };
-            if (isSelected) Object.assign(style, selectedBtnStyle);
-            else if (isHovered) Object.assign(style, hoverBtnStyle);
-            return (
-              <button
-                key={m}
-                onClick={() => setInputMode(m)}
-                onMouseEnter={() => setHoveredMode(m)}
-                onMouseLeave={() => setHoveredMode(null)}
-                style={style}
-                aria-label={label}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {icon}
-                </div>
-              </button>
-            );
-          })}
+            })
+          )}
         </div>
       )}
     </div>

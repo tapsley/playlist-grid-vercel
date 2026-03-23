@@ -65,7 +65,7 @@ export default function PicrossSplash() {
       <h1 style={{ fontSize: 56, lineHeight: 1, margin: 25, fontWeight: 800, letterSpacing: 1, color: '#111' }}>Daily Nonogram</h1>
       <div className="difficulty-row">
         {difficulties.map(d => {
-          const disabled = d.value !== 'easy' && !isTyler;
+          const disabled = d.value === 'hard' && !isTyler;
           const containerStyle: React.CSSProperties = { border: "3px solid #7c7c7c", borderRadius: 12, background: "#fff", padding: 12, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
           return (
             <div key={d.value} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -94,35 +94,25 @@ export default function PicrossSplash() {
         <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 420px', minWidth: 260 }}>
             <p style={{ marginTop: 0, marginBottom: 12, color: '#333' }}>
-              Solve the puzzle by filling the correct squares so the pattern matches the hidden picture.
-              Numbers on the left and top tell you how many filled squares appear in each row and column,
-              and in what order. For example, “3 1” means a run of 3 filled squares, then at least one empty, then a single filled square.
+              Solve the puzzle by filling the correct squares to reveal the hidden picture.
+              <br /><br />
+              <b>The numbers on the left and top tell you how many filled squares appear in each row and column,
+              and in what order.</b> 
+              <br/><br/>
+              For example, “3 1” means 3 filled squares in a row, then at least one empty square, and then a single filled square. There may be gaps before or after.
             </p>
-            <ol style={{ paddingLeft: 18, marginTop: 0, color: '#333' }}>
-              <li><strong>Fill:</strong> Tap or click a cell to mark it filled.</li>
-              <li><strong>Maybe:</strong> Use the bottom toolbar to mark a cell as Maybe when you're unsure.</li>
-              <li><strong>Mark X:</strong> Mark a cell with X to indicate it should remain empty.</li>
-              <li><strong>Drag:</strong> Hold and drag to fill many cells quickly.</li>
-            </ol>
+            <br/>
             <p style={{ marginTop: 12, color: '#333' }}>
-              Hints: start with rows/columns that have large numbers or few gaps. Use Maybe and X marks to keep track of possibilities.
+              <b>Hint:</b> Start with rows/columns that have large numbers or few gaps. Use X to mark empty squares and aid in your deduction.
+            </p>
+            <br/>
+            <p style={{ marginTop: 12, color: '#333' }}>
+              <b>Happy Solving!</b>
             </p>
           </div>
-          <div style={{ flex: '0 0 260px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ width: 92, height: 92, background: '#f8f8f8', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="56" height="56" viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
-                <rect x="0.6" y="0.6" width="2.8" height="2.8" fill="#222" rx="0.2" />
-              </svg>
-            </div>
-            <div style={{ width: 92, height: 92, background: '#f8f8f8', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="56" height="56" viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="2" cy="2" r="0.6" fill="#666" />
-              </svg>
-            </div>
-            <div style={{ width: 92, height: 92, background: '#f8f8f8', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="56" height="56" viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">
-                <text x="2" y="2.6" textAnchor="middle" fontSize="2.8" fontWeight="700" fill="#c00">✕</text>
-              </svg>
+          <div style={{ flex: '0 0 400px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ width: '100%', marginTop: 12 }}>
+              <img src="/demoNonogram.gif" alt="Demo Nonogram" style={{ width: '100%', borderRadius: 8 }} />
             </div>
           </div>
         </div>
