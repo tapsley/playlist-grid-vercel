@@ -40,7 +40,7 @@ export default function UserMenu() {
 function UserMenuWithStats({ session }: { session: any }) {
   const [showStats, setShowStats] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<{ easy: number; medium: number; hard: number } | null>(null);
+  const [stats, setStats] = useState<any | null>(null);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -98,11 +98,28 @@ function UserMenuWithStats({ session }: { session: any }) {
           </div>
           {loading && <div>Loading…</div>}
           {!loading && stats && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div><strong>Easy</strong>: {stats.easy}</div>
-              <div><strong>Medium</strong>: {stats.medium}</div>
-              <div><strong>Hard</strong>: {stats.hard}</div>
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div><strong>Easy</strong>: {stats.easy}</div>
+                  <div><strong>Medium</strong>: {stats.medium}</div>
+                  <div><strong>Hard</strong>: {stats.hard}</div>
+                  {stats.admin && (
+                    <>
+                      <hr />
+                      <div><strong>Today (all users)</strong>: {stats.admin.today.total}</div>
+                      <div style={{ fontSize: 12, color: '#444' }}>Easy: {stats.admin.today.easy} • Medium: {stats.admin.today.medium} • Hard: {stats.admin.today.hard}</div>
+                      <div style={{ marginTop: 8 }}><strong>All time (all users)</strong>: {stats.admin.allTime.total}</div>
+                      <div style={{ fontSize: 12, color: '#444' }}>Easy: {stats.admin.allTime.easy} • Medium: {stats.admin.allTime.medium} • Hard: {stats.admin.allTime.hard}</div>
+                      <div style={{ marginTop: 8 }}>
+                        <strong>Last 7 days</strong>
+                        <div style={{ maxHeight: 120, overflowY: 'auto', marginTop: 6 }}>
+                          {stats.admin.perDate.map((d: any) => (
+                            <div key={d.date} style={{ fontSize: 12 }}><strong>{d.date}</strong>: {d.total} (E:{d.easy} M:{d.medium} H:{d.hard})</div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
           )}
           {!loading && !stats && <div>No data</div>}
         </div>
