@@ -68,6 +68,7 @@ export default function PicrossSplash() {
         )}
       </div>
       <h1 style={{ fontSize: 56, lineHeight: 1, margin: 25, fontWeight: 800, letterSpacing: 1, color: '#111' }}>Daily Nonogram</h1>
+      <div style={{ fontSize: 14, marginTop: -8, marginBottom: 12, color: '#111', opacity: 0.9 }}>All puzzles designed by Tyler Apsley</div>
       <div className="difficulty-row">
         {difficulties.map(d => {
           const disabled = d.value === 'hard' && !isTyler;
@@ -128,7 +129,10 @@ export default function PicrossSplash() {
           gap: 40px;
           margin: 50px;
           align-items: flex-end;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          justify-content: center;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
         @media (max-width: 600px) {
           .difficulty-row {
@@ -145,6 +149,7 @@ export default function PicrossSplash() {
         .nonogram-difficulty-btn {
           border: 3px solid #7c7c7c;
           transition: border-color 120ms, transform 120ms, box-shadow 120ms;
+          min-width: 160px;
         }
         .nonogram-difficulty-btn:not(.disabled):hover {
           border: 3px solid #0070f3 !important;
