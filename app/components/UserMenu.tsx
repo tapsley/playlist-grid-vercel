@@ -6,60 +6,60 @@ import { useState } from "react";
 export default function UserMenu() {
   const { data: session, status } = useSession();
 
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleAuthSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+
+    if (authMode === "signup") {
+      try {
+        const signupRes = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const signupBody = await signupRes.json().catch(() => ({}));
+        if (!signupRes.ok) {
+          setIsSubmitting(false);
+          setError(signupBody.error || "Could not create account");
+          return;
+        }
+      } catch (err) {
+        setIsSubmitting(false);
+        setError("Could not create account");
+        return;
+      }
+    }
+
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+    setIsSubmitting(false);
+
+    if (!result || (result as any).error) {
+      setError(authMode === "signup" ? "Account created, but sign-in failed" : "Invalid email or password");
+      return;
+    }
+
+    setShowAuthModal(false);
+  }
+
+  function handleGoogleSignIn() {
+    signIn("google");
+  }
+
   if (status === "loading") return <div style={{ minWidth: 140, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>Loading...</div>;
 
   if (!session) {
-    const [showAuthModal, setShowAuthModal] = useState(false);
-    const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    async function handleAuthSubmit(e: React.FormEvent<HTMLFormElement>) {
-      e.preventDefault();
-      setError("");
-      setIsSubmitting(true);
-
-      if (authMode === "signup") {
-        try {
-          const signupRes = await fetch("/api/auth/signup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
-          });
-          const signupBody = await signupRes.json().catch(() => ({}));
-          if (!signupRes.ok) {
-            setIsSubmitting(false);
-            setError(signupBody.error || "Could not create account");
-            return;
-          }
-        } catch (err) {
-          setIsSubmitting(false);
-          setError("Could not create account");
-          return;
-        }
-      }
-
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-      setIsSubmitting(false);
-
-      if (!result || result.error) {
-        setError(authMode === "signup" ? "Account created, but sign-in failed" : "Invalid email or password");
-        return;
-      }
-
-      setShowAuthModal(false);
-    }
-
-    function handleGoogleSignIn() {
-      signIn("google");
-    }
-
     return (
       <>
         <button
