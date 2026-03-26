@@ -13,7 +13,19 @@ export async function GET(req: NextRequest) {
   const medium = await prisma.picrossProgress.count({ where: { userId: session.user.id, mediumComplete: true } });
   const hard = await prisma.picrossProgress.count({ where: { userId: session.user.id, hardComplete: true } });
 
-  const base = { easy, medium, hard };
+  const statsRecord = await prisma.picrossStats.findUnique({ where: { userId: session.user.id } });
+  const fastest = {
+    easy: statsRecord?.fastestEasy ?? null,
+    medium: statsRecord?.fastestMedium ?? null,
+    hard: statsRecord?.fastestHard ?? null,
+  };
+  const solvedFromStats = {
+    easy: statsRecord?.solvedEasy ?? null,
+    medium: statsRecord?.solvedMedium ?? null,
+    hard: statsRecord?.solvedHard ?? null,
+  };
+
+  const base = { easy, medium, hard, fastest, solvedFromStats };
 
   // Admin/owner extra stats for Tyler
   const email = (session.user?.email || '').toString().toLowerCase();

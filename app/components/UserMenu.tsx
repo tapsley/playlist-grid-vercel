@@ -148,6 +148,13 @@ function UserMenuWithStats({ session }: { session: any }) {
     }
   };
 
+  const fmt = (s: number | null | undefined) => {
+    if (!s && s !== 0) return '—';
+    const mm = Math.floor((s as number) / 60).toString().padStart(2, '0');
+    const ss = Math.floor((s as number) % 60).toString().padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#23272f", borderRadius: 8, padding: "4px 8px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", position: 'relative' }}>
       {session.user?.image && (
@@ -190,8 +197,11 @@ function UserMenuWithStats({ session }: { session: any }) {
           {!loading && stats && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div><strong>Easy</strong>: {stats.easy}</div>
+                  <div style={{ fontSize: 12, color: '#444' }}>Best: {fmt(stats.fastest?.easy)}</div>
                   <div><strong>Medium</strong>: {stats.medium}</div>
+                  <div style={{ fontSize: 12, color: '#444' }}>Best: {fmt(stats.fastest?.medium)}</div>
                   <div><strong>Hard</strong>: {stats.hard}</div>
+                  <div style={{ fontSize: 12, color: '#444' }}>Best: {fmt(stats.fastest?.hard)}</div>
                   {stats.admin && (
                     <>
                       <hr />

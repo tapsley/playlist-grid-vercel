@@ -67,13 +67,21 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
 
       // If user is not logged in, persist progress changes to localStorage for current date
       try {
-        const email = session?.user?.email || null;
-        if (!email && patch.progress) {
+        // Persist a local copy of progress for both anonymous and logged-in users
+        // so the UI can load quickly from localStorage while server sync occurs.
+        if (patch.progress) {
           const dateKey = currentDateRef.current ?? new Date().toISOString().slice(0, 10);
           for (const k of Object.keys(patch.progress)) {
             const key = `picross:progress:${dateKey}:${k}`;
             try {
-              const payload = { grid: next.progress[k] };
+              const payload: any = { grid: next.progress[k] };
+              try {
+                const existing = window.localStorage.getItem(key);
+                if (existing) {
+                  const parsed = JSON.parse(existing) as { seconds?: number } | null;
+                  if (parsed && typeof parsed.seconds === 'number') payload.seconds = parsed.seconds;
+                }
+              } catch {}
               window.localStorage.setItem(key, JSON.stringify(payload));
             } catch (err) {
               // ignore localStorage failures

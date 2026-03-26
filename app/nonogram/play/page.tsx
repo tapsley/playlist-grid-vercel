@@ -152,6 +152,259 @@ function PicrossPlayInner() {
   const [celebrateGrid, setCelebrateGrid] = useState<boolean[][] | null>(null);
   const celebrationTimeouts = useRef<number[]>([]);
 
+  // Timer state: track cumulative seconds for this date+difficulty and whether timer is running
+  // Initialize from localStorage synchronously so the UI doesn't flash 00:00.
+  const [elapsedSec, setElapsedSec] = useState<number>(() => {
+    try {
+      if (typeof window === 'undefined') return 0;
+      const key = `picross:seconds:${dateStr}:${difficulty}`;
+      const raw = window.localStorage.getItem(key);
+      if (raw) return Number(raw) || 0;
+      const pKey = `picross:progress:${dateStr}:${difficulty}`;
+      const pRaw = window.localStorage.getItem(pKey);
+      if (pRaw) {
+        const parsed = JSON.parse(pRaw) as { seconds?: number } | null;
+        const sec = Number(parsed?.seconds ?? 0) || 0;
+        if (sec) return sec;
+      }
+    } catch {
+      // ignore
+    }
+    return 0;
+  });
+  const timerRef = useRef<number | null>(null);
+  const saveTimerDebounce = useRef<number | null>(null);
+
+  const formatSec = (s: number) => {
+    const mm = Math.floor(s / 60).toString().padStart(2, '0');
+    const ss = Math.floor(s % 60).toString().padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
+
+  // Load initial seconds for this date/difficulty (server or localStorage)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (userIsLoggedIn) {
+          const res = await fetch(`/api/picross/progress?date=${dateStr}`);
+          if (res.ok) {
+            const json = await res.json();
+            // progress row may include easySeconds / mediumSeconds / hardSeconds
+            const secKey = difficulty === 'easy' ? 'easySeconds' : difficulty === 'medium' ? 'mediumSeconds' : 'hardSeconds';
+            const val = Number(json?.[secKey] ?? 0) || 0;
+            if (mounted) setElapsedSec(val);
+          }
+        } else {
+          try {
+            const key = `picross:seconds:${dateStr}:${difficulty}`;
+            const raw = window.localStorage.getItem(key);
+            if (raw) {
+              const n = Number(raw) || 0;
+              if (mounted) setElapsedSec(n);
+            } else {
+              // Also check for seconds stored alongside progress payload
+              try {
+                const pKey = `picross:progress:${dateStr}:${difficulty}`;
+                const pRaw = window.localStorage.getItem(pKey);
+                if (pRaw) {
+                  console.debug('picross:found progress payload while loading seconds', pKey, pRaw);
+                  const parsed = JSON.parse(pRaw) as { grid?: number[][]; seconds?: number } | null;
+                  const sec = Number(parsed?.seconds ?? 0) || 0;
+                  console.debug('picross:loaded seconds from progress payload', pKey, sec, parsed?.seconds);
+                  if (sec && mounted) setElapsedSec(sec);
+                }
+              } catch {}
+            }
+          } catch {}
+        }
+      } catch (err) {
+        console.debug('load seconds err', err);
+      }
+    })();
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [difficulty, dateStr, userIsLoggedIn]);
+
+  // Start timer on mount (and resume) unless puzzle already cleared or in editorMode
+  useEffect(() => {
+    if (editorMode) return;
+    if (cleared) return;
+    if (timerRef.current) return;
+    timerRef.current = window.setInterval(() => setElapsedSec(s => s + 1) as unknown as number, 1000) as unknown as number;
+    return () => {
+      if (timerRef.current) { window.clearInterval(timerRef.current as unknown as number); timerRef.current = null; }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorMode, cleared]);
+
+  // Persist seconds periodically and on unmount
+  useEffect(() => {
+    // debounce save every 5s
+    if (saveTimerDebounce.current) clearTimeout(saveTimerDebounce.current);
+    saveTimerDebounce.current = window.setTimeout(async () => {
+      try {
+        // Persist seconds periodically for logged-in users (server), and
+        // also write a local copy for quick performance.
+        if (userIsLoggedIn) {
+          const body: any = { date: dateStr };
+          if (difficulty === 'easy') body.easySeconds = elapsedSec;
+          if (difficulty === 'medium') body.mediumSeconds = elapsedSec;
+          if (difficulty === 'hard') body.hardSeconds = elapsedSec;
+          try {
+            await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          } catch (err) {
+            console.debug('picross:periodic server save failed', err);
+          }
+          try {
+            const key = `picross:seconds:${dateStr}:${difficulty}`;
+            window.localStorage.setItem(key, String(elapsedSec));
+            const pKey = `picross:progress:${dateStr}:${difficulty}`;
+            const payload = { grid, complete: cleared, seconds: elapsedSec };
+            window.localStorage.setItem(pKey, JSON.stringify(payload));
+          } catch (err) {
+            console.debug('picross:periodic local save err', err);
+          }
+        }
+      } catch (err) {
+        console.debug('save seconds err', err);
+      }
+    }, 5000) as unknown as number;
+    return () => { if (saveTimerDebounce.current) clearTimeout(saveTimerDebounce.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsedSec, difficulty, dateStr, userIsLoggedIn]);
+
+  // Save immediately (used on visibilitychange/unload) to avoid losing recent seconds
+  const saveSecondsNow = async () => {
+    try {
+      if (userIsLoggedIn) {
+        const body: any = { date: dateStr };
+        if (difficulty === 'easy') body.easySeconds = elapsedSec;
+        if (difficulty === 'medium') body.mediumSeconds = elapsedSec;
+        if (difficulty === 'hard') body.hardSeconds = elapsedSec;
+        // don't await too long; fire-and-forget but attempt to complete
+        try {
+          await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        } catch (err) {
+          console.debug('picross:saveSecondsNow server POST failed', err);
+        }
+        // Also persist locally for fast reload
+        try {
+          const key = `picross:seconds:${dateStr}:${difficulty}`;
+          window.localStorage.setItem(key, String(elapsedSec));
+          const pKey = `picross:progress:${dateStr}:${difficulty}`;
+          const payload = { grid, complete: cleared, seconds: elapsedSec };
+          window.localStorage.setItem(pKey, JSON.stringify(payload));
+        } catch (err) {
+          console.debug('picross:saveSecondsNow local save err', err);
+        }
+      } else {
+        try {
+          const key = `picross:seconds:${dateStr}:${difficulty}`;
+          console.debug('picross:save seconds now (anonymous)', key, elapsedSec);
+          window.localStorage.setItem(key, String(elapsedSec));
+          // Also persist the current progress payload for anonymous users
+          try {
+            const pKey = `picross:progress:${dateStr}:${difficulty}`;
+            const existing = window.localStorage.getItem(pKey);
+            const payload: any = { grid, complete: cleared, seconds: elapsedSec };
+            if (existing) {
+              try {
+                const parsed = JSON.parse(existing) as any;
+                if (parsed?.grid) payload.grid = parsed.grid;
+              } catch {}
+            }
+            console.debug('picross:save progress payload (anonymous)', pKey, payload);
+            window.localStorage.setItem(pKey, JSON.stringify(payload));
+          } catch (err) {
+            console.debug('picross:save progress payload err', err);
+          }
+        } catch (err) {
+          console.debug('picross:save seconds now err', err);
+        }
+      }
+    } catch (err) {
+      console.debug('save seconds now err', err);
+    }
+  };
+
+  // Persist on visibilitychange / beforeunload so seconds aren't lost when navigating away
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) saveSecondsNow();
+    };
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only attempt async save for logged-in users on unload. Anonymous
+      // seconds are saved explicitly on Back click or on puzzle completion.
+      if (userIsLoggedIn) {
+        // fire-and-forget
+        saveSecondsNow();
+      }
+      // allow unload
+      delete e.returnValue;
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsedSec, difficulty, dateStr, userIsLoggedIn]);
+
+  // When puzzle is cleared, stop timer and send final time + complete flag to server (so fastest can update)
+  useEffect(() => {
+    if (!cleared) return;
+    // stop timer
+    if (timerRef.current) { window.clearInterval(timerRef.current as unknown as number); timerRef.current = null; }
+    (async () => {
+      try {
+        if (userIsLoggedIn) {
+          const body: any = { date: dateStr };
+          if (difficulty === 'easy') { body.easySeconds = elapsedSec; body.easyComplete = true; }
+          if (difficulty === 'medium') { body.mediumSeconds = elapsedSec; body.mediumComplete = true; }
+          if (difficulty === 'hard') { body.hardSeconds = elapsedSec; body.hardComplete = true; }
+          try {
+            await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          } catch (err) {
+            console.debug('picross:final server save failed', err);
+          }
+          try {
+            const key = `picross:seconds:${dateStr}:${difficulty}`;
+            window.localStorage.setItem(key, String(elapsedSec));
+            const pKey = `picross:progress:${dateStr}:${difficulty}`;
+            const payload: any = { grid, complete: true, seconds: elapsedSec };
+            window.localStorage.setItem(pKey, JSON.stringify(payload));
+          } catch (err) {
+            console.debug('picross:final local save err', err);
+          }
+        } else {
+          try {
+            const key = `picross:seconds:${dateStr}:${difficulty}`;
+            window.localStorage.setItem(key, String(elapsedSec));
+            // Also persist into progress payload so completion is visible in UI
+            try {
+              const pKey = `picross:progress:${dateStr}:${difficulty}`;
+              const existing = window.localStorage.getItem(pKey);
+              const payload: any = { grid, complete: true, seconds: elapsedSec };
+              if (!payload.grid && existing) {
+                try { const parsed = JSON.parse(existing) as any; if (parsed?.grid) payload.grid = parsed.grid; } catch {}
+              }
+              window.localStorage.setItem(pKey, JSON.stringify(payload));
+            } catch (err) {
+              console.debug('picross:final save progress payload err', err);
+            }
+          } catch (err) {
+            console.debug('picross:final save seconds err', err);
+          }
+        }
+      } catch (err) {
+        console.debug('final save seconds err', err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleared]);
+
   // Run celebration when `cleared` transitions to true or when user returns (no active celebrateGrid).
   useEffect(() => {
     if (!cleared) {
@@ -424,7 +677,7 @@ function PicrossPlayInner() {
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     debounceTimeout.current = window.setTimeout(async () => {
       if (!userIsLoggedIn) {
-        // persist to localStorage for anonymous users
+        // persist to localStorage for anonymous users (grid only).
         try {
           const key = `picross:progress:${dateStr}:${difficulty}`;
           const payload = { grid, complete: cleared };
@@ -514,7 +767,14 @@ function PicrossPlayInner() {
     <div style={{ position: 'fixed', inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 132 }}>
       <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-start', zIndex: 30 }}>
         <button
-          onClick={() => router.push("/nonogram")}
+          onClick={async () => {
+            try {
+              await saveSecondsNow();
+            } catch (err) {
+              console.debug('picross:save on back err', err);
+            }
+            router.push('/nonogram');
+          }}
           aria-label="Back"
           style={{ background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', color: '#000', fontWeight: 800 }}
         >
@@ -522,70 +782,7 @@ function PicrossPlayInner() {
         </button>
         <h2 style={{ margin: 5, paddingLeft: 20, fontFamily: "Courier", fontWeight:"600", fontSize:25}}>{formattedDate}</h2>
       
-        {isEditorAllowed && (
-          <div style={{ marginBottom: 12 }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={editorMode}
-                onChange={e => {
-                  const checked = e.target.checked;
-                  setEditorMode(checked);
-                  if (checked) {
-                    setEditorPuzzle((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
-                    // find soonest free date for this difficulty
-                    (async () => {
-                      if (findNextAbort.current) {
-                        try { findNextAbort.current.abort(); } catch {}
-                      }
-                      const ac = new AbortController();
-                      findNextAbort.current = ac;
-                      try {
-                        const today = new Date();
-                        for (let i = 0; i < 365; i++) {
-                          const d = new Date(today);
-                          d.setDate(today.getDate() + i);
-                          const ds = d.toISOString().slice(0, 10);
-                          const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
-                          if (res.status === 404) {
-                            // empty day found — show a blank editor grid for this difficulty
-                            setEditorPuzzle(getDefaultPuzzle(size));
-                            setSaveDate(ds);
-                            findNextAbort.current = null;
-                            return;
-                          }
-                          if (res.ok) {
-                            const json = await res.json();
-                            const entry = json?.[difficulty];
-                            if (isPuzzleEmpty(entry)) {
-                              setEditorPuzzle(getDefaultPuzzle(size));
-                              setSaveDate(ds);
-                              findNextAbort.current = null;
-                              return;
-                            }
-                          }
-                        }
-                        // fallback to today if none found
-                        setSaveDate(today.toISOString().slice(0, 10));
-                      } catch (err) {
-                        const maybe = err as { name?: string } | undefined;
-                        if (maybe && maybe.name === "AbortError") return;
-                        console.debug('findNextFreeDate error', err);
-                      } finally {
-                        findNextAbort.current = null;
-                      }
-                    })();
-                  } else {
-                    setEditorPuzzle(null);
-                    setSaveDate("");
-                    if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} }
-                  }
-                }}
-              />
-              Editor Mode
-            </label>
-          </div>
-        )}
+        {/* Editor toggle moved into the left clue area so it appears above the number zone */}
       </div>
       {/* editor menu moved to bottom controls area */}
       {/* cleared message removed; celebratory text will appear at bottom during celebration */}
@@ -614,7 +811,28 @@ function PicrossPlayInner() {
         }
       }} style={{ touchAction: 'none', fontFamily: fontFamily, fontWeight: fontWeight }}>
         <div style={{ display: "flex" }}>
-          <div style={{ width: leftWidth }} />
+          <div style={{ width: leftWidth, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 6 }}>
+            {isEditorAllowed && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                <input type="checkbox" checked={editorMode} onChange={e => { const checked = e.target.checked; setEditorMode(checked); if (checked) { setEditorPuzzle((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size)); (async () => {
+                      if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} }
+                      const ac = new AbortController(); findNextAbort.current = ac;
+                      try {
+                        const today = new Date();
+                        for (let i = 0; i < 365; i++) {
+                          const d = new Date(today); d.setDate(today.getDate() + i); const ds = d.toISOString().slice(0, 10);
+                          const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
+                          if (res.status === 404) { setEditorPuzzle(getDefaultPuzzle(size)); setSaveDate(ds); findNextAbort.current = null; return; }
+                          if (res.ok) { const json = await res.json(); const entry = json?.[difficulty]; if (isPuzzleEmpty(entry)) { setEditorPuzzle(getDefaultPuzzle(size)); setSaveDate(ds); findNextAbort.current = null; return; } }
+                        }
+                        setSaveDate(today.toISOString().slice(0, 10));
+                      } catch (err) { const maybe = err as { name?: string } | undefined; if (maybe && maybe.name === 'AbortError') return; console.debug('findNextFreeDate error', err); } finally { findNextAbort.current = null; }
+                    })(); } else { setEditorPuzzle(null); setSaveDate(''); if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} } } }} />
+                Editor
+              </label>
+            )}
+            <div style={{ fontSize: 29, fontFamily: 'monospace', marginTop: 15 }}>{formatSec(elapsedSec)}</div>
+          </div>
           {colClues.map((clue, i) => {
             const runs = getRunsForCol(i);
             return (

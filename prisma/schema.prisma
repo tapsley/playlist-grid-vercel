@@ -6,12 +6,28 @@ model PicrossProgress {
   easy      Json     // 5x5 array of numbers (progress)
   medium    Json     // 10x10 array of numbers (progress)
   hard      Json     // 15x15 array of numbers (progress)
+  easySeconds   Int     @default(0)
+  mediumSeconds Int     @default(0)
+  hardSeconds   Int     @default(0)
   easyComplete   Boolean @default(false)
   mediumComplete Boolean @default(false)
   hardComplete   Boolean @default(false)
   updatedAt DateTime @updatedAt
 
   @@unique([userId, date])
+}
+
+model PicrossStats {
+  id           String   @id @default(uuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String   @unique
+  fastestEasy   Int?    
+  fastestMedium Int?
+  fastestHard   Int?
+  solvedEasy    Int     @default(0)
+  solvedMedium  Int     @default(0)
+  solvedHard    Int     @default(0)
+  updatedAt    DateTime @updatedAt
 }
 model PicrossPuzzle {
   id         String   @id @default(uuid())
@@ -39,6 +55,7 @@ model User {
   createdAt DateTime @default(now())
   notes     Note[]   @relation("UserNotes")
   picrossProgresses PicrossProgress[]
+  picrossStats PicrossStats?
 }
 
 model Note {
