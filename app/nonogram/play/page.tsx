@@ -486,7 +486,10 @@ function PicrossPlayInner() {
       const next: CellState[][] = current.map((row: CellState[]) => row.map(v => (Math.max(0, Math.min(3, Math.trunc(Number(v as unknown) || 0))) as CellState)));
       const val = next[r][c] as number;
       let newVal: CellState = 0;
-      if (inputMode === 'fill') {
+      // Treat right-click as X mode on desktop regardless of selected inputMode
+      if ((e as any).button === 2) {
+        newVal = (val === 3 ? 0 : 3) as CellState;
+      } else if (inputMode === 'fill') {
         // clicking an X while in fill mode should make it blank (erase), not fill it
         if (val === 3) newVal = 0;
         else newVal = ((val + 1) % 4) as CellState;
@@ -713,6 +716,12 @@ function PicrossPlayInner() {
     return v === 1;
   };
 
+  const isXCell = (r: number, c: number) => {
+    if (editorMode) return false;
+    const v = (grid && grid[r] && typeof grid[r][c] !== 'undefined') ? grid[r][c] : 0;
+    return v === 3;
+  };
+
   const getRunsForRow = (r: number) => {
     const runs: number[] = [];
     let count = 0;
@@ -721,6 +730,32 @@ function PicrossPlayInner() {
       else if (count) { runs.push(count); count = 0; }
     }
     if (count) runs.push(count);
+    return runs;
+  };
+
+  // Returns runs with start/end positions and whether the run is bounded by X (or edge)
+  const getRunsMetaForRow = (r: number) => {
+    const runs: Array<{ len: number; start: number; end: number; bounded: boolean }> = [];
+    let count = 0;
+    let start = 0;
+    for (let c = 0; c < size; c++) {
+      if (isFilledCell(r, c)) {
+        if (count === 0) start = c;
+        count++;
+      } else if (count) {
+        const end = c - 1;
+        const leftBound = start === 0 || isXCell(r, start - 1);
+        const rightBound = end === size - 1 || isXCell(r, end + 1);
+        runs.push({ len: count, start, end, bounded: leftBound && rightBound });
+        count = 0;
+      }
+    }
+    if (count) {
+      const end = size - 1;
+      const leftBound = start === 0 || isXCell(r, start - 1);
+      const rightBound = end === size - 1 || isXCell(r, end + 1);
+      runs.push({ len: count, start, end, bounded: leftBound && rightBound });
+    }
     return runs;
   };
 
@@ -733,6 +768,64 @@ function PicrossPlayInner() {
     }
     if (count) runs.push(count);
     return runs;
+  };
+
+  const getRunsMetaForCol = (c: number) => {
+    const runs: Array<{ len: number; start: number; end: number; bounded: boolean }> = [];
+    let count = 0;
+    let start = 0;
+    for (let r = 0; r < size; r++) {
+      if (isFilledCell(r, c)) {
+        if (count === 0) start = r;
+        count++;
+      } else if (count) {
+        const end = r - 1;
+        const topBound = start === 0 || isXCell(start - 1, c);
+        const bottomBound = end === size - 1 || isXCell(end + 1, c);
+        runs.push({ len: count, start, end, bounded: topBound && bottomBound });
+        count = 0;
+      }
+    }
+    if (count) {
+      const end = size - 1;
+      const topBound = start === 0 || isXCell(start - 1, c);
+      const bottomBound = end === size - 1 || isXCell(end + 1, c);
+      runs.push({ len: count, start, end, bounded: topBound && bottomBound });
+    }
+    return runs;
+  };
+
+  // Given clue numbers, detected runs and run meta, return an array of booleans
+  // indicating whether each clue should be treated as fulfilled (grayed).
+  const computeFulfilledArray = (clues: number[], runs: number[], meta: Array<{ len: number; start: number; end: number; bounded: boolean }>) => {
+    const anyFilled = meta.length > 0;
+    const fulfilledArr: boolean[] = [];
+    // build counts of bounded runs by length to use as fallback matches
+    const boundedCounts: Record<number, number> = {};
+    for (const m of meta) if (m.bounded) boundedCounts[m.len] = (boundedCounts[m.len] || 0) + 1;
+
+    for (let j = 0; j < clues.length; j++) {
+      const n = clues[j];
+      let fulfilled = false;
+      if (n === 0) fulfilled = !anyFilled;
+      else {
+        if (runs.length === clues.length && typeof runs[j] !== 'undefined' && runs[j] === n) {
+          fulfilled = true;
+        } else {
+          const m = meta[j];
+          if (m && m.len === n && m.bounded) {
+            fulfilled = true;
+            if (boundedCounts[n]) boundedCounts[n]--;
+          } else if (!fulfilled && boundedCounts[n]) {
+            // consume a matching bounded run as a fallback
+            fulfilled = true;
+            boundedCounts[n]--;
+          }
+        }
+      }
+      fulfilledArr.push(fulfilled);
+    }
+    return fulfilledArr;
   };
 
   // fixed font for grid/clues
@@ -835,15 +928,11 @@ function PicrossPlayInner() {
           </div>
           {colClues.map((clue, i) => {
             const runs = getRunsForCol(i);
+            const meta = getRunsMetaForCol(i);
+            const fulfilled = computeFulfilledArray(clue, runs, meta);
             return (
               <div key={i} style={{ width: cellPx, minHeight: topHeight, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', fontSize: CLUE_FONT_PX, marginBottom: 0, paddingBottom: 2, background: (i % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
-                {clue.map((n, j) => {
-                  // For a 0 clue: show as gray when there are no filled cells in the column,
-                  // and dark if any filled cell exists (indicates an incorrect fill).
-                  const anyFilledInCol = getRunsForCol(i).length > 0;
-                  const fulfilled = n === 0 ? !anyFilledInCol : (runs.length === clue.length && typeof runs[j] !== 'undefined' && runs[j] === n);
-                  return <div key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</div>;
-                })}
+                {clue.map((n, j) => <div key={j} style={{ color: fulfilled[j] ? '#888' : '#000' }}>{n}</div>)}
               </div>
             );
           })}
@@ -851,12 +940,32 @@ function PicrossPlayInner() {
         {(editorMode ? puzzle : grid).map((row: (boolean[] | CellState[]), r: number) => (
           <div key={r} style={{ display: "flex" }}>
             <div style={{ width: leftWidth, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
-              <div style={{ display: 'flex', gap: clueGap, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{rowClues[r].map((n: number, j: number) => {
+              <div style={{ display: 'flex', gap: clueGap, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{(() => {
                 const runs = getRunsForRow(r);
-                const anyFilledInRow = runs.length > 0;
-                const fulfilled = n === 0 ? !anyFilledInRow : (runs.length === rowClues[r].length && typeof runs[j] !== 'undefined' && runs[j] === n);
-                return <span key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</span>;
-              })}</div>
+                const meta = getRunsMetaForRow(r);
+                const anyFilledInRow = meta.length > 0;
+                const boundedCounts: Record<number, number> = {};
+                for (const m of meta) if (m.bounded) boundedCounts[m.len] = (boundedCounts[m.len] || 0) + 1;
+                return rowClues[r].map((n: number, j: number) => {
+                  let fulfilled = false;
+                  if (n === 0) fulfilled = !anyFilledInRow;
+                  else {
+                    if (runs.length === rowClues[r].length && typeof runs[j] !== 'undefined' && runs[j] === n) {
+                      fulfilled = true;
+                    } else {
+                      const m = meta[j];
+                      if (m && m.len === n && m.bounded) {
+                        fulfilled = true;
+                        if (boundedCounts[n]) boundedCounts[n]--;
+                      } else if (!fulfilled && boundedCounts[n]) {
+                        fulfilled = true;
+                        boundedCounts[n]--;
+                      }
+                    }
+                  }
+                  return <span key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</span>;
+                });
+              })()}</div>
             </div>
           {row.map((cell: boolean | CellState, c: number) => (
             <div
@@ -886,6 +995,18 @@ function PicrossPlayInner() {
                 }
                 const val = (prefetchProgress && prefetchProgress[difficulty] && prefetchProgress[difficulty][r] && prefetchProgress[difficulty][r][c]) ?? 0;
                 // determine action based on current input mode and clicked cell
+                // If this was a right-click on desktop, always treat as X mode
+                if ((e as any).button === 2) {
+                  if (val === 1 || val === 3) {
+                    pointerActionRef.current = 'erase';
+                    applyActionToCell(r, c, 'erase');
+                  } else {
+                    pointerActionRef.current = 'fillX';
+                    applyActionToCell(r, c, 'fillX');
+                  }
+                  return;
+                }
+
                 if (inputMode === 'fill') {
                   if (val === 1) {
                     // clicking a filled cell toggles to erase

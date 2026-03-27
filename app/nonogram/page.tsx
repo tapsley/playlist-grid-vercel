@@ -109,10 +109,6 @@ export default function PicrossSplash() {
             </p>
             <br/>
             <p style={{ marginTop: 12, color: '#333' }}>
-              <b>Hint:</b> Start with rows/columns that have large numbers or few gaps. Use X to mark empty squares and aid in your deduction.
-            </p>
-            <br/>
-            <p style={{ marginTop: 12, color: '#333' }}>
               <b>Happy Solving!</b>
             </p>
           </div>
@@ -121,6 +117,24 @@ export default function PicrossSplash() {
               <img src="/demoNonogram.gif" alt="Demo Nonogram" style={{ width: '100%', borderRadius: 8 }} />
             </div>
           </div>
+            <br/>
+            <h3 style={{ fontSize: 22, marginTop: 0, marginBottom: 0, fontWeight: 800 }}>TIPS AND TRICKS</h3>
+
+              <ol style={{ margin: 12 }}>
+                <li style={{ marginBottom: 30 }}><b>Look for overlaps:</b> For example, if a row has a clue of “8”, the squares that overlap in the middle must be filled, giving you a starting point!
+                  <img src="/overlapDemo.png" alt="Overlap Example" style={{ width: '100%', marginTop: 8, borderRadius: 6 }} />
+                </li>
+                <li style={{ marginBottom: 30 }}><b>Use <b style={{color: '#ff0404'}}>X</b> to mark empty squares:</b> This helps you visualize potential placements for filled squares and avoid mistakes. <b style={{ color: '#ff0404' }}>X</b> squares can't be filled by accident when sliding around in fill mode.</li>
+                <li style={{ marginBottom: 30 }}><b>Combine these techniques to unlock more knowledge:</b> <b style={{color: '#ff0404'}}>X</b> squares can lead to more overlaps which can help you deduce the placement of other filled squares.
+                  <img src="/overlapDemo2.png" alt="Overlap + X Example" style={{ width: '100%', marginTop: 8, borderRadius: 6 }} />
+                </li> 
+                <li style={{ marginBottom: 30 }}><b>Sometimes you have to count it out:</b> You can use the overlap technique in rows with multiple numbers, just account for spaces.
+                  <img src="/overlapDemo3.png" alt="Count It Out Example" style={{ width: '100%', marginTop: 8, borderRadius: 6 }} />
+                </li>
+                <li style={{ marginBottom: 30 }}><b>Cross-reference rows and columns:</b> Each time you confidently fill in squares in a row, check the intersecting columns for new information, and vice versa.</li>
+                <li style={{ marginBottom: 30 }}><b>It's all about deduction:</b> If you don't know which square to fill next, figure out which squares definitely won't be filled. Eliminating options will make the solution clearer.</li>
+              </ol>
+
         </div>
       </div>
       <style jsx>{`
