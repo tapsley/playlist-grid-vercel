@@ -1,5 +1,5 @@
 import React from "react";
-import type { CellState } from "./PicrossPrefetchContext";
+import type { CellState } from "../PicrossPrefetchContext";
 
 interface DifficultyIconProps {
   grid: boolean[][];

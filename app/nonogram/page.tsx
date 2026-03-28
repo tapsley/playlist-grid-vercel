@@ -7,7 +7,7 @@ import { usePicrossPrefetch } from "./PicrossPrefetchContext";
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import DifficultyIcon from "./DifficultyIcon";
+import DifficultyIcon from "./components/DifficultyIcon";
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
 

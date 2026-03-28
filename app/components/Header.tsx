@@ -36,10 +36,10 @@ const UserMenu = dynamic(() => import("./UserMenu"), { ssr: false });
       zIndex: 50
     }}>
       
-      <div className="flex items-center gap-2 mt-2">
-        <Link href="/" style={{ textDecoration: "none", paddingRight: 10, fontSize: 35, color: nameColor, fontWeight: 600, fontFamily: "Goudy Bookletter 1911" }}>
-        Tyler Apsley 
-      </Link>
+      <div className="flex items-center gap-2 mt-2" style={{ minWidth: 0 }}>
+        <Link href="/" style={{ textDecoration: "none", paddingRight: 5, color: nameColor, fontWeight: 600, fontFamily: "Goudy Bookletter 1911", whiteSpace: 'nowrap', display: 'inline-block', fontSize: 'clamp(23px, 2.5vw, 25px)' }}>
+          Tyler Apsley
+        </Link>
         <SocialIcon target="_blank" url="https://instagram.com/tyler.apsley" className="colorscheme" style={{ width: 40, height: 40 }}/>
         <SocialIcon target="_blank" url="https://linkedin.com/in/tyler-apsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
         <SocialIcon target="_blank" url="https://github.com/tapsley"  className="colorscheme" style={{ width: 40, height: 40 }}/>
