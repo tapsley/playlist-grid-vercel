@@ -151,6 +151,8 @@ function PicrossPlayInner() {
   }, [grid, puzzle, size, editorMode]);
   const [celebrateGrid, setCelebrateGrid] = useState<boolean[][] | null>(null);
   const celebrationTimeouts = useRef<number[]>([]);
+  const [showNewPB, setShowNewPB] = useState(false);
+  const pbTimeoutRef = useRef<number | null>(null);
 
   // Timer state: track cumulative seconds for this date+difficulty and whether timer is running
   // Initialize from localStorage synchronously so the UI doesn't flash 00:00.
@@ -382,6 +384,14 @@ function PicrossPlayInner() {
           try {
             const key = `picross:seconds:${dateStr}:${difficulty}`;
             window.localStorage.setItem(key, String(elapsedSec));
+            // persist a local personal-best fallback for anonymous users
+            try {
+              const bestKey = `picross:fastest:${difficulty}`;
+              const existing = Number(window.localStorage.getItem(bestKey) || 0) || 0;
+              if (!existing || elapsedSec < existing) {
+                window.localStorage.setItem(bestKey, String(elapsedSec));
+              }
+            } catch {}
             // Also persist into progress payload so completion is visible in UI
             try {
               const pKey = `picross:progress:${dateStr}:${difficulty}`;
@@ -432,6 +442,45 @@ function PicrossPlayInner() {
       } catch (err) {
         console.debug('clear maybe/x before celebration failed', err);
       }
+      //Set timer color to gold if it is a new personal best
+      try {
+        // Determine prior fastest for this difficulty and show a brief message if we beat it.
+        (async () => {
+          try {
+            let prior: number | null = null;
+            if (userIsLoggedIn) {
+              try {
+                const res = await fetch('/api/picross/stats');
+                if (res.ok) {
+                  const json = await res.json();
+                  prior = Number(json?.fastest?.[difficulty] ?? null) || null;
+                }
+              } catch (err) {
+                // ignore stats fetch failure
+              }
+            } else {
+              try {
+                const bestKey = `picross:fastest:${difficulty}`;
+                const raw = window.localStorage.getItem(bestKey);
+                const n = raw ? (Number(raw) || 0) : 0;
+                if (n) prior = n;
+              } catch {}
+            }
+
+            if (elapsedSec > 0 && (prior === null || elapsedSec < prior)) {
+              // update local fallback and show message
+              try { window.localStorage.setItem(`picross:fastest:${difficulty}`, String(elapsedSec)); } catch {}
+              setShowNewPB(true);
+              if (pbTimeoutRef.current) window.clearTimeout(pbTimeoutRef.current);
+              pbTimeoutRef.current = window.setTimeout(() => { setShowNewPB(false); pbTimeoutRef.current = null; }, 8000) as unknown as number;
+            }
+          } catch (err) {
+            console.debug('picross:detect pb err', err);
+          }
+        })();
+      } catch {}
+
+
 
       // collect filled cells (only those that should be filled in puzzle)
       const filled: Array<[number, number]> = [];
@@ -559,6 +608,16 @@ function PicrossPlayInner() {
     };
     window.addEventListener("pointerup", onPointerUp);
     return () => window.removeEventListener("pointerup", onPointerUp);
+  }, []);
+
+  // Clear PB timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (pbTimeoutRef.current) {
+        try { window.clearTimeout(pbTimeoutRef.current); } catch {};
+        pbTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   const handleSave = () => {
@@ -797,34 +856,179 @@ function PicrossPlayInner() {
 
   // Given clue numbers, detected runs and run meta, return an array of booleans
   // indicating whether each clue should be treated as fulfilled (grayed).
-  const computeFulfilledArray = (clues: number[], runs: number[], meta: Array<{ len: number; start: number; end: number; bounded: boolean }>) => {
+  // Generate all valid placements of clues along a line (row or column) that
+  // are consistent with existing Xs and filled cells.
+  const generatePlacements = (clues: number[], isRow: boolean, idx: number) => {
+    const placements: number[][] = [];
+    const totalClues = clues.length;
+    const sumRemaining: number[] = new Array(totalClues + 1).fill(0);
+    for (let i = totalClues - 1; i >= 0; i--) sumRemaining[i] = sumRemaining[i + 1] + clues[i];
+
+    const coversAllFilled = (starts: number[]) => {
+      // build segments
+      const segs: Array<[number, number]> = [];
+      for (let k = 0; k < starts.length; k++) segs.push([starts[k], starts[k] + clues[k] - 1]);
+      for (let pos = 0; pos < size; pos++) {
+        if (isRow ? isFilledCell(idx, pos) : isFilledCell(pos, idx)) {
+          let covered = false;
+          for (const s of segs) {
+            if (pos >= s[0] && pos <= s[1]) { covered = true; break; }
+          }
+          if (!covered) return false;
+        }
+      }
+      return true;
+    };
+
+    const backtrack = (k: number, starts: number[]) => {
+      if (k === totalClues) {
+        if (coversAllFilled(starts)) placements.push([...starts]);
+        return;
+      }
+      const minStart = k === 0 ? 0 : starts[k - 1] + clues[k - 1] + 1;
+      const maxStart = size - (sumRemaining[k] + (totalClues - k - 1));
+      for (let s = minStart; s <= maxStart; s++) {
+        // cannot place over an X
+        let conflict = false;
+        for (let p = s; p < s + clues[k]; p++) {
+          if (isRow ? isXCell(idx, p) : isXCell(p, idx)) { conflict = true; break; }
+        }
+        if (conflict) continue;
+        starts.push(s);
+        backtrack(k + 1, starts);
+        starts.pop();
+      }
+    };
+
+    // trivial case: no clues
+    if (totalClues === 0) {
+      // validate that there are no filled cells
+      for (let pos = 0; pos < size; pos++) if (isRow ? isFilledCell(idx, pos) : isFilledCell(pos, idx)) return [];
+      return [[]];
+    }
+    backtrack(0, []);
+    return placements;
+  };
+
+  const computeFulfilledArray = (
+    clues: number[],
+    runs: number[],
+    meta: Array<{ len: number; start: number; end: number; bounded: boolean }>,
+    isRow?: boolean,
+    idx?: number,
+  ) => {
     const anyFilled = meta.length > 0;
     const fulfilledArr: boolean[] = [];
-    // build counts of bounded runs by length to use as fallback matches
-    const boundedCounts: Record<number, number> = {};
-    for (const m of meta) if (m.bounded) boundedCounts[m.len] = (boundedCounts[m.len] || 0) + 1;
+
+    // track which meta runs have been consumed to back out their cells when
+    // checking remaining space for other clues
+    const usedMeta: boolean[] = new Array(meta.length).fill(false);
 
     for (let j = 0; j < clues.length; j++) {
       const n = clues[j];
       let fulfilled = false;
       if (n === 0) fulfilled = !anyFilled;
       else {
+        // Fast-path: if the number of detected runs equals the number of clues
+        // and the run at this index matches the clue length, treat as fulfilled.
+        // Do NOT assume meta entries align to clue indices otherwise — that
+        // mapping must be established via placements/unambiguous mapping later.
         if (runs.length === clues.length && typeof runs[j] !== 'undefined' && runs[j] === n) {
           fulfilled = true;
-        } else {
-          const m = meta[j];
-          if (m && m.len === n && m.bounded) {
-            fulfilled = true;
-            if (boundedCounts[n]) boundedCounts[n]--;
-          } else if (!fulfilled && boundedCounts[n]) {
-            // consume a matching bounded run as a fallback
-            fulfilled = true;
-            boundedCounts[n]--;
-          }
+          if (meta[j]) usedMeta[j] = true;
         }
       }
       fulfilledArr.push(fulfilled);
     }
+
+    // NOTE: earlier logic tried to bail out if insufficient free cells remained
+    // but that can be misleading when filled runs exist that can be unambiguously
+    // assigned to clues. We'll rely on placements enumeration below instead.
+
+    // Use placement enumeration to deduce definite mappings: if in every
+    // valid placement a given clue occupies cells that are all filled, mark
+    // it fulfilled. This allows marking clues when a run can only belong to
+    // a single clue index (e.g. a filled cell at one end).
+    let placements: number[][] | undefined;
+    if (typeof idx === 'number' && typeof isRow === 'boolean') {
+      try {
+        placements = generatePlacements(clues, !!isRow, idx);
+        if (placements && placements.length > 0) {
+          // mark clues that are filled in all placements
+          for (let j = 0; j < clues.length; j++) {
+            if (fulfilledArr[j]) continue;
+            let alwaysFullyFilled = true;
+            for (const p of placements) {
+              const start = p[j];
+              const end = start + clues[j] - 1;
+              for (let pos = start; pos <= end; pos++) {
+                if (isRow ? !isFilledCell(idx, pos) : !isFilledCell(pos, idx)) { alwaysFullyFilled = false; break; }
+              }
+              if (!alwaysFullyFilled) break;
+            }
+            if (alwaysFullyFilled) fulfilledArr[j] = true;
+          }
+
+          // unambiguously map meta runs to clue indices: if a meta run corresponds
+          // to the same clue index in every placement and its cells are filled,
+          // mark that clue fulfilled.
+          for (let mi = 0; mi < meta.length; mi++) {
+            const m = meta[mi];
+            if (!m) continue;
+            let consistentIndex: number | null = null;
+            let allHaveMapping = true;
+            for (const p of placements) {
+              let found = -1;
+              for (let j = 0; j < clues.length; j++) {
+                const start = p[j];
+                const end = start + clues[j] - 1;
+                if (start === m.start && end === m.end) { found = j; break; }
+              }
+              if (found === -1) { allHaveMapping = false; break; }
+              if (consistentIndex === null) consistentIndex = found;
+              else if (consistentIndex !== found) { allHaveMapping = false; break; }
+            }
+            if (allHaveMapping && consistentIndex !== null) {
+              // ensure the run's cells are filled
+              let allFilled = true;
+              for (let pos = m.start; pos <= m.end; pos++) {
+                if (isRow ? !isFilledCell(idx, pos) : !isFilledCell(pos, idx)) { allFilled = false; break; }
+              }
+              if (allFilled) fulfilledArr[consistentIndex] = true;
+            }
+          }
+        }
+      } catch (e) {
+        console.debug('placement generation error', e);
+      }
+    }
+
+    // If any single-cell clues are marked fulfilled but are not bounded by X/edge
+    // in any placement, they should be unmarked — unless the entire line is
+    // fulfilled (all clues true), in which case we allow them.
+    const allFulfilled = fulfilledArr.every(Boolean);
+    if (!allFulfilled && typeof idx === 'number' && typeof isRow === 'boolean') {
+      for (let j = 0; j < clues.length; j++) {
+        if (clues[j] === 1 && fulfilledArr[j]) {
+          let bounded = false;
+          // check meta first
+          const m = meta[j];
+          if (m && m.bounded) bounded = true;
+          // if meta doesn't say bounded, verify across placements
+          if (!bounded && placements && placements.length > 0) {
+            bounded = placements.every(p => {
+              const start = p[j];
+              const end = start; // length 1
+              const leftBound = start === 0 || (isRow ? isXCell(idx, start - 1) : isXCell(start - 1, idx));
+              const rightBound = end === size - 1 || (isRow ? isXCell(idx, end + 1) : isXCell(end + 1, idx));
+              return leftBound && rightBound;
+            });
+          }
+          if (!bounded) fulfilledArr[j] = false;
+        }
+      }
+    }
+
     return fulfilledArr;
   };
 
@@ -924,12 +1128,17 @@ function PicrossPlayInner() {
                 Editor
               </label>
             )}
-            <div style={{ fontSize: 29, fontFamily: 'monospace', marginTop: 15 }}>{formatSec(elapsedSec)}</div>
+            <div style={{ fontSize: 29, fontFamily: 'monospace', marginTop: 15, color: cleared ? 'gold' : 'inherit' }}>{formatSec(elapsedSec)}</div>
+            {showNewPB && (
+              <div style={{ marginTop: 8, color: '#000000', fontWeight: 700, fontSize: 8 }}>
+                New personal best!
+              </div>
+            )}
           </div>
           {colClues.map((clue, i) => {
             const runs = getRunsForCol(i);
             const meta = getRunsMetaForCol(i);
-            const fulfilled = computeFulfilledArray(clue, runs, meta);
+            const fulfilled = computeFulfilledArray(clue, runs, meta, false, i);
             return (
               <div key={i} style={{ width: cellPx, minHeight: topHeight, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', fontSize: CLUE_FONT_PX, marginBottom: 0, paddingBottom: 2, background: (i % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
                 {clue.map((n, j) => <div key={j} style={{ color: fulfilled[j] ? '#888' : '#000' }}>{n}</div>)}
@@ -943,28 +1152,8 @@ function PicrossPlayInner() {
               <div style={{ display: 'flex', gap: clueGap, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{(() => {
                 const runs = getRunsForRow(r);
                 const meta = getRunsMetaForRow(r);
-                const anyFilledInRow = meta.length > 0;
-                const boundedCounts: Record<number, number> = {};
-                for (const m of meta) if (m.bounded) boundedCounts[m.len] = (boundedCounts[m.len] || 0) + 1;
-                return rowClues[r].map((n: number, j: number) => {
-                  let fulfilled = false;
-                  if (n === 0) fulfilled = !anyFilledInRow;
-                  else {
-                    if (runs.length === rowClues[r].length && typeof runs[j] !== 'undefined' && runs[j] === n) {
-                      fulfilled = true;
-                    } else {
-                      const m = meta[j];
-                      if (m && m.len === n && m.bounded) {
-                        fulfilled = true;
-                        if (boundedCounts[n]) boundedCounts[n]--;
-                      } else if (!fulfilled && boundedCounts[n]) {
-                        fulfilled = true;
-                        boundedCounts[n]--;
-                      }
-                    }
-                  }
-                  return <span key={j} style={{ color: fulfilled ? '#888' : '#000' }}>{n}</span>;
-                });
+                const fulfilled = computeFulfilledArray(rowClues[r], runs, meta, true, r);
+                return rowClues[r].map((n: number, j: number) => <span key={j} style={{ color: fulfilled[j] ? '#888' : '#000' }}>{n}</span>);
               })()}</div>
             </div>
           {row.map((cell: boolean | CellState, c: number) => (
