@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { getMSTDateString } from './time';
 
 export type CellState = 0 | 1 | 2 | 3;
 
@@ -70,7 +71,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         // Persist a local copy of progress for both anonymous and logged-in users
         // so the UI can load quickly from localStorage while server sync occurs.
         if (patch.progress) {
-          const dateKey = currentDateRef.current ?? new Date().toISOString().slice(0, 10);
+          const dateKey = currentDateRef.current ?? getMSTDateString();
           for (const k of Object.keys(patch.progress)) {
             const key = `picross:progress:${dateKey}:${k}`;
             try {
@@ -100,7 +101,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
   const fetchPrefetch = useCallback(async () => {
     try {
         const today = new Date();
-        const dateStr = today.toISOString().slice(0, 10);
+        const dateStr = getMSTDateString(today);
         currentDateRef.current = dateStr;
       const puzzleRes = await fetch(`/api/picross/puzzle?date=${dateStr}`);
       const progressRes = session?.user?.email ? await fetch(`/api/picross/progress?date=${dateStr}`) : null;
@@ -164,7 +165,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
       // clear any prior progress if the date changed since last load. This
       // avoids interval timers and only resets when the app mounts or when
       // session email changes.
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getMSTDateString();
       const last = window.localStorage.getItem('picross:lastLoadedDate');
       if (last !== today) {
         // clear previous-day progress so users start fresh each day

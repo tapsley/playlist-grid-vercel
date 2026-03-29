@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import GridBoard from '../components/GridBoard';
 import Controls from '../components/Controls';
+import { getMSTDateString } from '../time';
 
 const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number }> = {
   // Fixed pixel sizes and clue font for left/top clue regions per difficulty — adjust as needed
@@ -70,7 +71,7 @@ function PicrossPlayInner() {
   const { puzzle: prefetchPuzzle, progress: prefetchProgress, setPrefetch } = usePicrossPrefetch();
 
   // derive date/difficulty
-  const dateStr = (searchParams && searchParams.get && searchParams.get('date')) || new Date().toISOString().slice(0, 10);
+  const dateStr = (searchParams && searchParams.get && searchParams.get('date')) || getMSTDateString();
   const formattedDate = new Date(dateStr).toLocaleDateString();
   const difficulty = (searchParams && searchParams.get && (searchParams.get('difficulty') || 'easy')) as string;
   const size = DIFFICULTY_CONFIG[difficulty]?.size ?? 5;
@@ -108,6 +109,9 @@ function PicrossPlayInner() {
   const pointerActiveRef = useRef(false);
   type Action = "fill" | "erase" | "fillX" | "fillMaybe" | "eraseMaybe";
   const pointerActionRef = useRef<null | Action>(null);
+
+  // celebration guard to prevent overlapping animations
+  const isCelebratingRef = useRef(false);
 
   // misc refs
   const findNextAbort = useRef<AbortController | null>(null);
@@ -325,103 +329,117 @@ useEffect(() => {
     })();
   }, [cleared]);
 
-  // Run celebration when `cleared` transitions to true or when user returns (no active celebrateGrid).
+  const triggerCelebration = async () => {
+    if (!cleared) return;
+    if (isCelebratingRef.current) return; // already animating
+    isCelebratingRef.current = true;
+
+    // clear any existing scheduled timers so we start fresh
+    for (const t of celebrationTimeouts.current) {
+      try { window.clearTimeout(t); } catch {}
+    }
+    celebrationTimeouts.current = [];
+
+    try {
+      setPrefetch(prev => {
+        const cur = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+        const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (v === 2 || v === 3) ? 0 : v));
+        return {
+          ...prev,
+          progress: {
+            ...prev.progress,
+            [difficulty]: next,
+          },
+        };
+      });
+    } catch (err) {
+      console.debug('clear maybe/x before celebration failed', err);
+    }
+
+    // collect filled cells (only those that should be filled in puzzle)
+    const filled: Array<[number, number]> = [];
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (puzzle[r][c] && grid[r][c] === 1) filled.push([r, c]);
+      }
+    }
+
+    const init = Array.from({ length: size }, () => Array.from({ length: size }, () => false));
+    setCelebrateGrid(init);
+
+    const delay = 60;
+    filled.forEach(([r, c], i) => {
+      const t = window.setTimeout(() => {
+        setCelebrateGrid(prev => {
+          if (!prev) return prev;
+          const next = prev.map(row => row.slice());
+          next[r][c] = true;
+          return next;
+        });
+      }, i * delay);
+      celebrationTimeouts.current.push(t as unknown as number);
+    });
+
+    // schedule guard reset after the animation finishes
+    const total = Math.max(500, filled.length * delay + 200);
+    const endT = window.setTimeout(() => {
+      isCelebratingRef.current = false;
+    }, total);
+    celebrationTimeouts.current.push(endT as unknown as number);
+
+    // Run personal-best detection in background so animation isn't delayed by network
+    (async () => {
+      try {
+        let prior: number | null = null;
+        if (userIsLoggedIn) {
+          try {
+            const res = await fetch('/api/picross/stats');
+            if (res.ok) {
+              const json = await res.json();
+              prior = Number(json?.fastest?.[difficulty] ?? null) || null;
+            }
+          } catch (err) { /* ignore */ }
+        } else {
+          try {
+            const bestKey = `picross:fastest:${difficulty}`;
+            const raw = window.localStorage.getItem(bestKey);
+            const n = raw ? (Number(raw) || 0) : 0;
+            if (n) prior = n;
+          } catch {}
+        }
+        if (elapsedSec > 0 && (prior === null || elapsedSec < prior)) {
+          try { window.localStorage.setItem(`picross:fastest:${difficulty}`, String(elapsedSec)); } catch {}
+          setShowNewPB(true);
+          if (pbTimeoutRef.current) window.clearTimeout(pbTimeoutRef.current);
+          pbTimeoutRef.current = window.setTimeout(() => { setShowNewPB(false); pbTimeoutRef.current = null; }, 8000) as unknown as number;
+        }
+      } catch (err) { console.debug('picross:detect pb err', err); }
+    })();
+  };
+
   useEffect(() => {
     if (!cleared) {
-      // reset and clear pending timeouts only when puzzle is not cleared
       setCelebrateGrid(null);
-      for (const t of celebrationTimeouts.current) window.clearTimeout(t);
+      for (const t of celebrationTimeouts.current) {
+        try { window.clearTimeout(t); } catch {}
+      }
       celebrationTimeouts.current = [];
+      isCelebratingRef.current = false;
       return;
     }
-
-    if (cleared && !celebrateGrid) {
-      // Clear Maybe/X marks in provider before animating (doesn't affect filled cells)
-      try {
-        setPrefetch(prev => {
-          const cur = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
-          const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (v === 2 || v === 3) ? 0 : v));
-          return {
-            ...prev,
-            progress: {
-              ...prev.progress,
-              [difficulty]: next,
-            },
-          };
-        });
-      } catch (err) {
-        console.debug('clear maybe/x before celebration failed', err);
-      }
-      //Set timer color to gold if it is a new personal best
-      try {
-        // Determine prior fastest for this difficulty and show a brief message if we beat it.
-        (async () => {
-          try {
-            let prior: number | null = null;
-            if (userIsLoggedIn) {
-              try {
-                const res = await fetch('/api/picross/stats');
-                if (res.ok) {
-                  const json = await res.json();
-                  prior = Number(json?.fastest?.[difficulty] ?? null) || null;
-                }
-              } catch (err) {
-                // ignore stats fetch failure
-              }
-            } else {
-              try {
-                const bestKey = `picross:fastest:${difficulty}`;
-                const raw = window.localStorage.getItem(bestKey);
-                const n = raw ? (Number(raw) || 0) : 0;
-                if (n) prior = n;
-              } catch {}
-            }
-
-            if (elapsedSec > 0 && (prior === null || elapsedSec < prior)) {
-              // update local fallback and show message
-              try { window.localStorage.setItem(`picross:fastest:${difficulty}`, String(elapsedSec)); } catch {}
-              setShowNewPB(true);
-              if (pbTimeoutRef.current) window.clearTimeout(pbTimeoutRef.current);
-              pbTimeoutRef.current = window.setTimeout(() => { setShowNewPB(false); pbTimeoutRef.current = null; }, 8000) as unknown as number;
-            }
-          } catch (err) {
-            console.debug('picross:detect pb err', err);
-          }
-        })();
-      } catch {}
-
-
-
-      // collect filled cells (only those that should be filled in puzzle)
-      const filled: Array<[number, number]> = [];
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-          if (puzzle[r][c] && grid[r][c] === 1) filled.push([r, c]);
-        }
-      }
-
-      const init = Array.from({ length: size }, () => Array.from({ length: size }, () => false));
-      setCelebrateGrid(init);
-
-      const delay = 60;
-      filled.forEach(([r, c], i) => {
-        const t = window.setTimeout(() => {
-          setCelebrateGrid(prev => {
-            if (!prev) return prev;
-            const next = prev.map(row => row.slice());
-            next[r][c] = true;
-            return next;
-          });
-        }, i * delay);
-        celebrationTimeouts.current.push(t as unknown as number);
-      });
-
-      // cleanup only runs when cleared becomes false or component unmounts
-      return () => {
-        // don't clear timeouts here since we want the animation to finish unless cleared becomes false
-      };
+    if (cleared) {
+      // when cleared becomes true, start celebration if not currently animating
+      if (!isCelebratingRef.current) triggerCelebration();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleared]);
+
+  // When exiting editor mode, if the puzzle is already cleared, replay celebration
+  useEffect(() => {
+    if (!editorMode && cleared) {
+      triggerCelebration();
+    }
+  }, [editorMode, cleared]);
   const [saveDate, setSaveDate] = useState("");
 
   
@@ -755,6 +773,14 @@ useEffect(() => {
     return () => window.removeEventListener('resize', calc);
   }, [size]);
 
+  useEffect(() => {
+    if (editorMode) {
+      setCelebrateGrid(null);
+      for (const t of celebrationTimeouts.current) try { window.clearTimeout(t); } catch {};
+      celebrationTimeouts.current = [];
+    }
+  }, [editorMode]);
+
   return (
     <div style={{ position: 'fixed', inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 72 }}>
       <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-start', zIndex: 30 }}>
@@ -824,7 +850,7 @@ useEffect(() => {
         fontWeight={fontWeight}
       />
       {/* Mode selector bar -> replaced by celebration text when animation starts */}
-      {celebrateGrid ? (
+      {celebrateGrid && !editorMode ? (
         <div style={{ marginTop: 18, width: '100%', display: 'flex', justifyContent: 'center' }}>
           <div style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, fontSize: 24, padding: '12px 16px', borderRadius: 8, textShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
             Puzzle Complete!
@@ -848,7 +874,7 @@ useEffect(() => {
             primaryBtnStyle={primaryBtnStyle}
             selectedBtnStyle={selectedBtnStyle}
             hoverBtnStyle={hoverBtnStyle}
-            celebrateGrid={celebrateGrid}
+            celebrateGrid={celebrateGrid ? true : null}
           />
       )}
     </div>

@@ -5,6 +5,7 @@ import ClueColumn from './ClueColumn';
 import ClueRow from './ClueRow';
 import GridCell from './GridCell';
 import { computeFulfilledArray } from '../runUtils';
+import { getMSTDateString } from '../time';
 
 export default function GridBoard(props: any) {
   const {
@@ -123,12 +124,31 @@ export default function GridBoard(props: any) {
                     try {
                       const today = new Date();
                       for (let i = 0; i < 365; i++) {
-                        const d = new Date(today); d.setDate(today.getDate() + i); const ds = d.toISOString().slice(0, 10);
+                        const d = new Date(today); d.setDate(today.getDate() + i); const ds = getMSTDateString(d);
                         const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
-                        if (res.status === 404) { setEditorPuzzle(getDefaultPuzzle(size)); setSaveDate(ds); findNextAbort.current = null; return; }
-                        if (res.ok) { const json = await res.json(); const entry = json?.[difficulty]; if (!entry) { setEditorPuzzle(getDefaultPuzzle(size)); setSaveDate(ds); findNextAbort.current = null; return; } }
+                          if (res.status === 404) {
+                            setEditorPuzzle(getDefaultPuzzle(size));
+                            setSaveDate(ds);
+                            findNextAbort.current = null;
+                            return;
+                          }
+                          if (res.ok) {
+                            const json = await res.json();
+                            const entry = json?.[difficulty];
+                            const hasCells = Array.isArray(entry) && entry.some((row: any) => Array.isArray(row) && row.some(Boolean));
+                            // If the fetched puzzle has any filled cells, skip — keep searching
+                            if (hasCells) {
+                              // continue searching to find the next blank date
+                            } else {
+                              // no puzzle content for this date; make it the target
+                              setEditorPuzzle(getDefaultPuzzle(size));
+                              setSaveDate(ds);
+                              findNextAbort.current = null;
+                              return;
+                            }
+                          }
                       }
-                      setSaveDate(today.toISOString().slice(0, 10));
+                      setSaveDate(getMSTDateString(today));
                     } catch (err) { const maybe = err as { name?: string } | undefined; if (maybe && maybe.name === 'AbortError') return; console.debug('findNextFreeDate error', err); } finally { findNextAbort.current = null; }
                   })();
                 } else { setEditorPuzzle(null); setSaveDate(''); if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} } }
