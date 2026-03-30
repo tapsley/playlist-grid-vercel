@@ -7,6 +7,9 @@ import GridCell from './GridCell';
 import { computeFulfilledArray } from '../runUtils';
 import { getMSTDateString } from '../time';
 
+// Divider color used for 5x/10x block separators — change here to update UI
+const DIVIDER_COLOR = 'rgb(57, 255, 8)';
+
 export default function GridBoard(props: any) {
   const {
     size,
@@ -86,7 +89,7 @@ export default function GridBoard(props: any) {
 
   return (
     <div onPointerMove={ (e: any) => {
-      if (cleared) return;
+      if (cleared && !editorMode) return;
       if (!pointerActiveRef.current || !pointerActionRef.current) return;
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
       if (!el) return;
@@ -181,13 +184,13 @@ export default function GridBoard(props: any) {
                 width: cellPx, height: cellPx, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderStyle: 'solid', borderWidth: 1, borderColor: '#888',
                 borderRightWidth: 1,
-                borderRightColor: ((size >= 10 && c === 4) || (size === 15 && c === 9)) ? '#37a' : '#888',
+                borderRightColor: ((size >= 10 && c === 4) || (size === 15 && c === 9)) ? DIVIDER_COLOR : '#888',
                 borderLeftWidth: 1,
-                borderLeftColor: ((size >= 10 && c === 5) || (size === 15 && c === 10)) ? '#37a' : '#888',
+                borderLeftColor: ((size >= 10 && c === 5) || (size === 15 && c === 10)) ? DIVIDER_COLOR : '#888',
                 borderBottomWidth: 1,
-                borderBottomColor: ((size >= 10 && r === 4) || (size === 15 && r === 9)) ? '#37a' : '#888',
+                borderBottomColor: ((size >= 10 && r === 4) || (size === 15 && r === 9)) ? DIVIDER_COLOR : '#888',
                 borderTopWidth: 1,
-                borderTopColor: ((size >= 10 && r === 5) || (size === 15 && r === 10)) ? '#37a' : '#888',
+                borderTopColor: ((size >= 10 && r === 5) || (size === 15 && r === 10)) ? DIVIDER_COLOR : '#888',
                 background: (() => {
                   if (celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c]) return '#d4af37';
                   if (editorMode) return (cell ? '#222' : '#fff');
@@ -211,7 +214,7 @@ export default function GridBoard(props: any) {
                   cellStyle={cellStyle}
                   onPointerDown={(e: React.PointerEvent) => {
                     e.preventDefault();
-                    if (cleared) return;
+                    if (cleared && !editorMode) return;
                     pointerActiveRef.current = true;
                     if (editorMode) {
                       const cur = (editorPuzzle && editorPuzzle[r] && typeof editorPuzzle[r][c] !== 'undefined') ? !!editorPuzzle[r][c] : !!(prefetchPuzzle && prefetchPuzzle[difficulty] && prefetchPuzzle[difficulty][r] && prefetchPuzzle[difficulty][r][c]);
@@ -273,7 +276,7 @@ export default function GridBoard(props: any) {
                     }
                   }}
                   onPointerEnter={() => {
-                    if (cleared) return;
+                    if (cleared && !editorMode) return;
                     if (!pointerActiveRef.current || !pointerActionRef.current) return;
                     if (editorMode) {
                       if (pointerActionRef.current === 'fill' || pointerActionRef.current === 'erase') {

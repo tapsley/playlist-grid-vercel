@@ -67,8 +67,8 @@ export default function PicrossSplash() {
           </div>
         )}
       </div>
-      <h1 style={{ fontSize: 56, lineHeight: 1, margin: 25, fontWeight: 800, letterSpacing: 1, color: '#111' }}>Daily Nonogram</h1>
-      <div style={{ fontSize: 14, marginTop: -8, marginBottom: 12, color: '#111', opacity: 0.9 }}>All puzzles designed by Tyler Apsley</div>
+      <h1 style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonogram</h1>
+      <div style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0.9 }}>All puzzles designed by Tyler Apsley</div>
       <div className="difficulty-row">
         {difficulties.map(d => {
           const disabled = d.value === 'hard' && !isTyler;
@@ -90,14 +90,14 @@ export default function PicrossSplash() {
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
                 </Link>
               )}
-              <div style={{ marginTop: 12, fontWeight: difficulty === d.value ? "bold" : 600, fontSize: 18 }}>{d.label}</div>
+              <div style={{ fontFamily: "Courier New", marginTop: 12, fontWeight: difficulty === d.value ? "bold" : 600, fontSize: 18 }}>{d.label}</div>
             </div>
           );
         })}
       </div>
-      <div style={{ width: 'min(1000px, 92%)', background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', marginBottom: 48 }}>
-        <h2 style={{ fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
-        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div style={{ width: 'min(1000px, 92%)', background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', marginBottom: 48, color: '#111' }}>
+        <h2 style={{ fontFamily: "Courier New", fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
+        <div style={{ fontFamily: "Courier New", display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 420px', minWidth: 260 }}>
             <p style={{ marginTop: 0, marginBottom: 12, color: '#333' }}>
               Solve the puzzle by filling the correct squares to reveal the hidden picture.

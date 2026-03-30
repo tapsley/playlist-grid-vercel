@@ -13,7 +13,7 @@ const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; top
   // Fixed pixel sizes and clue font for left/top clue regions per difficulty — adjust as needed
   easy: { size: 5, leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20 },
   medium: { size: 10, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 16 },
-  hard: { size: 15, leftWidthPx: 240, topHeightPx: 240, clueFontPx: 18 },
+  hard: { size: 15, leftWidthPx: 165, topHeightPx: 165, clueFontPx: 14 },
 };
 
 function getDefaultPuzzle(size: number): boolean[][] {
@@ -605,6 +605,38 @@ useEffect(() => {
     setEditorPuzzle(getDefaultPuzzle(size));
   };
 
+  const handleClearBoard = async () => {
+    // Reset provider progress for this difficulty to all 0s and reset timer
+    setPrefetch(prev => ({
+      ...prev,
+      progress: {
+        ...prev.progress,
+        [difficulty]: Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState)),
+      },
+    }));
+    try {
+      const key = `picross:progress:${dateStr}:${difficulty}`;
+      const payload = { grid: Array.from({ length: size }, () => Array.from({ length: size }, () => 0)), complete: false, seconds: 0 };
+      try { window.localStorage.setItem(key, JSON.stringify(payload)); } catch {}
+      const secKey = `picross:seconds:${dateStr}:${difficulty}`;
+      try { window.localStorage.setItem(secKey, String(0)); } catch {}
+    } catch {}
+    setElapsedSec(0);
+    setCelebrateGrid(null);
+    // Fire-and-forget server reset for logged-in users
+    if (userIsLoggedIn) {
+      (async () => {
+        try {
+          const body: any = { date: dateStr };
+          if (difficulty === 'easy') body.easy = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
+          if (difficulty === 'medium') body.medium = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
+          if (difficulty === 'hard') body.hard = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
+          await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        } catch (err) { console.debug('server clear failed', err); }
+      })();
+    }
+  };
+
   const rawEmail = session?.user?.email ?? "";
   const isEditorAllowed = rawEmail.trim().toLowerCase() === "tyler.apsley@gmail.com";
 
@@ -848,6 +880,7 @@ useEffect(() => {
         colClues={colClues}
         fontFamily={fontFamily}
         fontWeight={fontWeight}
+          clearBoard={handleClearBoard}
       />
       {/* Mode selector bar -> replaced by celebration text when animation starts */}
       {celebrateGrid && !editorMode ? (
@@ -875,6 +908,7 @@ useEffect(() => {
             selectedBtnStyle={selectedBtnStyle}
             hoverBtnStyle={hoverBtnStyle}
             celebrateGrid={celebrateGrid ? true : null}
+            clearBoard={handleClearBoard}
           />
       )}
     </div>
