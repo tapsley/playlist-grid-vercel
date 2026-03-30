@@ -61,11 +61,6 @@ export default function PicrossSplash() {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%' }}>
       <div style={{ position: "absolute", top: 16, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         <UserMenu />
-        {!session && (
-          <div style={{ width: 110, marginTop: 6, fontSize: 12, color: '#333', opacity: 0.9 }}>
-            Sign in to save your progress and stats!
-          </div>
-        )}
       </div>
       <h1 style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonogram</h1>
       <div style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0.9 }}>All puzzles designed by Tyler Apsley</div>
