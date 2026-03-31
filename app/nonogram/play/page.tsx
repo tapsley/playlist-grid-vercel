@@ -14,7 +14,7 @@ const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; top
   // Per-difficulty layout defaults. Feel free to tweak these values.
   easy: { size: 5, leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20, cellPxDefault: 32, autoScaleEnabled: false, minCellPx: 12, maxCellPx: 48, minClueFontPx: 12, clueGap: 12 },
   medium: { size: 10, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 16, cellPxDefault: 28, autoScaleEnabled: false, minCellPx: 10, maxCellPx: 40, minClueFontPx: 11, clueGap: 12 },
-  hard: { size: 15, leftWidthPx: 135, topHeightPx: 135, clueFontPx: 10, cellPxDefault: 24, autoScaleEnabled: true, minCellPx: 20, maxCellPx: 25, minClueFontPx: 10, clueGap: 10 },
+  hard: { size: 15, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 9, cellPxDefault: 24, autoScaleEnabled: true, minCellPx: 19, maxCellPx: 25, minClueFontPx: 10, clueGap: 8 },
 };
 
 function getDefaultPuzzle(size: number): boolean[][] {
