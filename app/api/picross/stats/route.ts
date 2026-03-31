@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { PrismaClient } from "@prisma/client";
+import { getMSTDateString } from "@/app/nonogram/time";
 
 const prisma = new PrismaClient();
 
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest) {
   // Admin/owner extra stats for Tyler
   const email = (session.user?.email || '').toString().toLowerCase();
   if (email === 'tyler.apsley@gmail.com') {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    //const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getMSTDateString();
     const start = new Date(todayStr);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
