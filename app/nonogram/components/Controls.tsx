@@ -82,6 +82,8 @@ export default function Controls(props: Props) {
         </>
       )}
 
+      
+
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', zIndex: 2000 }}>
           <div style={{ background: '#fff', padding: 18, borderRadius: 8, minWidth: 280,  maxWidth: 400 }}>

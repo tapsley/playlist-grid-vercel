@@ -10,11 +10,11 @@ import Controls from '../components/Controls';
 import { getMSTDateString } from '../time';
 import pickSequence from '../celebrations/sequenceBank';
 
-const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number }> = {
-  // Fixed pixel sizes and clue font for left/top clue regions per difficulty — adjust as needed
-  easy: { size: 5, leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20 },
-  medium: { size: 10, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 16 },
-  hard: { size: 15, leftWidthPx: 165, topHeightPx: 165, clueFontPx: 14 },
+const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number; cellPxDefault?: number; autoScaleEnabled?: boolean; minCellPx?: number; maxCellPx?: number; minClueFontPx?: number; clueGap?: number }> = {
+  // Per-difficulty layout defaults. Feel free to tweak these values.
+  easy: { size: 5, leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20, cellPxDefault: 32, autoScaleEnabled: false, minCellPx: 12, maxCellPx: 48, minClueFontPx: 12, clueGap: 12 },
+  medium: { size: 10, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 16, cellPxDefault: 28, autoScaleEnabled: false, minCellPx: 10, maxCellPx: 40, minClueFontPx: 11, clueGap: 12 },
+  hard: { size: 15, leftWidthPx: 135, topHeightPx: 135, clueFontPx: 10, cellPxDefault: 24, autoScaleEnabled: true, minCellPx: 20, maxCellPx: 25, minClueFontPx: 10, clueGap: 10 },
 };
 
 function getDefaultPuzzle(size: number): boolean[][] {
@@ -76,6 +76,7 @@ function PicrossPlayInner() {
   const formattedDate = new Date(dateStr).toLocaleDateString();
   const difficulty = (searchParams && searchParams.get && (searchParams.get('difficulty') || 'easy')) as string;
   const size = DIFFICULTY_CONFIG[difficulty]?.size ?? 5;
+  const config = DIFFICULTY_CONFIG[difficulty] ?? DIFFICULTY_CONFIG['easy'];
 
   // provider-backed puzzle and grid (CellState values 0..3)
   const puzzle = (prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size);
@@ -120,11 +121,51 @@ function PicrossPlayInner() {
   // layout constants
   const DEFAULT_FONT = 'Courier New, monospace';
   
-  const CLUE_FONT_PX = DIFFICULTY_CONFIG[difficulty]?.clueFontPx ?? 18;
-  const clueGap = 12;
+  const [minClueFontPx, setMinClueFontPx] = useState<number>(10);
+  const CLUE_FONT_PX = Math.max((DIFFICULTY_CONFIG[difficulty]?.clueFontPx ?? 18), minClueFontPx);
+  const clueGap = DIFFICULTY_CONFIG[difficulty]?.clueGap ?? 12;
   const topHeight = DIFFICULTY_CONFIG[difficulty]?.topHeightPx ?? 120;
   const leftWidth = DIFFICULTY_CONFIG[difficulty]?.leftWidthPx ?? 120;
   const [cellPx, setCellPx] = useState<number>(32);
+  const [autoScaleEnabled, setAutoScaleEnabled] = useState<boolean>(true);
+  const [minCellPx, setMinCellPx] = useState<number>(12);
+  const [maxCellPx, setMaxCellPx] = useState<number>(48);
+
+  // Responsive cell sizing: ensure the hard (15x15) grid fits on narrow screens
+  useEffect(() => {
+    // initialize scaling/clue defaults from per-difficulty config when difficulty changes
+    try {
+      const cfg = DIFFICULTY_CONFIG[difficulty] ?? DIFFICULTY_CONFIG['easy'];
+      if (cfg.cellPxDefault) setCellPx(cfg.cellPxDefault);
+      if (typeof cfg.autoScaleEnabled !== 'undefined') setAutoScaleEnabled(cfg.autoScaleEnabled as boolean);
+      if (cfg.minCellPx) setMinCellPx(cfg.minCellPx);
+      if (cfg.maxCellPx) setMaxCellPx(cfg.maxCellPx);
+      if (cfg.minClueFontPx) setMinClueFontPx(cfg.minClueFontPx);
+    } catch (err) {}
+
+    const compute = () => {
+      try {
+        // available width: viewport minus some padding and left clue column
+        const padding = 32; // left+right safe padding
+        const extra = 24; // spacing/margins
+        const avail = Math.max(120, window.innerWidth - padding - leftWidth - extra);
+        // compute px per cell to fit the grid width
+        const candidate = Math.floor(avail / size);
+        // guard mins/max: keep cells usable
+        const minCell = minCellPx ?? 12;
+        const maxCell = maxCellPx ?? 48;
+        const newPx = Math.max(minCell, Math.min(maxCell, candidate || minCell));
+        // Only auto-scale for hard difficulty (15x15). For other difficulties, keep existing default.
+        if (autoScaleEnabled && difficulty === 'hard') setCellPx(newPx);
+      } catch (err) {
+        // ignore
+      }
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+    // include dependencies that affect layout
+  }, [difficulty, leftWidth, size, autoScaleEnabled, minCellPx, maxCellPx]);
 
   // small button styles used in controls area
   const baseBtnStyle: React.CSSProperties = { padding: '8px 10px', borderRadius: 6, background: '#fff', border: '1px solid #ddd', cursor: 'pointer' };
@@ -916,6 +957,7 @@ useEffect(() => {
             hoverBtnStyle={hoverBtnStyle}
             celebrateGrid={celebrateGrid ? true : null}
             clearBoard={handleClearBoard}
+            
           />
       )}
     </div>
