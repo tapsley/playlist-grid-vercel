@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import GridBoard from '../components/GridBoard';
 import Controls from '../components/Controls';
 import { getMSTDateString } from '../time';
+import pickSequence from '../celebrations/sequenceBank';
 
 const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number }> = {
   // Fixed pixel sizes and clue font for left/top clue regions per difficulty — adjust as needed
@@ -367,8 +368,14 @@ useEffect(() => {
     const init = Array.from({ length: size }, () => Array.from({ length: size }, () => false));
     setCelebrateGrid(init);
 
+    // pick an ordering sequence for the gold-fill animation
+    const pick = pickSequence(filled, size);
+    const order = pick.order;
+    const seqName = pick.name;
+    const isTyler = !!(session?.user?.email && session.user.email.trim().toLowerCase() === "tyler.apsley@gmail.com");
+    if (isTyler) console.log('picross: celebration sequence ->', seqName);
     const delay = 60;
-    filled.forEach(([r, c], i) => {
+    order.forEach(([r, c], i) => {
       const t = window.setTimeout(() => {
         setCelebrateGrid(prev => {
           if (!prev) return prev;
