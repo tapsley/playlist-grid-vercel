@@ -55,6 +55,8 @@ export default function GridBoard(props: any) {
     celebrateGrid,
     fontFamily,
     fontWeight,
+    firstStart,
+    onStartComplete,
   } = props;
 
   const getDefaultPuzzle = (size: number) => Array(size).fill(0).map(() => Array(size).fill(false));
@@ -159,14 +161,14 @@ export default function GridBoard(props: any) {
               Editor
             </label>
           )}
-          <TimerWithPB elapsedSec={elapsedSec} cleared={cleared} showNewPB={showNewPB} />
+          <TimerWithPB elapsedSec={elapsedSec} cleared={cleared} showNewPB={showNewPB} firstStart={firstStart} onStartComplete={onStartComplete} />
         </div>
         {Array.from({ length: size }).map((_, i) => i).map(i => {
           const runs = getRunsForCol(i);
           const meta = getRunsMetaForCol(i);
           const clueForIndex = editorMode ? (displayColClues[i] || []) : ((colClues && colClues[i]) || []);
           const fulfilled = computeFulfilledArray(clueForIndex, runs, meta, size, (r: number, c: number) => isFilledCell(r,c), (r:number,c:number)=> isXCell(r,c), false, i);
-          return <ClueColumn key={i} clue={clueForIndex} fulfilled={fulfilled} cellPx={cellPx} topHeight={topHeight} fontSize={CLUE_FONT_PX} index={i} />;
+          return <ClueColumn key={i} clue={clueForIndex} fulfilled={fulfilled} cellPx={cellPx} topHeight={topHeight} fontSize={CLUE_FONT_PX} index={i} firstStart={firstStart} />;
         })}
       </div>
       {displayGrid.map((row: any, r: number) => {
@@ -177,7 +179,7 @@ export default function GridBoard(props: any) {
         return (
           <div key={r} style={{ display: 'flex' }}>
             <div style={{ width: leftWidth, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
-              <ClueRow clue={clueForRow} fulfilled={fulfilled} clueGap={clueGap} fontSize={CLUE_FONT_PX} />
+              <ClueRow clue={clueForRow} fulfilled={fulfilled} clueGap={clueGap} fontSize={CLUE_FONT_PX} firstStart={firstStart} />
             </div>
             {row.map((cell: any, c: number) => {
               const cellStyle: React.CSSProperties = {

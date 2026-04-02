@@ -4,7 +4,7 @@
 import { usePicrossPrefetch } from "./PicrossPrefetchContext";
   
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { gsap } from 'gsap';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
@@ -27,7 +27,7 @@ const demoPuzzles: Record<string, boolean[][]> = {
 };
 
 
-export default function PicrossSplash() {
+function PicrossSplashInner() {
   const [difficulty] = useState("easy");
   const { data: session } = useSession();
   const isTyler = !!(session?.user?.email && session.user.email.trim().toLowerCase() === "tyler.apsley@gmail.com");
@@ -61,6 +61,22 @@ export default function PicrossSplash() {
   const dailyTitleRef = useRef<HTMLHeadingElement | null>(null);
   const dailyAnimStartedRef = useRef(false);
   const dailySubtitleRef = useRef<HTMLDivElement | null>(null);
+  const replayTimeoutRef = useRef<number | null>(null);
+  const stopDailyAnimations = () => {
+    try {
+      const letters = dailyTitleRef.current ? Array.from(dailyTitleRef.current.querySelectorAll('.daily-letter')) as HTMLElement[] : [];
+      gsap.killTweensOf(letters);
+      gsap.killTweensOf(dailySubtitleRef.current as any);
+      if (dailySubtitleRef.current) {
+        dailySubtitleRef.current.style.opacity = '1';
+        dailySubtitleRef.current.style.transform = 'translateY(0px)';
+      }
+      // clear any pending replay timeout so it can't navigate after we leave
+      try { if (replayTimeoutRef.current) { window.clearTimeout(replayTimeoutRef.current); replayTimeoutRef.current = null; } } catch {}
+    } catch (err) {
+      // ignore
+    }
+  };
   const searchParams = useSearchParams();
   const router = useRouter();
   useEffect(() => {
@@ -107,10 +123,12 @@ export default function PicrossSplash() {
     // If this was a replay request, clear the query param after animation starts
     if (replay) {
       try {
-        setTimeout(() => { try { router.replace('/nonogram'); } catch {} }, 800);
+        try { if (replayTimeoutRef.current) { window.clearTimeout(replayTimeoutRef.current); replayTimeoutRef.current = null; } } catch {}
+        replayTimeoutRef.current = window.setTimeout(() => { try { router.replace('/nonogram'); } catch {} }, 800) as unknown as number;
       } catch {}
     }
     return () => {
+      try { if (replayTimeoutRef.current) { window.clearTimeout(replayTimeoutRef.current); replayTimeoutRef.current = null; } } catch {}
       try { el.textContent = original; } catch {}
     };
   // re-run when the search params string changes (so ?replay=1 triggers it)
@@ -143,6 +161,7 @@ export default function PicrossSplash() {
                   className="nonogram-difficulty-btn"
                   style={containerStyle}
                   prefetch={true}
+                  onClick={() => { stopDailyAnimations(); }}
                 >
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
                 </Link>
@@ -229,6 +248,14 @@ export default function PicrossSplash() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function PicrossSplash() {
+  return (
+    <Suspense fallback={<div />}>
+      <PicrossSplashInner />
+    </Suspense>
   );
 }
 

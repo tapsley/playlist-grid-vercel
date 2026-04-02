@@ -100,6 +100,25 @@ function PicrossPlayInner() {
   const puzzle = (prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size);
   const grid: (number[] | any)[] = (prefetchProgress && prefetchProgress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
 
+  // Determine whether this is the first time the user is seeing this puzzle
+  // (no prior progress). If there is any non-zero cell in provider progress,
+  // consider it not a first start.
+  const hasProgress = !!(prefetchProgress && prefetchProgress[difficulty] && (prefetchProgress[difficulty] as any).some((row: any) => Array.isArray(row) && row.some((v: any) => Number(v) !== 0)));
+  // Also respect a persisted "start shown" flag so we don't replay the
+  // START animation repeatedly across navigations for the same puzzle/date.
+  let firstStart = !hasProgress;
+  try {
+    const shownKey = `picross:startShown:${dateStr}:${difficulty}`;
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(shownKey) : null;
+    if (raw === '1') firstStart = false;
+  } catch {}
+
+  // Track whether the START animation has completed. If this is not a
+  // first start, we consider the animation already done so the timer can run.
+  const [startAnimationDone, setStartAnimationDone] = useState<boolean>(() => !firstStart);
+
+  const userIsLoggedIn = !!session?.user?.email;
+
   // UI / editor state
   const [editorMode, setEditorMode] = useState(false);
   const [editorPuzzle, setEditorPuzzle] = useState<boolean[][] | null>(null);
@@ -113,11 +132,12 @@ function PicrossPlayInner() {
     try {
       const key = `picross:seconds:${dateStr}:${difficulty}`;
       const raw = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
-      return raw ? (Number(raw) || 0) : 0;
+      const localVal = raw ? (Number(raw) || 0) : 0;
+      // If a session exists at mount, prefer server value (fetch will update shortly).
+      // Initialize to 0 for logged-in mounts to avoid showing another user's local seconds.
+      return userIsLoggedIn ? 0 : localVal;
     } catch { return 0; }
   });
-
-  const userIsLoggedIn = !!session?.user?.email;
 
   // celebration / PB
   const [showNewPB, setShowNewPB] = useState(false);
@@ -220,12 +240,13 @@ function PicrossPlayInner() {
 useEffect(() => {
   if (editorMode) return;
   if (cleared) return;
+  if (!startAnimationDone) return;
   if (timerRef.current) return;
   timerRef.current = window.setInterval(() => setElapsedSec(s => s + 1) as unknown as number, 1000) as unknown as number;
   return () => {
     if (timerRef.current) { window.clearInterval(timerRef.current as unknown as number); timerRef.current = null; }
   };
-}, [editorMode, cleared]);
+}, [editorMode, cleared, startAnimationDone]);
 
   // Persist seconds periodically and on unmount
   useEffect(() => {
@@ -249,6 +270,29 @@ useEffect(() => {
     }, 5000) as unknown as number;
     return () => { if (saveTimerDebounce.current) clearTimeout(saveTimerDebounce.current); };
   }, [elapsedSec, difficulty, dateStr, userIsLoggedIn]);
+
+  // When user is logged in, prefer the server-side saved seconds for this date/difficulty
+  useEffect(() => {
+    if (!userIsLoggedIn) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/picross/progress?date=${dateStr}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!mounted) return;
+        let sec = 0;
+        if (difficulty === 'easy') sec = Number(json?.easySeconds || 0) || 0;
+        if (difficulty === 'medium') sec = Number(json?.mediumSeconds || 0) || 0;
+        if (difficulty === 'hard') sec = Number(json?.hardSeconds || 0) || 0;
+        // Only update if server has a non-zero seconds or if local is non-zero and server is zero
+        setElapsedSec(sec || 0);
+      } catch (err) {
+        console.debug('fetch server seconds failed', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [userIsLoggedIn, dateStr, difficulty]);
 
   // Save immediately (used on visibilitychange/unload) to avoid losing recent seconds
   const saveSecondsNow = async () => {
@@ -970,6 +1014,14 @@ useEffect(() => {
         fontFamily={fontFamily}
         fontWeight={fontWeight}
           clearBoard={handleClearBoard}
+          firstStart={firstStart}
+          onStartComplete={() => {
+            try {
+              const shownKey = `picross:startShown:${dateStr}:${difficulty}`;
+              window.localStorage.setItem(shownKey, '1');
+            } catch {}
+            setStartAnimationDone(true);
+          }}
       />
       {/* Mode selector bar -> replaced by celebration text when animation starts */}
       {celebrateGrid && !editorMode ? (
