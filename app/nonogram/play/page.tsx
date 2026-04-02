@@ -177,11 +177,21 @@ function PicrossPlayInner() {
   // compute clues
   const { rows: rowClues, cols: colClues } = useMemo(() => getClues(puzzle), [puzzle]);
 
-  // cleared: check whether all required puzzle cells are filled
+  // cleared: check whether the player's grid exactly matches the puzzle
+  // (every puzzle `true` must be filled, and every puzzle `false` must
+  // NOT be filled). Previously we only checked that required cells were
+  // filled which allowed the user to fill every square and be marked
+  // as solved. This stricter check prevents that.
   const cleared = useMemo(() => {
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
-        if (puzzle[r][c] && ((grid[r] && Number(grid[r][c]) !== 1))) return false;
+        const shouldBeFilled = !!(puzzle && puzzle[r] && puzzle[r][c]);
+        const val = (grid && grid[r] && typeof grid[r][c] !== 'undefined') ? Number(grid[r][c]) : 0;
+        if (shouldBeFilled) {
+          if (val !== 1) return false;
+        } else {
+          if (val === 1) return false;
+        }
       }
     }
     return true;
@@ -203,29 +213,17 @@ useEffect(() => {
   useEffect(() => {
     // debounce save every 5s
     if (saveTimerDebounce.current) clearTimeout(saveTimerDebounce.current);
-    saveTimerDebounce.current = window.setTimeout(async () => {
+    saveTimerDebounce.current = window.setTimeout(() => {
       try {
-        // Persist seconds periodically for logged-in users (server), and
-        // also write a local copy for quick performance.
-        if (userIsLoggedIn) {
-          const body: any = { date: dateStr };
-          if (difficulty === 'easy') body.easySeconds = elapsedSec;
-          if (difficulty === 'medium') body.mediumSeconds = elapsedSec;
-          if (difficulty === 'hard') body.hardSeconds = elapsedSec;
-          try {
-            await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-          } catch (err) {
-            console.debug('picross:periodic server save failed', err);
-          }
-          try {
-            const key = `picross:seconds:${dateStr}:${difficulty}`;
-            window.localStorage.setItem(key, String(elapsedSec));
-            const pKey = `picross:progress:${dateStr}:${difficulty}`;
-            const payload = { grid, complete: cleared, seconds: elapsedSec };
-            window.localStorage.setItem(pKey, JSON.stringify(payload));
-          } catch (err) {
-            console.debug('picross:periodic local save err', err);
-          }
+        // Only write a local copy periodically; avoid frequent server POSTs.
+        try {
+          const key = `picross:seconds:${dateStr}:${difficulty}`;
+          window.localStorage.setItem(key, String(elapsedSec));
+          const pKey = `picross:progress:${dateStr}:${difficulty}`;
+          const payload = { grid, complete: cleared, seconds: elapsedSec };
+          window.localStorage.setItem(pKey, JSON.stringify(payload));
+        } catch (err) {
+          console.debug('picross:periodic local save err', err);
         }
       } catch (err) {
         console.debug('save seconds err', err);
@@ -288,28 +286,10 @@ useEffect(() => {
     }
   };
 
-  // Persist on visibilitychange / beforeunload so seconds aren't lost when navigating away
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden) saveSecondsNow();
-    };
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Only attempt async save for logged-in users on unload. Anonymous
-      // seconds are saved explicitly on Back click or on puzzle completion.
-      if (userIsLoggedIn) {
-        // fire-and-forget
-        saveSecondsNow();
-      }
-      // allow unload
-      delete e.returnValue;
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [elapsedSec, difficulty, dateStr, userIsLoggedIn]);
+  // NOTE: Automatic save on visibilitychange / beforeunload removed to avoid
+  // unexpected frequent server POSTs. Server sync now happens on explicit
+  // actions only (Back navigation calls `saveSecondsNow()`, and final
+  // completion triggers a final save). Periodic/local saves still run.
 
   // When puzzle is cleared, stop timer and send final time + complete flag to server (so fastest can update)
   useEffect(() => {
@@ -494,7 +474,11 @@ useEffect(() => {
 
   // Apply action to a specific cell (used by pointer drag)
   const applyActionToCell = (r: number, c: number, action: "fill" | "erase" | "fillX" | "fillMaybe" | "eraseMaybe") => {
+    // Prevent changes during celebration to avoid race conditions where
+    // rapid pointer input applies after the solved animation and leaves
+    // incorrect cells filled.
     if (editorMode) return;
+    if (isCelebratingRef.current) return;
     if (cleared) return;
     setPrefetch(prev => {
       const cur = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
@@ -701,38 +685,27 @@ useEffect(() => {
 
   // Save progress when grid changes (not in editor mode)
 
-  // Debounce save effect
+  // Debounce save effect (local-only): persist grid changes locally but
+  // avoid automatic server POSTs on every interaction. Server sync is
+  // performed on explicit actions: Back navigation (`saveSecondsNow()`),
+  // final completion effect, or manual saves.
   const debounceTimeout = useRef<number | null>(null);
   useEffect(() => {
     if (editorMode) return;
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    debounceTimeout.current = window.setTimeout(async () => {
-      if (!userIsLoggedIn) {
-        // persist to localStorage for anonymous users (grid only).
-        try {
-          const key = `picross:progress:${dateStr}:${difficulty}`;
-          const payload = { grid, complete: cleared };
-          window.localStorage.setItem(key, JSON.stringify(payload));
-        } catch (err) {
-          console.debug('localStorage write error', err);
-        }
-        return;
+    debounceTimeout.current = window.setTimeout(() => {
+      try {
+        const key = `picross:progress:${dateStr}:${difficulty}`;
+        const payload = { grid, complete: cleared };
+        window.localStorage.setItem(key, JSON.stringify(payload));
+      } catch (err) {
+        console.debug('localStorage write error', err);
       }
-      await fetch("/api/picross/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: dateStr,
-          [difficulty]: grid,
-          [`${difficulty}Complete`]: cleared,
-        }),
-      });
-      // No context update here; context is updated optimistically on click
     }, 400); // 400ms debounce
     return () => {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     };
-  }, [grid, cleared, difficulty, userIsLoggedIn, editorMode, dateStr]);
+  }, [grid, cleared, difficulty, editorMode, dateStr]);
 
   // Helpers to determine user-filled runs for rows/columns (used to gray-out fulfilled clues)
   const isFilledCell = (r: number, c: number) => {
