@@ -29,6 +29,7 @@ export default function PicrossSplash() {
   const [difficulty] = useState("easy");
   const { data: session } = useSession();
   const isTyler = !!(session?.user?.email && session.user.email.trim().toLowerCase() === "tyler.apsley@gmail.com");
+  const isAuthenticated = !!(session?.user?.email);
   const { progress, puzzle } = usePicrossPrefetch();
   // Ensure progress is always an object and never null
   const safeProgress = (progress && typeof progress === 'object') ? progress : {};
@@ -66,14 +67,16 @@ export default function PicrossSplash() {
       <div style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0.9 }}>All puzzles designed by Tyler Apsley</div>
       <div className="difficulty-row">
         {difficulties.map(d => {
-          const disabled = d.value === 'hard' && !isTyler;
+          const disabled = (d.value === 'hard' && !isTyler) || (d.value === 'medium' && !isAuthenticated);
           const containerStyle: React.CSSProperties = { border: "3px solid #7c7c7c", borderRadius: 12, background: "#fff", padding: 12, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
           return (
             <div key={d.value} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               {disabled ? (
                 <div className="nonogram-difficulty-btn disabled" style={containerStyle}>
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.8)', borderRadius: 8, fontWeight: 700, color: '#333' }}>Coming soon</div>
+                  <div style={{ fontFamily: "Courier New", position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333' }}>
+                    {d.value === 'hard' ? 'Coming soon!' : d.value === 'medium' ? 'Sign in to play!' : 'Locked'}
+                  </div>
                 </div>
               ) : (
                 <Link
