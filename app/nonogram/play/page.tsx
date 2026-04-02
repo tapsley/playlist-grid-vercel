@@ -206,10 +206,10 @@ function PicrossPlayInner() {
   }, [difficulty, leftWidth, size, autoScaleEnabled, minCellPx, maxCellPx]);
 
   // small button styles used in controls area
-  const baseBtnStyle: React.CSSProperties = { padding: '8px 10px', borderRadius: 6, background: '#fff', border: '1px solid #ddd', cursor: 'pointer' };
+  const baseBtnStyle: React.CSSProperties = { padding: '8px 10px', borderRadius: 6, background: '#fff', border: '0px solid #ddd', cursor: 'pointer' };
   const primaryBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#4a90e2', color: '#fff', border: 'none' };
-  const dangerBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#fff', border: '1px solid #f44336', color: '#f44336' };
-  const selectedBtnStyle: React.CSSProperties = { boxShadow: 'inset 0 0 0 2px rgba(0,0,0,0.06)', background: '#eee' };
+  const dangerBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#fff', border: '2px solid #f44336', color: '#f44336' };
+  const selectedBtnStyle: React.CSSProperties = { boxShadow: 'inset 0 0 0 3px #c23fff48', background: '#db8eff', color: '#ffffff00' };
   const hoverBtnStyle: React.CSSProperties = { background: '#fafafa' };
 
   // compute clues
