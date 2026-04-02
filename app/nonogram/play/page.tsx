@@ -1,6 +1,7 @@
 // Moved PicrossPage implementation here from page.tsx
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { gsap } from 'gsap';
 import type { CellState } from "../PicrossPrefetchContext";
 import { usePicrossPrefetch } from "../PicrossPrefetchContext";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -73,7 +74,24 @@ function PicrossPlayInner() {
 
   // derive date/difficulty
   const dateStr = (searchParams && searchParams.get && searchParams.get('date')) || getMSTDateString();
-  const formattedDate = new Date(dateStr).toLocaleDateString();
+  // Parse YYYY-MM-DD into a local Date (avoid UTC parsing which can shift the day
+  // depending on the user's timezone). This ensures the displayed calendar date
+  // matches the intended date string.
+  let formattedDate = dateStr;
+  try {
+    const parts = (dateStr || '').split('-');
+    if (parts.length === 3) {
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const d = Number(parts[2]);
+      const local = new Date(y, m, d);
+      formattedDate = local.toLocaleDateString();
+    } else {
+      formattedDate = new Date(dateStr).toLocaleDateString();
+    }
+  } catch {
+    try { formattedDate = new Date(dateStr).toLocaleDateString(); } catch { formattedDate = dateStr; }
+  }
   const difficulty = (searchParams && searchParams.get && (searchParams.get('difficulty') || 'easy')) as string;
   const size = DIFFICULTY_CONFIG[difficulty]?.size ?? 5;
   const config = DIFFICULTY_CONFIG[difficulty] ?? DIFFICULTY_CONFIG['easy'];
@@ -477,6 +495,48 @@ useEffect(() => {
     }
   }, [editorMode, cleared]);
   const [saveDate, setSaveDate] = useState("");
+  const completeTextRef = useRef<HTMLDivElement | null>(null);
+  const completeAnimStartedRef = useRef(false);
+
+  // Animate the "Puzzle Complete!" text when celebration grid becomes active
+  useEffect(() => {
+    // Only run the entrance animation once when a celebration begins.
+    if (!celebrateGrid || !completeTextRef.current) {
+      completeAnimStartedRef.current = false;
+      return;
+    }
+    if (completeAnimStartedRef.current) return;
+    completeAnimStartedRef.current = true;
+    try {
+      const el = completeTextRef.current;
+      const original = (el.textContent || 'Puzzle Complete!');
+      // Replace content with per-letter spans
+      const letters: HTMLElement[] = [];
+      el.innerHTML = '';
+      for (const ch of Array.from(original)) {
+        const span = document.createElement('span');
+        span.className = 'complete-letter';
+        span.style.display = 'inline-block';
+        span.style.fontFamily = 'Courier New';
+        span.style.transformOrigin = 'center';
+        // preserve spaces
+        span.textContent = ch === ' ' ? '\u00A0' : ch;
+        letters.push(span);
+        el.appendChild(span);
+      }
+      // animate letters with a slight stagger
+      gsap.from(letters, {
+        scale: 0.35,
+        y: 20,
+        opacity: 0,
+        duration: 0.45,
+        ease: 'back.out(1.7)',
+        stagger: 0.05,
+      });
+    } catch (err) {
+      console.debug('gsap letter animation failed', err);
+    }
+  }, [celebrateGrid]);
 
   
 
@@ -852,7 +912,7 @@ useEffect(() => {
             } catch (err) {
               console.debug('picross:save on back err', err);
             }
-            router.push('/nonogram');
+            router.push('/nonogram?replay=1');
           }}
           aria-label="Back"
           style={{ background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', color: '#000', fontWeight: 800 }}
@@ -914,7 +974,7 @@ useEffect(() => {
       {/* Mode selector bar -> replaced by celebration text when animation starts */}
       {celebrateGrid && !editorMode ? (
         <div style={{ marginTop: 18, width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <div style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, fontSize: 24, padding: '12px 16px', borderRadius: 8, textShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
+          <div ref={completeTextRef} style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, fontSize: 24, padding: '12px 16px', borderRadius: 8, textShadow: '0 2px 6px rgba(0,0,0,0.08)', transformOrigin: 'center' }}>
             Puzzle Complete!
           </div>
         </div>

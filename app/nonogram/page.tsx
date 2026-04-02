@@ -4,7 +4,9 @@
 import { usePicrossPrefetch } from "./PicrossPrefetchContext";
   
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { gsap } from 'gsap';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import DifficultyIcon from "./components/DifficultyIcon";
@@ -56,6 +58,63 @@ export default function PicrossSplash() {
   };
   // Prefetching and fetch-on-login are handled by PicrossPrefetchProvider
 
+  const dailyTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const dailyAnimStartedRef = useRef(false);
+  const dailySubtitleRef = useRef<HTMLDivElement | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  useEffect(() => {
+    const el = dailyTitleRef.current;
+    if (!el) return;
+    const replay = !!(searchParams && searchParams.get && searchParams.get('replay'));
+    if (dailyAnimStartedRef.current && !replay) return;
+    dailyAnimStartedRef.current = false; // allow re-run when replay is present
+    const original = el.textContent || 'Daily Nonogram';
+    // build spans
+    const letters: HTMLElement[] = [];
+    el.innerHTML = '';
+    for (const ch of Array.from(original)) {
+      const span = document.createElement('span');
+      span.className = 'daily-letter';
+      span.style.display = 'inline-block';
+      span.style.transformOrigin = 'center';
+      span.textContent = ch === ' ' ? '\u00A0' : ch;
+      letters.push(span);
+      el.appendChild(span);
+    }
+    try {
+      dailyAnimStartedRef.current = true;
+      gsap.from(letters, {
+        scale: 0.5,
+        y: 12,
+        opacity: 0,
+        duration: 0.45,
+        ease: 'back.out(1.6)',
+        stagger: 0.04,
+      });
+      // Animate subtitle after the letters finish
+      try {
+        const subtitleEl = dailySubtitleRef.current;
+        if (subtitleEl) {
+          const letterDelay = Math.max(0.2, original.length * 0.04 + 0.05);
+          const startDelay = 0.45 + letterDelay; // letters animation + small buffer
+          gsap.to(subtitleEl, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out', delay: startDelay });
+        }
+      } catch (err) { console.debug('gsap subtitle animation failed', err); }
+    } catch (err) {
+      console.debug('gsap daily title animation failed', err);
+    }
+    // If this was a replay request, clear the query param after animation starts
+    if (replay) {
+      try {
+        setTimeout(() => { try { router.replace('/nonogram'); } catch {} }, 800);
+      } catch {}
+    }
+    return () => {
+      try { el.textContent = original; } catch {}
+    };
+  // re-run when the search params string changes (so ?replay=1 triggers it)
+  }, [searchParams?.toString()]);
 
 
   return (
@@ -63,8 +122,8 @@ export default function PicrossSplash() {
       <div style={{ position: "absolute", top: 16, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         <UserMenu />
       </div>
-      <h1 style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonogram</h1>
-      <div style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0.9 }}>All puzzles designed by Tyler Apsley</div>
+      <h1 ref={dailyTitleRef} style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonogram</h1>
+      <div ref={dailySubtitleRef} style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by Tyler Apsley</div>
       <div className="difficulty-row">
         {difficulties.map(d => {
           const disabled = (d.value === 'hard' && !isTyler) || (d.value === 'medium' && !isAuthenticated);
