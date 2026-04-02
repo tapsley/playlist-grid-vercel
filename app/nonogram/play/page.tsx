@@ -240,6 +240,11 @@ useEffect(() => {
         if (difficulty === 'easy') body.easySeconds = elapsedSec;
         if (difficulty === 'medium') body.mediumSeconds = elapsedSec;
         if (difficulty === 'hard') body.hardSeconds = elapsedSec;
+        // Include current grid for the active difficulty so the server has
+        // the latest state (important when backing out or finishing).
+        if (difficulty === 'easy') body.easy = grid;
+        if (difficulty === 'medium') body.medium = grid;
+        if (difficulty === 'hard') body.hard = grid;
         // don't await too long; fire-and-forget but attempt to complete
         try {
           await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -300,9 +305,12 @@ useEffect(() => {
       try {
         if (userIsLoggedIn) {
           const body: any = { date: dateStr };
-          if (difficulty === 'easy') { body.easySeconds = elapsedSec; body.easyComplete = true; }
-          if (difficulty === 'medium') { body.mediumSeconds = elapsedSec; body.mediumComplete = true; }
-          if (difficulty === 'hard') { body.hardSeconds = elapsedSec; body.hardComplete = true; }
+          // Include the full grid when reporting completion so the server
+          // stores the final solved grid rather than relying on prior
+          // partial snapshots.
+          if (difficulty === 'easy') { body.easySeconds = elapsedSec; body.easyComplete = true; body.easy = grid; }
+          if (difficulty === 'medium') { body.mediumSeconds = elapsedSec; body.mediumComplete = true; body.medium = grid; }
+          if (difficulty === 'hard') { body.hardSeconds = elapsedSec; body.hardComplete = true; body.hard = grid; }
           try {
             await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           } catch (err) {
