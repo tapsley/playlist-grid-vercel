@@ -206,7 +206,7 @@ function PicrossPlayInner() {
   }, [difficulty, leftWidth, size, autoScaleEnabled, minCellPx, maxCellPx]);
 
   // small button styles used in controls area
-  const baseBtnStyle: React.CSSProperties = { padding: '8px 10px', borderRadius: 6, background: '#fff', border: '0px solid #ddd', cursor: 'pointer' };
+  const baseBtnStyle: React.CSSProperties = { fontFamily: 'Courier New', fontWeight: 700,  padding: '8px 10px', borderRadius: 6, background: '#fff', color: '#000', border: '0px solid #ddd', cursor: 'pointer' };
   const primaryBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#4a90e2', color: '#fff', border: 'none' };
   const dangerBtnStyle: React.CSSProperties = { ...baseBtnStyle, background: '#fff', border: '2px solid #f44336', color: '#f44336' };
   const selectedBtnStyle: React.CSSProperties = { boxShadow: 'inset 0 0 0 3px #c23fff48', background: '#db8eff', color: '#ffffff00' };
@@ -760,21 +760,19 @@ useEffect(() => {
     }));
     try {
       const key = `picross:progress:${dateStr}:${difficulty}`;
-      const payload = { grid: Array.from({ length: size }, () => Array.from({ length: size }, () => 0)), complete: false, seconds: 0 };
+      const payload = { grid: Array.from({ length: size }, () => Array.from({ length: size }, () => 0)), complete: false };
       try { window.localStorage.setItem(key, JSON.stringify(payload)); } catch {}
-      const secKey = `picross:seconds:${dateStr}:${difficulty}`;
-      try { window.localStorage.setItem(secKey, String(0)); } catch {}
     } catch {}
-    setElapsedSec(0);
     setCelebrateGrid(null);
     // Fire-and-forget server reset for logged-in users
     if (userIsLoggedIn) {
       (async () => {
-        try {
+          try {
           const body: any = { date: dateStr };
           if (difficulty === 'easy') body.easy = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
           if (difficulty === 'medium') body.medium = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
           if (difficulty === 'hard') body.hard = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
+          // Do not reset seconds on the server when user clicks Start Over; only clear the grid
           await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         } catch (err) { console.debug('server clear failed', err); }
       })();

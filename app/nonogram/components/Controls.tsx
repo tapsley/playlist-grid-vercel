@@ -87,7 +87,7 @@ export default function Controls(props: Props) {
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', zIndex: 2000 }}>
           <div style={{ background: '#fff', padding: 18, borderRadius: 8, minWidth: 280,  maxWidth: 400 }}>
-            <div style={{ fontWeight: 700, marginBottom: 12 }}>Are you sure you want to clear the board and start over?</div>
+            <div style={{ fontFamily: "Courier New", fontWeight: 700, marginBottom: 12, color: '#000' }}>Are you sure you want to clear the board and start over?</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setShowConfirm(false)} style={{ ...baseBtnStyle }}>Back</button>
               <button onClick={() => { setShowConfirm(false); clearBoard(); }} style={{ ...dangerBtnStyle }}>Start Over</button>
