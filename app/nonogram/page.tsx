@@ -237,6 +237,7 @@ function PicrossSplashInner() {
                 <input className="picross-checkbox" type="checkbox" checked={playStartAnimation} onChange={e => setPlayStartAnimation(e.target.checked)} />
                 <span>Play START animation when beginning a puzzle</span>
               </label>
+              {/* showTimer setting hidden for now */}
             </div>
             {isTyler && (
               <div style={{ marginBottom: 12 }}>

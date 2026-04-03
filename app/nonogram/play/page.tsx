@@ -115,7 +115,7 @@ function PicrossPlayInner() {
   } catch {}
   // Respect user's settings: if they disabled the START animation, do not treat this as a first start
   try {
-    const settings = typeof window !== 'undefined' ? getPicrossSettings() : { playStartAnimation: true };
+    const settings = typeof window !== 'undefined' ? getPicrossSettings() : { playStartAnimation: true, showTimer: true };
     if (settings && settings.playStartAnimation === false) firstStart = false;
   } catch {}
 
@@ -1026,6 +1026,7 @@ useEffect(() => {
             } catch {}
             setStartAnimationDone(true);
           }}
+        showTimer={ (typeof window === 'undefined') ? true : (getPicrossSettings().showTimer !== false) }
       />
       {/* Mode selector bar -> replaced by celebration text when animation starts */}
       {celebrateGrid && !editorMode ? (

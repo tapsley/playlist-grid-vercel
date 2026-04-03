@@ -59,6 +59,8 @@ export default function GridBoard(props: any) {
     onStartComplete,
   } = props;
 
+  const showTimer = typeof props.showTimer === 'undefined' ? true : !!props.showTimer;
+
   const getDefaultPuzzle = (size: number) => Array(size).fill(0).map(() => Array(size).fill(false));
 
   const computeClues = (puzzle: boolean[][]) => {
@@ -161,7 +163,9 @@ export default function GridBoard(props: any) {
               Editor
             </label>
           )}
-          <TimerWithPB elapsedSec={elapsedSec} cleared={cleared} showNewPB={showNewPB} firstStart={firstStart} onStartComplete={onStartComplete} />
+          <div style={{ display: showTimer ? 'block' : 'none' }}>
+            <TimerWithPB elapsedSec={elapsedSec} cleared={cleared} showNewPB={showNewPB} firstStart={firstStart} onStartComplete={onStartComplete} />
+          </div>
         </div>
         {Array.from({ length: size }).map((_, i) => i).map(i => {
           const runs = getRunsForCol(i);

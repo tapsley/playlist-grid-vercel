@@ -1,6 +1,7 @@
 // Simple client-side settings persistence for Picross
 export type PicrossSettings = {
   playStartAnimation?: boolean;
+  showTimer?: boolean;
 };
 
 const KEY = 'picross:settings:v1';
@@ -8,11 +9,11 @@ const KEY = 'picross:settings:v1';
 export function getPicrossSettings(): PicrossSettings {
   try {
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(KEY) : null;
-    if (!raw) return { playStartAnimation: true };
+    if (!raw) return { playStartAnimation: true, showTimer: true };
     const parsed = JSON.parse(raw || '{}');
-    return { playStartAnimation: parsed.playStartAnimation !== false };
+    return { playStartAnimation: parsed.playStartAnimation !== false, showTimer: parsed.showTimer !== false };
   } catch {
-    return { playStartAnimation: true };
+    return { playStartAnimation: true, showTimer: true };
   }
 }
 
