@@ -104,7 +104,29 @@ function PicrossPlayInner() {
   // Determine whether this is the first time the user is seeing this puzzle
   // (no prior progress). If there is any non-zero cell in provider progress,
   // consider it not a first start.
-  const hasProgress = !!(prefetchProgress && prefetchProgress[difficulty] && (prefetchProgress[difficulty] as any).some((row: any) => Array.isArray(row) && row.some((v: any) => Number(v) !== 0)));
+  let hasProgress = !!(prefetchProgress && prefetchProgress[difficulty] && (prefetchProgress[difficulty] as any).some((row: any) => Array.isArray(row) && row.some((v: any) => Number(v) !== 0)));
+  // Also consider any recorded seconds (local or persisted from server) as
+  // evidence the puzzle was started. This allows synchronous detection when
+  // navigating immediately after login before async prefetches complete.
+  try {
+    const secKey = `picross:seconds:${dateStr}:${difficulty}`;
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(secKey) : null;
+    const secVal = raw ? Number(raw) || 0 : 0;
+    if (secVal > 0) {
+      // coerce hasProgress to true if seconds indicate activity
+      (hasProgress as any) = true;
+    } else {
+      // also check persisted progress payload which may include seconds
+      try {
+        const progKey = `picross:progress:${dateStr}:${difficulty}`;
+        const rawProg = typeof window !== 'undefined' ? window.localStorage.getItem(progKey) : null;
+        if (rawProg) {
+          const parsed = JSON.parse(rawProg) as { seconds?: number } | null;
+          if (parsed && typeof parsed.seconds === 'number' && parsed.seconds > 0) (hasProgress as any) = true;
+        }
+      } catch {}
+    }
+  } catch {}
   // Also respect a persisted "start shown" flag so we don't replay the
   // START animation repeatedly across navigations for the same puzzle/date.
   let firstStart = !hasProgress;

@@ -123,6 +123,24 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         }) : []);
       }
 
+      // If the server returned per-difficulty seconds, persist them locally
+      // so synchronous reads (e.g., splash/play pages) can make correct
+      // decisions without awaiting an async fetch. This helps avoid wrong
+      // START animation behavior when the user navigates directly after login.
+      try {
+        if (progressRes && progressRes.ok && typeof window !== 'undefined') {
+          const dateStr = getMSTDateString();
+          try {
+            const easySec = typeof progressData.easySeconds === 'number' ? Number(progressData.easySeconds) || 0 : 0;
+            const mediumSec = typeof progressData.mediumSeconds === 'number' ? Number(progressData.mediumSeconds) || 0 : 0;
+            const hardSec = typeof progressData.hardSeconds === 'number' ? Number(progressData.hardSeconds) || 0 : 0;
+            try { if (easySec > 0) window.localStorage.setItem(`picross:seconds:${dateStr}:easy`, String(easySec)); } catch {}
+            try { if (mediumSec > 0) window.localStorage.setItem(`picross:seconds:${dateStr}:medium`, String(mediumSec)); } catch {}
+            try { if (hardSec > 0) window.localStorage.setItem(`picross:seconds:${dateStr}:hard`, String(hardSec)); } catch {}
+          } catch {}
+        }
+      } catch {}
+
       // If user is not logged in, merge in any locally persisted progress for this date
       try {
         const email = session?.user?.email || null;

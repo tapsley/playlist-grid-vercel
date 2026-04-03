@@ -40,6 +40,7 @@ function PicrossSplashInner() {
   const typedProgress = safeProgress as Record<string, import("./PicrossPrefetchContext").CellState[][] | undefined>;
   const typedPuzzle = (puzzle || {}) as Record<string, boolean[][] | undefined>;
 
+
   const isCompleted = (diff: string) => {
     const prog = typedProgress[diff];
     if (!prog) return false;
@@ -83,6 +84,75 @@ function PicrossSplashInner() {
   const [playStartAnimation, setPlayStartAnimation] = useState<boolean>(() => {
     try { return !!getPicrossSettings().playStartAnimation; } catch { return true; }
   });
+
+  // If the user has the START animation enabled and they haven't started a
+  // puzzle today for a given difficulty, clear the per-date `startShown` flag
+  // so the START animation will play. Do this on mount and whenever progress
+  // or the playStartAnimation setting changes.
+  useEffect(() => {
+    (async () => {
+      try {
+        const dateStr = getMSTDateString();
+        if (!playStartAnimation) return;
+        let serverProgress: any = null;
+        try {
+          if (session?.user?.email) {
+            const res = await fetch(`/api/picross/progress?date=${dateStr}`);
+            if (res.ok) serverProgress = await res.json();
+          }
+        } catch {}
+
+        // If the user is authenticated and the server returned no progress
+        // row for today, prefer the server and clear any leftover local
+        // seconds/progress values that may have been left from an anonymous
+        // session. This prevents stale local keys from suppressing START.
+        if (session?.user?.email && serverProgress == null) {
+          try {
+            for (const dd of ['easy','medium','hard']) {
+              try { window.localStorage.removeItem(`picross:seconds:${dateStr}:${dd}`); } catch {}
+              try { window.localStorage.removeItem(`picross:progress:${dateStr}:${dd}`); } catch {}
+            }
+          } catch {}
+        }
+
+        for (const d of ['easy','medium','hard']) {
+          try {
+            // Only rely on recorded seconds to determine whether the user has
+            // actually started the puzzle. This avoids false positives from
+            // an initialized-but-empty progress array.
+            let hasProgress = false;
+            try {
+              if (serverProgress) {
+                const field = d + 'Seconds';
+                const sv = serverProgress && typeof serverProgress[field] === 'number' ? Number(serverProgress[field]) || 0 : 0;
+                if (sv > 0) hasProgress = true;
+              }
+            } catch {}
+            try {
+              const secKey = `picross:seconds:${dateStr}:${d}`;
+              const rawSec = typeof window !== 'undefined' ? window.localStorage.getItem(secKey) : null;
+              const secVal = rawSec ? Number(rawSec) || 0 : 0;
+              if (secVal > 0) hasProgress = true;
+            } catch {}
+            try {
+              const progKey = `picross:progress:${dateStr}:${d}`;
+              const rawProg = typeof window !== 'undefined' ? window.localStorage.getItem(progKey) : null;
+              if (rawProg) {
+                const parsed = JSON.parse(rawProg) as { seconds?: number } | null;
+                if (parsed && typeof parsed.seconds === 'number' && parsed.seconds > 0) hasProgress = true;
+              }
+            } catch {}
+            if (!hasProgress) {
+              try { window.localStorage.removeItem(`picross:startShown:${dateStr}:${d}`); } catch {}
+              try { window.localStorage.removeItem(`picross:startShown:${dateStr}`); } catch {}
+            } else {
+              // do nothing here; play page will set shown flag when animation completes
+            }
+          } catch {}
+        }
+      } catch {}
+    })();
+  }, [playStartAnimation, progress, session?.user?.email]);
   const saveSettings = () => {
     try { setPicrossSettings({ playStartAnimation }); } catch {}
     // If user enabled the START animation, clear today's shown flag so it can play
