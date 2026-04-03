@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+// settings UI moved to splash; no settings import here
 
 type Props = {
   celebrateGrid: boolean | null;
@@ -95,6 +96,8 @@ export default function Controls(props: Props) {
           </div>
         </div>
       )}
+
+      
     </div>
   );
 }

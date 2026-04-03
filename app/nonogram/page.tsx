@@ -10,6 +10,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import DifficultyIcon from "./components/DifficultyIcon";
+import { getPicrossSettings, setPicrossSettings } from './settings';
+import { getMSTDateString } from './time';
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
 
@@ -77,6 +79,35 @@ function PicrossSplashInner() {
       // ignore
     }
   };
+  const [showSettings, setShowSettings] = useState(false);
+  const [playStartAnimation, setPlayStartAnimation] = useState<boolean>(() => {
+    try { return !!getPicrossSettings().playStartAnimation; } catch { return true; }
+  });
+  const saveSettings = () => {
+    try { setPicrossSettings({ playStartAnimation }); } catch {}
+    // If user enabled the START animation, clear today's shown flag so it can play
+    try {
+      if (playStartAnimation) {
+        const dateStr = getMSTDateString();
+        for (const d of ['easy','medium','hard']) {
+          try { window.localStorage.removeItem(`picross:startShown:${dateStr}:${d}`); } catch {}
+        }
+        try { window.localStorage.removeItem(`picross:startShown:${dateStr}`); } catch {}
+      }
+    } catch {}
+    setShowSettings(false);
+  };
+
+  const resetStartShown = () => {
+    try {
+      const dateStr = getMSTDateString();
+      for (const d of ['easy','medium','hard']) {
+        try { window.localStorage.removeItem(`picross:startShown:${dateStr}:${d}`); } catch {}
+      }
+      try { window.localStorage.removeItem(`picross:startShown:${dateStr}`); } catch {}
+      alert('START shown state reset for today.');
+    } catch (err) { console.debug('reset startShown failed', err); }
+  };
   const searchParams = useSearchParams();
   const router = useRouter();
   useEffect(() => {
@@ -137,8 +168,33 @@ function PicrossSplashInner() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%' }}>
-      <div style={{ position: "absolute", top: 16, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        <UserMenu />
+      <div style={{ position: "absolute", top: 16, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {isAuthenticated && (
+            <button
+              aria-label="Settings"
+              title="Settings"
+              onClick={() => setShowSettings(true)}
+              style={{
+                background: '#23272f',
+                color: '#fff',
+                border: 'none',
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: 28,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+              }}
+            >
+              ⚙
+            </button>
+          )}
+          <UserMenu />
+        </div>
       </div>
       <h1 ref={dailyTitleRef} style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonogram</h1>
       <div ref={dailySubtitleRef} style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by Tyler Apsley</div>
@@ -171,6 +227,29 @@ function PicrossSplashInner() {
           );
         })}
       </div>
+
+      {showSettings && (
+        <div onClick={() => setShowSettings(false)} style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', zIndex: 2000 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#2c2c2c', padding: 18, borderRadius: 8, minWidth: 300, maxWidth: 420, border: '1px solid rgba(255,255,255,0.06)', fontFamily: 'Courier New', color: '#fff' }}>
+            <div style={{ fontWeight: 700, marginBottom: 12, color: '#fff', fontFamily: 'Courier New', letterSpacing: '0.2em' }}>SETTINGS</div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 16, fontFamily: 'Courier New' }}>
+                <input className="picross-checkbox" type="checkbox" checked={playStartAnimation} onChange={e => setPlayStartAnimation(e.target.checked)} />
+                <span>Play START animation when beginning a puzzle</span>
+              </label>
+            </div>
+            {isTyler && (
+              <div style={{ marginBottom: 12 }}>
+                <button onClick={resetStartShown} style={{ cursor: "pointer" ,padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: 'Courier New' }}>Reset START shown for today</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowSettings(false)} style={{ cursor: "pointer" ,padding: '8px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: 'Courier New' }}>Close</button>
+              <button onClick={saveSettings} style={{ cursor: "pointer" ,padding: '8px 10px', borderRadius: 6, background: '#d579ff', color: '#000000', border: 'none', fontFamily: 'Courier New' }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ width: 'min(1000px, 92%)', background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', marginBottom: 48, color: '#111' }}>
         <h2 style={{ fontFamily: "Courier New", fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
         <div style={{ fontFamily: "Courier New", display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -245,6 +324,29 @@ function PicrossSplashInner() {
           border: 3px solid #0070f3 !important;
           transform: translateY(-4px);
           box-shadow: 0 8px 24px rgba(3,102,214,0.12);
+        }
+      `}</style>
+      <style jsx>{`
+        .picross-checkbox {
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
+          width: 30px;
+          height: 25px;
+          border: 2px solid #ffffff;
+          background: #f3f3f3;
+          display: inline-block;
+          vertical-align: middle;
+          border-radius: 2px;
+          margin-right: 8px;
+          box-sizing: border-box;
+          position: relative;
+          cursor: pointer;
+
+        }
+        .picross-checkbox:checked {
+          background: #000;
+          border-color: #fff;
         }
       `}</style>
     </div>

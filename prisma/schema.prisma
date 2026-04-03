@@ -52,6 +52,7 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
+  settings  Json?
   createdAt DateTime @default(now())
   notes     Note[]   @relation("UserNotes")
   picrossProgresses PicrossProgress[]

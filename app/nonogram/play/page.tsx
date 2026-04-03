@@ -9,6 +9,7 @@ import { useSession } from "next-auth/react";
 import GridBoard from '../components/GridBoard';
 import Controls from '../components/Controls';
 import { getMSTDateString } from '../time';
+import { getPicrossSettings } from '../settings';
 import pickSequence from '../celebrations/sequenceBank';
 
 const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number; cellPxDefault?: number; autoScaleEnabled?: boolean; minCellPx?: number; maxCellPx?: number; minClueFontPx?: number; clueGap?: number }> = {
@@ -111,6 +112,11 @@ function PicrossPlayInner() {
     const shownKey = `picross:startShown:${dateStr}:${difficulty}`;
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(shownKey) : null;
     if (raw === '1') firstStart = false;
+  } catch {}
+  // Respect user's settings: if they disabled the START animation, do not treat this as a first start
+  try {
+    const settings = typeof window !== 'undefined' ? getPicrossSettings() : { playStartAnimation: true };
+    if (settings && settings.playStartAnimation === false) firstStart = false;
   } catch {}
 
   // Track whether the START animation has completed. If this is not a
