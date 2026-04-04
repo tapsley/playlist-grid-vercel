@@ -618,6 +618,7 @@ useEffect(() => {
     // rapid pointer input applies after the solved animation and leaves
     // incorrect cells filled.
     if (editorMode) return;
+    if (!startAnimationDone) return;
     if (isCelebratingRef.current) return;
     if (cleared) return;
     setPrefetch(prev => {
