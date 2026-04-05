@@ -186,7 +186,7 @@ function PicrossSplashInner() {
     const replay = !!(searchParams && searchParams.get && searchParams.get('replay'));
     if (dailyAnimStartedRef.current && !replay) return;
     dailyAnimStartedRef.current = false; // allow re-run when replay is present
-    const original = el.textContent || 'Daily Nonogram';
+    const original = el.textContent || 'Daily Nonograms';
     // build spans
     const letters: HTMLElement[] = [];
     el.innerHTML = '';
@@ -266,7 +266,7 @@ function PicrossSplashInner() {
           <UserMenu />
         </div>
       </div>
-      <h1 ref={dailyTitleRef} style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonogram</h1>
+      <h1 ref={dailyTitleRef} style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonograms</h1>
       <div ref={dailySubtitleRef} style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by Tyler Apsley</div>
       <div className="difficulty-row">
         {difficulties.map(d => {

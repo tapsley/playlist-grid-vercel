@@ -163,7 +163,7 @@ export default function GridBoard(props: any) {
               Editor
             </label>
           )}
-          <div style={{ display: showTimer ? 'block' : 'none' }}>
+          <div style={{ color: '#000', display: showTimer ? 'block' : 'none' }}>
             <TimerWithPB elapsedSec={elapsedSec} cleared={cleared} showNewPB={showNewPB} firstStart={firstStart} onStartComplete={onStartComplete} />
           </div>
         </div>

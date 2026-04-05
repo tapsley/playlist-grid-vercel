@@ -986,11 +986,11 @@ useEffect(() => {
             router.push('/nonogram?replay=1');
           }}
           aria-label="Back"
-          style={{ background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', color: '#000', fontWeight: 800 }}
+          style={{ color: '#000', background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', fontWeight: 800 }}
         >
           ❮
         </button>
-        <h2 style={{ margin: 5, paddingLeft: 20, fontFamily: "Courier", fontWeight:"600", fontSize:25}}>{formattedDate}</h2>
+        <h2 style={{ color: '#000', margin: 5, paddingLeft: 20, fontFamily: "Courier", fontWeight:"600", fontSize:25}}>{formattedDate}</h2>
       
         {/* Editor toggle moved into the left clue area so it appears above the number zone */}
       </div>
