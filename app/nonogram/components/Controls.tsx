@@ -34,11 +34,11 @@ export default function Controls(props: Props) {
     <div style={{ marginTop: 15, width: '100%', display: 'flex', justifyContent: 'center', gap: 12 }}>
       {editorMode ? (
         <div style={{ display: 'flex', gap: 3, alignItems: 'center', color: '#000000' }}>
-          <button onClick={handleClearEditor} style={dangerBtnStyle}>Clear</button>
-          <button onClick={handlePrevDate} style={{ ...baseBtnStyle }}>Previous</button>
-          <button onClick={handleNextDate} style={{ ...baseBtnStyle }}>Next</button>
-          <input type="date" value={saveDate} onChange={e => setSaveDate(e.target.value)} style={{ marginLeft: 2, marginRight: 2, background: '#fff', border: '1px solid #ddd', borderRadius: 6, padding: '8px 8px' }} />
-          <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle }}>Save</button>
+          <button onClick={handleClearEditor} style={dangerBtnStyle}>x</button>
+          <button onClick={handlePrevDate} style={{ ...baseBtnStyle }}>‹</button>
+          <button onClick={handleNextDate} style={{ ...baseBtnStyle }}>›</button>
+          <input type="date" value={saveDate} onChange={e => setSaveDate(e.target.value)} style={{ width: 135, marginLeft: 2, marginRight: 2, background: '#fff', border: '1px solid #ddd', borderRadius: 6, padding: '8px 8px' }} />
+          <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle }}>+</button>
         </div>
       ) : (
         <>
