@@ -15,6 +15,87 @@ import { getMSTDateString } from './time';
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
 
+const TUTORIAL_PAGES: { text: React.ReactNode; image: string; imageAlt: string }[] = [
+  {
+    text: <>Solve the puzzle by filling the correct squares to reveal the hidden picture. <br/><b>The numbers on the left and top tell you how many filled squares appear in each row and column, and in what order.</b></>,
+    image: '/demoPic.jpg',
+    imageAlt: 'Demo Nonogram',
+  },
+  {
+    text: <>On a <b>5x5</b> grid, if you see a <b>5</b>, you can fill in the whole row like this</>,
+    image: '/demo1.gif',
+    imageAlt: 'Demo Nonogram',
+  },
+  {
+    text: <>A <b>0</b> means there won&apos;t be any filled squares in that row or column, so we can cross them all out.</>,
+    image: '/demo2.gif',
+    imageAlt: 'Demo Nonogram',
+  },
+  {
+    text: <>Multiple numbers must have at least one gap between them, like this</>,
+    image: '/demo3.gif',
+    imageAlt: 'Demo Nonogram',
+  },
+  {
+    text: <>Use information from the rows to determine what to fill in the columns.</>,
+    image: '/demo4.gif',
+    imageAlt: 'Demo Nonogram',
+  },
+  {
+    text: <>Use deduction and logic to solve the puzzle! <br/><b>Good luck and happy solving!</b></>,
+    image: '/demo5.gif',
+    imageAlt: 'Demo Nonogram',
+  },
+];
+
+function TutorialPages() {
+  const [page, setPage] = useState(0);
+  const textRef = useRef<HTMLParagraphElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const directionRef = useRef<1 | -1>(1); // 1 = forward, -1 = backward
+
+  const navigate = (next: number) => {
+    if (next === page) return;
+    directionRef.current = next > page ? 1 : -1;
+    const targets = [textRef.current, imgRef.current].filter(Boolean);
+    gsap.to(targets, {
+      opacity: 0,
+      x: directionRef.current * -24,
+      duration: 0.18,
+      ease: 'power2.in',
+      onComplete: () => setPage(next),
+    });
+  };
+
+  useEffect(() => {
+    const targets = [textRef.current, imgRef.current].filter(Boolean);
+    gsap.fromTo(targets,
+      { opacity: 0, x: directionRef.current * 24 },
+      { opacity: 1, x: 0, duration: 0.22, ease: 'power2.out' },
+    );
+  }, [page]);
+
+  const current = TUTORIAL_PAGES[page];
+  const btnStyle: React.CSSProperties = { fontFamily: 'Courier New', fontWeight: 700, padding: '5px 14px', borderRadius: 6, border: '2px solid #cca3ff', background: '#fff', color: '#7c3aed', cursor: 'pointer', fontSize: 14 };
+  const btnDisabledStyle: React.CSSProperties = { ...btnStyle, opacity: 0.35, cursor: 'default' };
+
+  return (
+    <div className="tutorial-layout">
+      <p ref={textRef} className="tutorial-text" style={{ marginTop: 0, marginBottom: 0, color: '#333', minHeight: 72 }}>
+        {current.text}
+      </p>
+      <div className="tutorial-image">
+        <img ref={imgRef} src={current.image} alt={current.imageAlt} style={{ width: '100%', borderRadius: 8 }} />
+      </div>
+      <div className="tutorial-nav" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button style={page === 0 ? btnDisabledStyle : btnStyle} disabled={page === 0} onClick={() => navigate(page - 1)}>← Prev</button>
+        <span style={{ fontSize: 13, color: '#666' }}>{page + 1} / {TUTORIAL_PAGES.length}</span>
+        <button style={page === TUTORIAL_PAGES.length - 1 ? btnDisabledStyle : btnStyle} disabled={page === TUTORIAL_PAGES.length - 1} onClick={() => navigate(page + 1)}>Next →</button>
+      </div>
+    </div>
+  );
+}
+
 const difficulties = [
   { label: "Easy (5x5)", value: "easy", size: 5 },
   { label: "Medium (10x10)", value: "medium", size: 10 },
@@ -323,26 +404,8 @@ function PicrossSplashInner() {
       )}
       <div style={{ width: 'min(1000px, 92%)', background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', marginBottom: 48, color: '#111' }}>
         <h2 style={{ fontFamily: "Courier New", fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
-        <div style={{ fontFamily: "Courier New", display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 420px', minWidth: 260 }}>
-            <p style={{ marginTop: 0, marginBottom: 12, color: '#333' }}>
-              Solve the puzzle by filling the correct squares to reveal the hidden picture.
-              <br /><br />
-              <b>The numbers on the left and top tell you how many filled squares appear in each row and column,
-              and in what order.</b> 
-              <br/><br/>
-              For example, “3 1” means 3 filled squares in a row, then at least one empty square, and then a single filled square. There may be gaps before or after.
-            </p>
-            <br/>
-            <p style={{ marginTop: 12, color: '#333' }}>
-              <b>Happy Solving!</b>
-            </p>
-          </div>
-          <div style={{ flex: '0 0 350px', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ width: '100%', marginTop: 12 }}>
-              <img src="/demoNonogram.gif" alt="Demo Nonogram" style={{ width: '100%', borderRadius: 8 }} />
-            </div>
-          </div>
+        <div style={{ fontFamily: "Courier New" }}>
+          <TutorialPages />
             <br/>
             <h3 style={{ fontSize: 22, marginTop: 0, marginBottom: 0, fontWeight: 800 }}>TIPS AND TRICKS</h3>
 
@@ -364,6 +427,21 @@ function PicrossSplashInner() {
         </div>
       </div>
       <style jsx>{`
+        :global(.tutorial-layout) {
+          display: grid;
+          grid-template-columns: 1fr 350px;
+          grid-template-rows: 1fr auto;
+          gap: 16px 24px;
+        }
+        :global(.tutorial-text)  { grid-column: 1; grid-row: 1; align-self: start; }
+        :global(.tutorial-image) { grid-column: 2; grid-row: 1 / 3; }
+        :global(.tutorial-nav)   { grid-column: 1; grid-row: 2; align-self: end; }
+        @media (max-width: 680px) {
+          :global(.tutorial-layout) { grid-template-columns: 1fr; }
+          :global(.tutorial-text)  { grid-column: 1; grid-row: 1; }
+          :global(.tutorial-image) { grid-column: 1; grid-row: 2; }
+          :global(.tutorial-nav)   { grid-column: 1; grid-row: 3; }
+        }
         .difficulty-row {
           display: flex;
           gap: 40px;
