@@ -156,6 +156,7 @@ function PicrossPlayInner() {
   // timer + persistence refs/state
   const timerRef = useRef<number | null>(null);
   const saveTimerDebounce = useRef<number | null>(null);
+  const dirtyRef = useRef(false); // true when progress has changed since last server save
   const [elapsedSec, setElapsedSec] = useState<number>(() => {
     try {
       const key = `picross:seconds:${dateStr}:${difficulty}`;
@@ -270,7 +271,7 @@ useEffect(() => {
   if (cleared) return;
   if (!startAnimationDone) return;
   if (timerRef.current) return;
-  timerRef.current = window.setInterval(() => setElapsedSec(s => s + 1) as unknown as number, 1000) as unknown as number;
+  timerRef.current = window.setInterval(() => { dirtyRef.current = true; setElapsedSec(s => s + 1); }, 1000) as unknown as number;
   return () => {
     if (timerRef.current) { window.clearInterval(timerRef.current as unknown as number); timerRef.current = null; }
   };
@@ -381,10 +382,32 @@ useEffect(() => {
     }
   };
 
-  // NOTE: Automatic save on visibilitychange / beforeunload removed to avoid
-  // unexpected frequent server POSTs. Server sync now happens on explicit
-  // actions only (Back navigation calls `saveSecondsNow()`, and final
-  // completion triggers a final save). Periodic/local saves still run.
+  // Mark progress dirty whenever the grid changes so visibilitychange/interval picks it up
+  useEffect(() => {
+    if (!cleared) dirtyRef.current = true;
+  }, [grid]);
+
+  // Auto-save on tab hide (visibilitychange) and every 60s as a safety net
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden' && dirtyRef.current) {
+        dirtyRef.current = false;
+        saveSecondsNow();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    const interval = window.setInterval(() => {
+      if (dirtyRef.current && !cleared) {
+        dirtyRef.current = false;
+        saveSecondsNow();
+      }
+    }, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(interval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleared]);
 
   // When puzzle is cleared, stop timer and send final time + complete flag to server (so fastest can update)
   useEffect(() => {
