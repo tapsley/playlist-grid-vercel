@@ -58,6 +58,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    setError(null);
     // If already cached from prefetch, show immediately and refresh in background
     if (_cache) setStats(_cache.data);
     (async () => {
@@ -67,6 +68,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
         const data = await res.json();
         _cache = { data };
         setStats(data);
+        setError(null);
       } catch {
         if (!_cache) setError('Could not load stats.');
       } finally {
