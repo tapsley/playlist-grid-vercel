@@ -165,9 +165,16 @@ function PicrossSplashInner() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
 
-  // Prefetch stats in the background so the popup opens instantly
+  // Prefetch stats in the background so the popup opens instantly.
+  // Also listen for pageshow (fires on bfcache restore when using phone back)
+  // so stats are refreshed even when the page isn't remounted.
   useEffect(() => {
     if (isAuthenticated) prefetchStats();
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && isAuthenticated) prefetchStats();
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
   }, [isAuthenticated]);
   const [playStartAnimation, setPlayStartAnimation] = useState<boolean>(() => {
     try { return !!getPicrossSettings().playStartAnimation; } catch { return true; }
