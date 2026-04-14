@@ -833,6 +833,7 @@ useEffect(() => {
 
   const rawEmail = session?.user?.email ?? "";
   const isEditorAllowed = rawEmail.trim().toLowerCase() === "tyler.apsley@gmail.com";
+  const isAdmin = isEditorAllowed;
 
   useEffect(() => {
     if (!isEditorAllowed) {
@@ -998,24 +999,24 @@ useEffect(() => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 72 }}>
-      <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-start', zIndex: 30 }}>
-        <button
-          onClick={async () => {
-            try {
-              await saveSecondsNow();
-            } catch (err) {
-              console.debug('picross:save on back err', err);
-            }
-            router.push('/nonogram?replay=1');
-          }}
-          aria-label="Back"
-          style={{ color: '#000', background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', fontWeight: 800 }}
-        >
-          ❮
-        </button>
-        <h2 style={{ color: '#000', margin: 5, paddingLeft: 20, fontFamily: "Courier", fontWeight:"600", fontSize:25}}>{formattedDate}</h2>
-      
-        {/* Editor toggle moved into the left clue area so it appears above the number zone */}
+      <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, paddingRight: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 30 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={async () => {
+              try {
+                await saveSecondsNow();
+              } catch (err) {
+                console.debug('picross:save on back err', err);
+              }
+              router.push('/nonogram?replay=1');
+            }}
+            aria-label="Back"
+            style={{ color: '#000', background: 'transparent', border: 'none', padding: '6px 0px', margin: 0, fontSize: 26, lineHeight: 1, cursor: 'pointer', fontWeight: 800 }}
+          >
+            ❮
+          </button>
+          <h2 style={{ color: '#000', margin: 5, paddingLeft: 20, fontFamily: "Courier", fontWeight: "600", fontSize: 25 }}>{formattedDate}</h2>
+        </div>
       </div>
       {/* editor menu moved to bottom controls area */}
       {/* cleared message removed; celebratory text will appear at bottom during celebration */}
