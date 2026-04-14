@@ -125,7 +125,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                   <div style={{ display: 'flex', gap: 4, flex: 1, justifyContent: 'space-around' }}>
                     <StatCell value={solved} label={solved === 1 ? "Puzzle Solved" : "Puzzles Solved"} />
                     <StatCell value={streak.current} label="Current Streak" />
-                    <StatCell value={streak.max} label="Max Streak" />
+                    <StatCell value={streak.max} label="Longest Streak" />
                   </div>
                 </div>
               );

@@ -27,6 +27,15 @@ model PicrossStats {
   solvedEasy    Int     @default(0)
   solvedMedium  Int     @default(0)
   solvedHard    Int     @default(0)
+  currentStreakEasy    Int      @default(0)
+  maxStreakEasy        Int      @default(0)
+  lastSolvedEasy       DateTime?
+  currentStreakMedium  Int      @default(0)
+  maxStreakMedium      Int      @default(0)
+  lastSolvedMedium     DateTime?
+  currentStreakHard    Int      @default(0)
+  maxStreakHard        Int      @default(0)
+  lastSolvedHard       DateTime?
   updatedAt    DateTime @updatedAt
 }
 model PicrossPuzzle {

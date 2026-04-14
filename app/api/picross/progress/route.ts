@@ -1,9 +1,30 @@
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { getMSTDateString } from "@/app/nonogram/time";
 
-const prisma = new PrismaClient();
+function computeNewStreak(
+  todayStr: string,
+  lastSolved: Date | null | undefined,
+  currentStreak: number,
+  maxStreak: number
+): { current: number; max: number; lastSolvedDate: Date } {
+  const lastStr = lastSolved ? lastSolved.toISOString().slice(0, 10) : null;
+  const yest = new Date(todayStr);
+  yest.setDate(yest.getDate() - 1);
+  const yesterStr = yest.toISOString().slice(0, 10);
+
+  let newCurrent: number;
+  if (lastStr === todayStr) {
+    newCurrent = currentStreak; // already counted today
+  } else if (lastStr === yesterStr) {
+    newCurrent = currentStreak + 1; // consecutive day
+  } else {
+    newCurrent = 1; // gap — start fresh
+  }
+  return { current: newCurrent, max: Math.max(maxStreak, newCurrent), lastSolvedDate: new Date(todayStr) };
+}
 
 // GET /api/picross/progress?date=YYYY-MM-DD
 export async function GET(req: NextRequest) {
@@ -97,14 +118,18 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Update or create stats row with solved counters and fastest times
+      // Update or create stats row with solved counters, fastest times, and streaks
       if (incEasy !== 0 || incMedium !== 0 || incHard !== 0 || (easySecondsVal > 0) || (mediumSecondsVal > 0) || (hardSecondsVal > 0)) {
+        const todayStr = getMSTDateString();
         const stats = await tx.picrossStats.findUnique({ where: { userId: session.user.id } });
         if (!stats) {
           const createData: any = { user: { connect: { id: session.user.id } }, solvedEasy: Math.max(0, incEasy), solvedMedium: Math.max(0, incMedium), solvedHard: Math.max(0, incHard) };
           if (easyCompleteFlag && easySecondsVal > 0) createData.fastestEasy = easySecondsVal;
           if (mediumCompleteFlag && mediumSecondsVal > 0) createData.fastestMedium = mediumSecondsVal;
           if (hardCompleteFlag && hardSecondsVal > 0) createData.fastestHard = hardSecondsVal;
+          if (incEasy > 0) { createData.currentStreakEasy = 1; createData.maxStreakEasy = 1; createData.lastSolvedEasy = new Date(todayStr); }
+          if (incMedium > 0) { createData.currentStreakMedium = 1; createData.maxStreakMedium = 1; createData.lastSolvedMedium = new Date(todayStr); }
+          if (incHard > 0) { createData.currentStreakHard = 1; createData.maxStreakHard = 1; createData.lastSolvedHard = new Date(todayStr); }
           await tx.picrossStats.create({ data: createData });
         } else {
           const updates: any = {};
@@ -114,6 +139,18 @@ export async function POST(req: NextRequest) {
           if (easyCompleteFlag && easySecondsVal > 0 && (!stats.fastestEasy || easySecondsVal < stats.fastestEasy)) updates.fastestEasy = easySecondsVal;
           if (mediumCompleteFlag && mediumSecondsVal > 0 && (!stats.fastestMedium || mediumSecondsVal < stats.fastestMedium)) updates.fastestMedium = mediumSecondsVal;
           if (hardCompleteFlag && hardSecondsVal > 0 && (!stats.fastestHard || hardSecondsVal < stats.fastestHard)) updates.fastestHard = hardSecondsVal;
+          if (incEasy > 0) {
+            const s = computeNewStreak(todayStr, stats.lastSolvedEasy, stats.currentStreakEasy ?? 0, stats.maxStreakEasy ?? 0);
+            updates.currentStreakEasy = s.current; updates.maxStreakEasy = s.max; updates.lastSolvedEasy = s.lastSolvedDate;
+          }
+          if (incMedium > 0) {
+            const s = computeNewStreak(todayStr, stats.lastSolvedMedium, stats.currentStreakMedium ?? 0, stats.maxStreakMedium ?? 0);
+            updates.currentStreakMedium = s.current; updates.maxStreakMedium = s.max; updates.lastSolvedMedium = s.lastSolvedDate;
+          }
+          if (incHard > 0) {
+            const s = computeNewStreak(todayStr, stats.lastSolvedHard, stats.currentStreakHard ?? 0, stats.maxStreakHard ?? 0);
+            updates.currentStreakHard = s.current; updates.maxStreakHard = s.max; updates.lastSolvedHard = s.lastSolvedDate;
+          }
           if (Object.keys(updates).length) {
             await tx.picrossStats.update({ where: { id: stats.id }, data: updates });
           }

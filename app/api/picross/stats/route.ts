@@ -1,78 +1,50 @@
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { getMSTDateString } from "@/app/nonogram/time";
-
-const prisma = new PrismaClient();
-
-function computeStreak(dates: Date[], todayStr: string): { current: number; max: number } {
-  if (dates.length === 0) return { current: 0, max: 0 };
-  const daySet = new Set(dates.map(d => d.toISOString().slice(0, 10)));
-  const sorted = Array.from(daySet).sort();
-
-  let maxStreak = 1;
-  let run = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const a = new Date(sorted[i - 1]);
-    const b = new Date(sorted[i]);
-    const diffDays = Math.round((b.getTime() - a.getTime()) / 86400000);
-    if (diffDays === 1) {
-      run++;
-      if (run > maxStreak) maxStreak = run;
-    } else {
-      run = 1;
-    }
-  }
-
-  const yesterdayDate = new Date(todayStr);
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
-
-  if (!daySet.has(todayStr) && !daySet.has(yesterdayStr)) {
-    return { current: 0, max: maxStreak };
-  }
-
-  let checkStr = daySet.has(todayStr) ? todayStr : yesterdayStr;
-  let current = 0;
-  while (daySet.has(checkStr)) {
-    current++;
-    const d = new Date(checkStr);
-    d.setDate(d.getDate() - 1);
-    checkStr = d.toISOString().slice(0, 10);
-  }
-
-  return { current, max: maxStreak };
-}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return new Response("Unauthorized", { status: 401 });
 
   const todayStr = getMSTDateString();
+  const yest = new Date(todayStr);
+  yest.setDate(yest.getDate() - 1);
+  const yesterStr = yest.toISOString().slice(0, 10);
 
-  // Per-user solved counts and completion dates for streak computation
-  const [easyDates, mediumDates, hardDates] = await Promise.all([
-    prisma.picrossProgress.findMany({ where: { userId: session.user.id, easyComplete: true }, select: { date: true } }),
-    prisma.picrossProgress.findMany({ where: { userId: session.user.id, mediumComplete: true }, select: { date: true } }),
-    prisma.picrossProgress.findMany({ where: { userId: session.user.id, hardComplete: true }, select: { date: true } }),
+  function getDisplayStreak(lastSolved: Date | null | undefined, currentStreak: number): number {
+    if (!lastSolved) return 0;
+    const lastStr = lastSolved.toISOString().slice(0, 10);
+    return (lastStr === todayStr || lastStr === yesterStr) ? currentStreak : 0;
+  }
+
+  const [statsRecord, easy, medium, hard] = await Promise.all([
+    prisma.picrossStats.findUnique({ where: { userId: session.user.id } }),
+    prisma.picrossProgress.count({ where: { userId: session.user.id, easyComplete: true } }),
+    prisma.picrossProgress.count({ where: { userId: session.user.id, mediumComplete: true } }),
+    prisma.picrossProgress.count({ where: { userId: session.user.id, hardComplete: true } }),
   ]);
 
-  const easy = easyDates.length;
-  const medium = mediumDates.length;
-  const hard = hardDates.length;
-
-  const streaks = {
-    easy: computeStreak(easyDates.map(d => d.date), todayStr),
-    medium: computeStreak(mediumDates.map(d => d.date), todayStr),
-    hard: computeStreak(hardDates.map(d => d.date), todayStr),
-  };
-
-  const statsRecord = await prisma.picrossStats.findUnique({ where: { userId: session.user.id } });
   const fastest = {
     easy: statsRecord?.fastestEasy ?? null,
     medium: statsRecord?.fastestMedium ?? null,
     hard: statsRecord?.fastestHard ?? null,
+  };
+
+  const streaks = {
+    easy: {
+      current: getDisplayStreak(statsRecord?.lastSolvedEasy, statsRecord?.currentStreakEasy ?? 0),
+      max: statsRecord?.maxStreakEasy ?? 0,
+    },
+    medium: {
+      current: getDisplayStreak(statsRecord?.lastSolvedMedium, statsRecord?.currentStreakMedium ?? 0),
+      max: statsRecord?.maxStreakMedium ?? 0,
+    },
+    hard: {
+      current: getDisplayStreak(statsRecord?.lastSolvedHard, statsRecord?.currentStreakHard ?? 0),
+      max: statsRecord?.maxStreakHard ?? 0,
+    },
   };
 
   const base = { easy, medium, hard, fastest, streaks };
