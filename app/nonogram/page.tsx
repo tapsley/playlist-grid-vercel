@@ -82,7 +82,7 @@ function TutorialPages() {
 
   return (
     <div className="tutorial-layout">
-      <p ref={textRef} className="tutorial-text" style={{ marginTop: 0, marginBottom: 0, color: '#333', minHeight: 72 }}>
+      <p ref={textRef} className="tutorial-text" style={{ marginTop: 0, marginBottom: 0, color: '#333' }}>
         {current.text}
       </p>
       <div className="tutorial-image">
@@ -480,7 +480,7 @@ function PicrossSplashInner() {
         :global(.tutorial-nav)   { grid-column: 1; grid-row: 2; align-self: end; }
         @media (max-width: 680px) {
           :global(.tutorial-layout) { grid-template-columns: 1fr; }
-          :global(.tutorial-text)  { grid-column: 1; grid-row: 1; }
+          :global(.tutorial-text)  { grid-column: 1; grid-row: 1; height: 200px;}
           :global(.tutorial-image) { grid-column: 1; grid-row: 2; }
           :global(.tutorial-nav)   { grid-column: 1; grid-row: 3; }
         }
