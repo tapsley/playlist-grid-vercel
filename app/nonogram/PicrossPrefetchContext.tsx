@@ -190,9 +190,9 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         setPrefetchState(prev => ({ puzzle: prev.puzzle, progress: {} }));
         try { window.localStorage.setItem('picross:lastLoadedDate', today); } catch {}
 
-        // Also clear server-side progress for today for logged-in users so
-        // the server doesn't carry over any stale progress. We POST empty
-        // grids for each difficulty; the API will upsert the row.
+        // Also seed an empty server-side progress row for today for logged-in
+        // users so the date exists in the DB. Only send grids — no complete
+        // flags — so we never accidentally overwrite a solved state.
         if (session?.user?.email) {
           (async () => {
             try {
@@ -202,10 +202,9 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
               await fetch('/api/picross/progress', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: today, easy: defaultEasy, medium: defaultMedium, hard: defaultHard, easyComplete: false, mediumComplete: false, hardComplete: false }),
+                body: JSON.stringify({ date: today, easy: defaultEasy, medium: defaultMedium, hard: defaultHard }),
               });
             } catch (err) {
-              // ignore server clear failures
               console.debug('clear server-side progress failed', err);
             }
           })();

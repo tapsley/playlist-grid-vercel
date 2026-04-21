@@ -74,7 +74,9 @@ function PicrossPlayInner() {
   const { puzzle: prefetchPuzzle, progress: prefetchProgress, setPrefetch } = usePicrossPrefetch();
 
   // derive date/difficulty
-  const dateStr = (searchParams && searchParams.get && searchParams.get('date')) || getMSTDateString();
+  // Freeze dateStr at mount so a midnight rollover mid-session doesn't
+  // switch to the next day's puzzle or save progress to the wrong date.
+  const [dateStr] = useState<string>(() => (searchParams && searchParams.get && searchParams.get('date')) || getMSTDateString());
   // Parse YYYY-MM-DD into a local Date (avoid UTC parsing which can shift the day
   // depending on the user's timezone). This ensures the displayed calendar date
   // matches the intended date string.
@@ -421,9 +423,11 @@ useEffect(() => {
           // Include the full grid when reporting completion so the server
           // stores the final solved grid rather than relying on prior
           // partial snapshots.
-          if (difficulty === 'easy') { body.easySeconds = elapsedSec; body.easyComplete = true; body.easy = grid; }
-          if (difficulty === 'medium') { body.mediumSeconds = elapsedSec; body.mediumComplete = true; body.medium = grid; }
-          if (difficulty === 'hard') { body.hardSeconds = elapsedSec; body.hardComplete = true; body.hard = grid; }
+          // Only include seconds when > 0 to avoid overwriting a real saved
+          // time with 0 (e.g. when returning to an already-solved puzzle on mount).
+          if (difficulty === 'easy') { if (elapsedSec > 0) body.easySeconds = elapsedSec; body.easyComplete = true; body.easy = grid; }
+          if (difficulty === 'medium') { if (elapsedSec > 0) body.mediumSeconds = elapsedSec; body.mediumComplete = true; body.medium = grid; }
+          if (difficulty === 'hard') { if (elapsedSec > 0) body.hardSeconds = elapsedSec; body.hardComplete = true; body.hard = grid; }
           try {
             await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           } catch (err) {
@@ -1065,7 +1069,7 @@ useEffect(() => {
         fontFamily={fontFamily}
         fontWeight={fontWeight}
           clearBoard={handleClearBoard}
-          firstStart={firstStart}
+          firstStart={!startAnimationDone}
           onStartComplete={() => {
             try {
               const shownKey = `picross:startShown:${dateStr}:${difficulty}`;

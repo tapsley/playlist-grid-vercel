@@ -120,7 +120,15 @@ export async function POST(req: NextRequest) {
 
       // Update or create stats row with solved counters, fastest times, and streaks
       if (incEasy !== 0 || incMedium !== 0 || incHard !== 0 || (easySecondsVal > 0) || (mediumSecondsVal > 0) || (hardSecondsVal > 0)) {
-        const todayStr = getMSTDateString();
+        const serverTodayStr = getMSTDateString();
+        const serverYest = new Date(serverTodayStr);
+        serverYest.setDate(serverYest.getDate() - 1);
+        const serverYestStr = serverYest.toISOString().slice(0, 10);
+        // Use the puzzle's date for streak credit so a puzzle started before midnight
+        // and solved after still counts for the correct day. Only accept dates within
+        // 1 day of today to prevent gaming with old dates.
+        const puzzleDateStr = (date && typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) ? date : serverTodayStr;
+        const todayStr = (puzzleDateStr === serverTodayStr || puzzleDateStr === serverYestStr) ? puzzleDateStr : serverTodayStr;
         const stats = await tx.picrossStats.findUnique({ where: { userId: session.user.id } });
         if (!stats) {
           const createData: any = { user: { connect: { id: session.user.id } }, solvedEasy: Math.max(0, incEasy), solvedMedium: Math.max(0, incMedium), solvedHard: Math.max(0, incHard) };
