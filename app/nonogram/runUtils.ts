@@ -1,6 +1,7 @@
 // Pure helpers for run/clue analysis used by the play UI.
 export type IsFilledFn = (r: number, c: number) => boolean;
 export type IsXFn = (r: number, c: number) => boolean;
+export type RunMeta = { len: number; start: number; end: number; bounded: boolean };
 
 export const generatePlacements = (
   clues: number[],

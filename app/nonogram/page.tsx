@@ -12,6 +12,7 @@ import Link from "next/link";
 import DifficultyIcon from "./components/DifficultyIcon";
 import { getPicrossSettings, setPicrossSettings } from './settings';
 import { getMSTDateString } from './time';
+import { ADMIN_EMAIL } from '../../lib/constants';
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
 import StatsModal, { prefetchStats } from './components/StatsModal';
@@ -114,7 +115,7 @@ const demoPuzzles: Record<string, boolean[][]> = {
 function PicrossSplashInner() {
   const [difficulty] = useState("easy");
   const { data: session } = useSession();
-  const isTyler = !!(session?.user?.email && session.user.email.trim().toLowerCase() === "tyler.apsley@gmail.com");
+  const isTyler = !!(session?.user?.email && session.user.email.trim().toLowerCase() === ADMIN_EMAIL);
   const isAuthenticated = !!(session?.user?.email);
   const { progress, puzzle } = usePicrossPrefetch();
   // Ensure progress is always an object and never null

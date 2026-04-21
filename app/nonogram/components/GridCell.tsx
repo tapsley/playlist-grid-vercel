@@ -1,12 +1,13 @@
 "use client";
 import React from "react";
+import type { CellState } from '../PicrossPrefetchContext';
 
 type Props = {
   r: number;
   c: number;
-  cell: any;
+  cell: CellState;
   cellPx: number;
-  celebrateGrid: any;
+  celebrateGrid: boolean[][] | null;
   editorMode: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerEnter: () => void;
@@ -25,10 +26,10 @@ export default function GridCell({ r, c, cell, cellPx, celebrateGrid, editorMode
       onContextMenu={onContextMenu}
       style={cellStyle}
     >
-      {!editorMode && (cell as any) === 3 && (
+      {!editorMode && cell === 3 && (
         <div style={{ color: '#c53030', fontWeight: 800, fontSize: Math.round(cellPx * 0.7), lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translateY(2px)' }}>✕</div>
       )}
-      {!editorMode && (cell as any) === 2 && (
+      {!editorMode && cell === 2 && (
         <div style={{ width: Math.max(6, Math.round(cellPx * 0.25)), height: Math.max(6, Math.round(cellPx * 0.25)), borderRadius: 6, background: '#666' }} />
       )}
       {celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c] && (

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { getMSTDateString } from "@/app/nonogram/time";
+import { ADMIN_EMAIL } from "@/lib/constants";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
 
   // Admin/owner extra stats for Tyler
   const email = (session.user?.email || '').toString().toLowerCase();
-  if (email === 'tyler.apsley@gmail.com') {
+  if (email === ADMIN_EMAIL) {
     const start = new Date(todayStr);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);

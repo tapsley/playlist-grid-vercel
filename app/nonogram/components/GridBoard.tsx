@@ -1,16 +1,62 @@
 "use client";
-import React from "react";
+import React, { useMemo } from "react";
 import TimerWithPB from './TimerWithPB';
 import ClueColumn from './ClueColumn';
 import ClueRow from './ClueRow';
 import GridCell from './GridCell';
 import { computeFulfilledArray } from '../runUtils';
+import type { RunMeta } from '../runUtils';
 import { getMSTDateString } from '../time';
+import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
+import type { CellAction } from '../hooks/usePointerDrag';
 
 // Divider color used for 5x/10x block separators — change here to update UI
 const DIVIDER_COLOR = 'rgb(57, 255, 8)';
 
-export default function GridBoard(props: any) {
+export interface GridBoardProps {
+  size: number;
+  leftWidth: number;
+  topHeight: number;
+  cellPx: number;
+  CLUE_FONT_PX: number;
+  clueGap: number;
+  puzzle: boolean[][];
+  grid: CellState[][];
+  rowClues: number[][];
+  colClues: number[][];
+  editorMode: boolean;
+  setEditorMode: React.Dispatch<React.SetStateAction<boolean>>;
+  editorPuzzle: boolean[][] | null;
+  setEditorPuzzle: React.Dispatch<React.SetStateAction<boolean[][] | null>>;
+  prefetchPuzzle: Record<string, boolean[][]> | null;
+  prefetchProgress: Record<string, CellState[][]> | null;
+  setPrefetch: PrefetchShape['setPrefetch'];
+  difficulty: string;
+  isEditorAllowed: boolean;
+  findNextAbort: React.MutableRefObject<AbortController | null>;
+  elapsedSec: number;
+  cleared: boolean;
+  showNewPB: boolean;
+  pointerActiveRef: React.MutableRefObject<boolean>;
+  pointerActionRef: React.MutableRefObject<CellAction | null>;
+  applyActionToCell: (r: number, c: number, action: CellAction) => void;
+  inputMode: 'fill' | 'maybe' | 'x';
+  setSaveDate: React.Dispatch<React.SetStateAction<string>>;
+  getRunsForCol: (c: number) => number[];
+  getRunsMetaForCol: (c: number) => RunMeta[];
+  getRunsForRow: (r: number) => number[];
+  getRunsMetaForRow: (r: number) => RunMeta[];
+  isFilledCell: (r: number, c: number) => boolean;
+  isXCell: (r: number, c: number) => boolean;
+  celebrateGrid: boolean[][] | null;
+  fontFamily: string;
+  fontWeight: number;
+  firstStart: boolean;
+  onStartComplete: () => void;
+  showTimer?: boolean;
+}
+
+export default function GridBoard(props: GridBoardProps) {
   const {
     size,
     leftWidth,
@@ -35,17 +81,11 @@ export default function GridBoard(props: any) {
     elapsedSec,
     cleared,
     showNewPB,
-    setShowNewPB,
     pointerActiveRef,
     pointerActionRef,
     applyActionToCell,
     inputMode,
     setSaveDate,
-    saveDate,
-    handleSave,
-    handleNextDate,
-    handlePrevDate,
-    handleClearEditor,
     getRunsForCol,
     getRunsMetaForCol,
     getRunsForRow,
@@ -59,9 +99,9 @@ export default function GridBoard(props: any) {
     onStartComplete,
   } = props;
 
-  const showTimer = typeof props.showTimer === 'undefined' ? true : !!props.showTimer;
+  const showTimer = props.showTimer ?? true;
 
-  const getDefaultPuzzle = (size: number) => Array(size).fill(0).map(() => Array(size).fill(false));
+  const getDefaultPuzzle = (sz: number) => Array(sz).fill(0).map(() => Array(sz).fill(false));
 
   const computeClues = (puzzle: boolean[][]) => {
     if (!puzzle || puzzle.length === 0) return { rows: [], cols: [] };
@@ -91,8 +131,21 @@ export default function GridBoard(props: any) {
   const { rows: displayRowClues, cols: displayColClues } = computeClues(displayPuzzleForClues);
   const displayGrid = editorMode ? (editorPuzzle ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size))) : grid;
 
+  // Memoize fulfilled arrays — only recompute when the display grid changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fulfilledCols = useMemo(() => Array.from({ length: size }, (_, i) => {
+    const clue = editorMode ? (displayColClues[i] || []) : (colClues?.[i] || []);
+    return computeFulfilledArray(clue, getRunsForCol(i), getRunsMetaForCol(i), size, isFilledCell, isXCell, false, i);
+  }), [displayGrid, displayColClues, colClues, size, editorMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fulfilledRows = useMemo(() => Array.from({ length: size }, (_, r) => {
+    const clue = editorMode ? (displayRowClues[r] || []) : (rowClues?.[r] || []);
+    return computeFulfilledArray(clue, getRunsForRow(r), getRunsMetaForRow(r), size, isFilledCell, isXCell, true, r);
+  }), [displayGrid, displayRowClues, rowClues, size, editorMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div onPointerMove={ (e: any) => {
+    <div onPointerMove={(e: React.PointerEvent) => {
       if (cleared && !editorMode) return;
       if (!pointerActiveRef.current || !pointerActionRef.current) return;
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
@@ -105,9 +158,9 @@ export default function GridBoard(props: any) {
       if (editorMode) {
         if (pointerActionRef.current === 'fill' || pointerActionRef.current === 'erase') {
           const doFill = pointerActionRef.current === 'fill';
-          setEditorPuzzle((prev: any) => {
+          setEditorPuzzle(prev => {
             const base = prev ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
-            const next = base.map((row: any) => [...row]);
+            const next = base.map(row => [...row]);
             if (next[rr][cc] !== doFill) next[rr][cc] = doFill;
             return next;
           });
@@ -142,12 +195,8 @@ export default function GridBoard(props: any) {
                           if (res.ok) {
                             const json = await res.json();
                             const entry = json?.[difficulty];
-                            const hasCells = Array.isArray(entry) && entry.some((row: any) => Array.isArray(row) && row.some(Boolean));
-                            // If the fetched puzzle has any filled cells, skip — keep searching
-                            if (hasCells) {
-                              // continue searching to find the next blank date
-                            } else {
-                              // no puzzle content for this date; make it the target
+                            const hasCells = Array.isArray(entry) && (entry as unknown[]).some(row => Array.isArray(row) && (row as unknown[]).some(Boolean));
+                            if (!hasCells) {
                               setEditorPuzzle(getDefaultPuzzle(size));
                               setSaveDate(ds);
                               findNextAbort.current = null;
@@ -156,7 +205,7 @@ export default function GridBoard(props: any) {
                           }
                       }
                       setSaveDate(getMSTDateString(today));
-                    } catch (err) { const maybe = err as { name?: string } | undefined; if (maybe && maybe.name === 'AbortError') return; console.debug('findNextFreeDate error', err); } finally { findNextAbort.current = null; }
+                    } catch (err) { const maybe = err as { name?: string } | undefined; if (maybe?.name === 'AbortError') return; console.debug('findNextFreeDate error', err); } finally { findNextAbort.current = null; }
                   })();
                 } else { setEditorPuzzle(null); setSaveDate(''); if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} } }
               }} />
@@ -167,25 +216,19 @@ export default function GridBoard(props: any) {
             <TimerWithPB elapsedSec={elapsedSec} cleared={cleared} showNewPB={showNewPB} firstStart={firstStart} onStartComplete={onStartComplete} />
           </div>
         </div>
-        {Array.from({ length: size }).map((_, i) => i).map(i => {
-          const runs = getRunsForCol(i);
-          const meta = getRunsMetaForCol(i);
+        {Array.from({ length: size }).map((_, i) => {
           const clueForIndex = editorMode ? (displayColClues[i] || []) : ((colClues && colClues[i]) || []);
-          const fulfilled = computeFulfilledArray(clueForIndex, runs, meta, size, (r: number, c: number) => isFilledCell(r,c), (r:number,c:number)=> isXCell(r,c), false, i);
-          return <ClueColumn key={i} clue={clueForIndex} fulfilled={fulfilled} cellPx={cellPx} topHeight={topHeight} fontSize={CLUE_FONT_PX} index={i} firstStart={firstStart} />;
+          return <ClueColumn key={i} clue={clueForIndex} fulfilled={fulfilledCols[i]} cellPx={cellPx} topHeight={topHeight} fontSize={CLUE_FONT_PX} index={i} firstStart={firstStart} />;
         })}
       </div>
-      {displayGrid.map((row: any, r: number) => {
-        const runs = getRunsForRow(r);
-        const meta = getRunsMetaForRow(r);
+      {displayGrid.map((row: CellState[], r: number) => {
         const clueForRow = editorMode ? (displayRowClues[r] || []) : ((rowClues && rowClues[r]) || []);
-        const fulfilled = computeFulfilledArray(clueForRow, runs, meta, size, (rr:number,cc:number)=> isFilledCell(rr,cc), (rr:number,cc:number)=> isXCell(rr,cc), true, r);
         return (
           <div key={r} style={{ display: 'flex' }}>
             <div style={{ width: leftWidth, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
-              <ClueRow clue={clueForRow} fulfilled={fulfilled} clueGap={clueGap} fontSize={CLUE_FONT_PX} firstStart={firstStart} />
+            <ClueRow clue={clueForRow} fulfilled={fulfilledRows[r]} clueGap={clueGap} fontSize={CLUE_FONT_PX} firstStart={firstStart} />
             </div>
-            {row.map((cell: any, c: number) => {
+            {row.map((cell: CellState, c: number) => {
               const cellStyle: React.CSSProperties = {
                 width: cellPx, height: cellPx, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderStyle: 'solid', borderWidth: 1, borderColor: '#888',
@@ -200,9 +243,8 @@ export default function GridBoard(props: any) {
                 background: (() => {
                   if (celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c]) return '#d4af37';
                   if (editorMode) return (cell ? '#222' : '#fff');
-                  const val = cell as any;
-                  if (val === 1) return '#222';
-                  if (val === 2) return '#f0f0f0';
+                  if (cell === 1) return '#222';
+                  if (cell === 2) return '#f0f0f0';
                   return '#fff';
                 })(),
                 cursor: 'pointer', fontSize: Math.max(12, Math.round(cellPx * 0.65)), userSelect: 'none', touchAction: 'none', position: 'relative'
@@ -225,9 +267,9 @@ export default function GridBoard(props: any) {
                     if (editorMode) {
                       const cur = (editorPuzzle && editorPuzzle[r] && typeof editorPuzzle[r][c] !== 'undefined') ? !!editorPuzzle[r][c] : !!(prefetchPuzzle && prefetchPuzzle[difficulty] && prefetchPuzzle[difficulty][r] && prefetchPuzzle[difficulty][r][c]);
                       const newVal = !cur;
-                      setEditorPuzzle((prev: any) => {
+                      setEditorPuzzle(prev => {
                         const base = prev ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
-                        const next = base.map((row: any) => [...row]);
+                        const next = base.map(row => [...row]);
                         next[r][c] = newVal;
                         return next;
                       });
@@ -251,17 +293,11 @@ export default function GridBoard(props: any) {
                         pointerActionRef.current = 'erase';
                         applyActionToCell(r, c, 'erase');
                       } else if (val === 3) {
-                        setPrefetch((prev: any) => {
-                          const cur = (prev.progress && prev.progress[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
-                          const next: any = cur.map((row: any) => row.map((v: any) => (Math.max(0, Math.min(3, Math.trunc(Number(v || 0)))))));
+                        setPrefetch(prev => {
+                          const cur: CellState[][] = (prev.progress?.[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+                          const next: CellState[][] = cur.map(row => row.map(v => Math.max(0, Math.min(3, Math.trunc(Number(v) || 0))) as CellState));
                           next[r][c] = 0;
-                          return {
-                            ...prev,
-                            progress: {
-                              ...prev.progress,
-                              [difficulty]: next,
-                            },
-                          };
+                          return { ...prev, progress: { ...prev.progress, [difficulty]: next } } as PrefetchState;
                         });
                         pointerActionRef.current = 'fill';
                       } else {
@@ -287,9 +323,9 @@ export default function GridBoard(props: any) {
                     if (editorMode) {
                       if (pointerActionRef.current === 'fill' || pointerActionRef.current === 'erase') {
                         const doFill = pointerActionRef.current === 'fill';
-                        setEditorPuzzle((prev: any) => {
+                        setEditorPuzzle(prev => {
                           const base = prev ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
-                          const next = base.map((row: any) => [...row]);
+                          const next = base.map(row => [...row]);
                           if (next[r][c] !== doFill) next[r][c] = doFill;
                           return next;
                         });
