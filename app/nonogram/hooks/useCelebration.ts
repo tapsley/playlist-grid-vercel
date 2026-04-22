@@ -35,6 +35,7 @@ export function useCelebration({
   const [showNewPB, setShowNewPB] = useState(false);
   const completeTextRef = useRef<HTMLDivElement | null>(null);
   const completeAnimStartedRef = useRef(false);
+  const [solveStreak, setSolveStreak] = useState<number>(0);
 
   // Keep refs current so triggerCelebration always reads fresh values
   const elapsedSecRef = useRef(elapsedSec);
@@ -114,6 +115,8 @@ export function useCelebration({
             if (res.ok) {
               const json = await res.json();
               prior = Number(json?.fastest?.[difficulty] ?? null) || null;
+              const streak = Number(json?.streaks?.[difficulty]?.current) || 0;
+              if (streak > 0) setSolveStreak(streak);
             }
           } catch {}
         } else {
@@ -188,5 +191,6 @@ export function useCelebration({
     triggerCelebration,
     clearCelebration,
     completeTextRef,
+    solveStreak,
   };
 }

@@ -159,6 +159,7 @@ function PicrossPlayInner() {
     triggerCelebration,
     clearCelebration,
     completeTextRef,
+    solveStreak,
   } = useCelebration({
     cleared, elapsedSec, grid, puzzle, size, difficulty, userIsLoggedIn, isAdmin, setPrefetch,
   });
@@ -300,6 +301,32 @@ function PicrossPlayInner() {
   };
 
   // ------ Handlers ------
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const handleShare = () => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const parts = dateStr.split('-');
+    const shortDate = parts.length === 3
+      ? `${months[Number(parts[1]) - 1]} ${Number(parts[2])}`
+      : formattedDate;
+    const diffLabel = difficulty === 'easy' ? 'Easy (5×5)' : difficulty === 'medium' ? 'Medium (10×10)' : 'Hard (15×15)';
+    const mins = Math.floor(elapsedSec / 60);
+    const secs = elapsedSec % 60;
+    const timeStr = elapsedSec > 0 ? `⏱ ${mins}:${secs.toString().padStart(2, '0')}` : null;
+    const streakStr = solveStreak > 0 ? `🔥 Streak: ${solveStreak}` : null;
+    const timeLine = [timeStr, streakStr].filter(Boolean).join(' | ');
+    const lines = [
+      `Daily Nonogram — ${shortDate}`,
+      diffLabel,
+      timeLine || null,
+      'tapsley.space/nonogram',
+    ].filter(Boolean).join('\n');
+    navigator.clipboard.writeText(lines).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }).catch(() => { /* clipboard unavailable */ });
+  };
+
   const handleClearBoard = () => {
     setPrefetch(prev => ({
       ...prev,
@@ -454,10 +481,16 @@ function PicrossPlayInner() {
       />
 
       {celebrateGrid && !editorMode ? (
-        <div style={{ marginTop: 18, width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ marginTop: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
           <div ref={completeTextRef} style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, fontSize: 24, padding: '12px 16px', borderRadius: 8, textShadow: '0 2px 6px rgba(0,0,0,0.08)', transformOrigin: 'center' }}>
             Puzzle Complete!
           </div>
+          <button
+            onClick={handleShare}
+            style={{ fontFamily: 'Courier New', fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
+          >
+            {copied ? '✓ Copied!' : '📋 Share'}
+          </button>
         </div>
       ) : (
         <Controls
