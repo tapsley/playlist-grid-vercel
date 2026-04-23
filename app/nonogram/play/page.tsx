@@ -50,7 +50,7 @@ function getClues(puzzle: boolean[][]) {
   return { rows, cols };
 }
 
-const DEFAULT_FONT = 'Courier New, monospace';
+const DEFAULT_FONT = "var(--font-courier-prime), 'Courier New', monospace";
 
 function PicrossPlayInner() {
   const router = useRouter();
@@ -426,7 +426,7 @@ function PicrossPlayInner() {
   }, [grid, cleared, difficulty, editorMode, dateStr]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 15, colorScheme: 'light' }}>
+    <div className="nonogram-root" style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 15, colorScheme: 'light' }}>
       <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, paddingRight: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 30 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
@@ -435,11 +435,11 @@ function PicrossPlayInner() {
               router.push('/nonogram?replay=1');
             }}
             aria-label="Back"
-            style={{ color: '#000', background: 'transparent', border: 'none', padding: '0px 0px', margin: 0, fontSize: 36, lineHeight: 1, cursor: 'pointer', fontWeight: 800, position: 'relative', top: '-5px', left: '7px' }}
+            style={{ color: '#000', background: 'transparent', border: 'none', padding: '0px 0px', margin: 0, fontSize: 36, lineHeight: 1, cursor: 'pointer', fontWeight: 800, position: 'relative',  left: '7px' }}
           >
             ‹
           </button>
-          <h2 style={{ color: '#000', margin: 5, paddingLeft: 20, fontFamily: 'Courier New', fontWeight: '600', fontSize: 25 }}>{formattedDate}</h2>
+          <h2 style={{ color: '#000', margin: 5, paddingLeft: 20, fontFamily: DEFAULT_FONT, fontWeight: '500', fontSize: 25 }}>{formattedDate}</h2>
         </div>
       </div>
 
@@ -496,7 +496,7 @@ function PicrossPlayInner() {
           </div>
           <button
             onClick={handleShare}
-            style={{ fontFamily: 'Courier New', fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
+            style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
           >
             {copied ? '✓ Copied!' : '📋 Share'}
           </button>

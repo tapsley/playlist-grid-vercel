@@ -78,7 +78,7 @@ function TutorialPages() {
   }, [page]);
 
   const current = TUTORIAL_PAGES[page];
-  const btnStyle: React.CSSProperties = { fontFamily: 'Courier New', fontWeight: 700, padding: '5px 14px', borderRadius: 6, border: '2px solid #cca3ff', background: '#fff', color: '#7c3aed', cursor: 'pointer', fontSize: 14 };
+  const btnStyle: React.CSSProperties = { fontFamily: COURIER_FONT, fontWeight: 700, padding: '5px 14px', borderRadius: 6, border: '2px solid #cca3ff', background: '#fff', color: '#7c3aed', cursor: 'pointer', fontSize: 14 };
   const btnDisabledStyle: React.CSSProperties = { ...btnStyle, opacity: 0.35, cursor: 'default' };
 
   return (
@@ -111,6 +111,8 @@ const demoPuzzles: Record<string, boolean[][]> = {
   hard: Array(15).fill(0).map(() => Array(15).fill(false)),
 };
 
+
+const COURIER_FONT = "var(--font-courier-prime), 'Courier New', monospace";
 
 function PicrossSplashInner() {
   const [difficulty] = useState("easy");
@@ -343,7 +345,7 @@ function PicrossSplashInner() {
 
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%', colorScheme: 'light' }}>
+    <div className="nonogram-root" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%', colorScheme: 'light' }}>
       <div style={{ position: "absolute", top: 16, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {isAuthenticated && (
@@ -363,6 +365,7 @@ function PicrossSplashInner() {
                 justifyContent: 'center',
                 cursor: 'pointer',
                 fontSize: 28,
+                paddingTop: 8,
                 boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
               }}
             >
@@ -399,8 +402,8 @@ function PicrossSplashInner() {
           <UserMenu />
         </div>
       </div>
-      <h1 ref={dailyTitleRef} style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111', visibility: 'hidden' }}>Daily Nonograms</h1>
-      <div ref={dailySubtitleRef} style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
+      <h1 ref={dailyTitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111', visibility: 'hidden' }}>Daily Nonograms</h1>
+      <div ref={dailySubtitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
           const disabled = (d.value === 'hard' && !isTyler) || (d.value === 'medium' && !isAuthenticated);
@@ -410,7 +413,7 @@ function PicrossSplashInner() {
               {disabled ? (
                 <div className="nonogram-difficulty-btn disabled" style={containerStyle}>
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
-                  <div style={{ fontFamily: "Courier New", position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333' }}>
+                  <div style={{ fontFamily: COURIER_FONT, position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333' }}>
                     {d.value === 'hard' ? 'Coming soon!' : d.value === 'medium' ? 'Sign in to play!' : 'Locked'}
                   </div>
                 </div>
@@ -425,7 +428,7 @@ function PicrossSplashInner() {
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
                 </Link>
               )}
-              <div style={{ fontFamily: "Courier New", marginTop: 12, fontWeight: difficulty === d.value ? "bold" : 600, fontSize: 18 }}>{d.label}</div>
+              <div style={{ fontFamily: COURIER_FONT, marginTop: 12, fontWeight: difficulty === d.value ? "bold" : 600, fontSize: 18 }}>{d.label}</div>
             </div>
           );
         })}
@@ -433,10 +436,10 @@ function PicrossSplashInner() {
 
       {showSettings && (
         <div onClick={() => setShowSettings(false)} style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', zIndex: 2000 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#2c2c2c', padding: 18, borderRadius: 8, minWidth: 300, maxWidth: 420, border: '1px solid rgba(255,255,255,0.06)', fontFamily: 'Courier New', color: '#fff' }}>
-            <div style={{ fontWeight: 700, marginBottom: 12, color: '#fff', fontFamily: 'Courier New', letterSpacing: '0.2em' }}>SETTINGS</div>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#2c2c2c', padding: 18, borderRadius: 8, minWidth: 300, maxWidth: 420, border: '1px solid rgba(255,255,255,0.06)', fontFamily: COURIER_FONT, color: '#fff' }}>
+            <div style={{ fontWeight: 700, marginBottom: 12, color: '#fff', fontFamily: COURIER_FONT, letterSpacing: '0.2em' }}>SETTINGS</div>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 16, fontFamily: 'Courier New' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 16, fontFamily: COURIER_FONT }}>
                 <input className="picross-checkbox" type="checkbox" checked={playStartAnimation} onChange={e => setPlayStartAnimation(e.target.checked)} />
                 <span>Play START animation when beginning a puzzle</span>
               </label>
@@ -444,19 +447,19 @@ function PicrossSplashInner() {
             </div>
             {isTyler && (
               <div style={{ marginBottom: 12 }}>
-                <button onClick={resetStartShown} style={{ cursor: "pointer" ,padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: 'Courier New' }}>Reset START shown for today</button>
+                <button onClick={resetStartShown} style={{ cursor: "pointer" ,padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}>Reset START shown for today</button>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setShowSettings(false)} style={{ cursor: "pointer" ,padding: '8px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: 'Courier New' }}>Close</button>
-              <button onClick={saveSettings} style={{ cursor: "pointer" ,padding: '8px 10px', borderRadius: 6, background: '#d579ff', color: '#000000', border: 'none', fontFamily: 'Courier New' }}>Save</button>
+              <button onClick={() => setShowSettings(false)} style={{ cursor: "pointer" ,padding: '8px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}>Close</button>
+              <button onClick={saveSettings} style={{ cursor: "pointer" ,padding: '8px 10px', borderRadius: 6, background: '#d579ff', color: '#000000', border: 'none', fontFamily: COURIER_FONT }}>Save</button>
             </div>
           </div>
         </div>
       )}
       <div style={{ width: 'min(1000px, 92%)', background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', marginBottom: 48, color: '#111' }}>
-        <h2 style={{ fontFamily: "Courier New", fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
-        <div style={{ fontFamily: "Courier New" }}>
+        <h2 style={{ fontFamily: COURIER_FONT, fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
+        <div style={{ fontFamily: COURIER_FONT }}>
           <TutorialPages />
             <br/>
             <h3 style={{ fontSize: 22, marginTop: 0, marginBottom: 0, fontWeight: 800 }}>TIPS AND TRICKS</h3>
