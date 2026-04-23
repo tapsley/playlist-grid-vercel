@@ -160,6 +160,9 @@ function PicrossPlayInner() {
     clearCelebration,
     completeTextRef,
     solveStreak,
+    solveAvg,
+    statsSettled,
+    fillAnimDone,
   } = useCelebration({
     cleared, elapsedSec, grid, puzzle, size, difficulty, userIsLoggedIn, isAdmin, setPrefetch,
   });
@@ -301,6 +304,11 @@ function PicrossPlayInner() {
   };
 
   // ------ Handlers ------
+  const fmtTime = (sec: number) => { const m = Math.floor(sec / 60); const s = sec % 60; return `${m}:${s.toString().padStart(2, '0')}`; };
+  const completeMessage = (solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg)
+    ? `Faster than today's average player! (${fmtTime(solveAvg)})`
+    : 'Puzzle Complete!';
+
   const [copied, setCopied] = useState<boolean>(false);
 
   const handleShare = () => {
@@ -314,7 +322,8 @@ function PicrossPlayInner() {
     const secs = elapsedSec % 60;
     const timeStr = elapsedSec > 0 ? `⏱ ${mins}:${secs.toString().padStart(2, '0')}` : null;
     const streakStr = solveStreak > 0 ? `🔥 Streak: ${solveStreak}` : null;
-    const timeLine = [timeStr, streakStr].filter(Boolean).join(' | ');
+    const avgStr = solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg ? `faster than average -> ${fmtTime(solveAvg)}` : null;
+    const timeLine = [timeStr].filter(Boolean).join(' | ');
     const lines = [
       `Daily Nonogram — ${shortDate}`,
       diffLabel,
@@ -417,7 +426,7 @@ function PicrossPlayInner() {
   }, [grid, cleared, difficulty, editorMode, dateStr]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 72 }}>
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 15 }}>
       <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, paddingRight: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 30 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
@@ -480,10 +489,10 @@ function PicrossPlayInner() {
         showTimer={(typeof window === 'undefined') ? true : (getPicrossSettings().showTimer !== false)}
       />
 
-      {celebrateGrid && !editorMode ? (
+      {cleared && !editorMode ? (
         <div style={{ marginTop: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-          <div ref={completeTextRef} style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, fontSize: 24, padding: '12px 16px', borderRadius: 8, textShadow: '0 2px 6px rgba(0,0,0,0.08)', transformOrigin: 'center' }}>
-            Puzzle Complete!
+          <div ref={completeTextRef} style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, padding: '12px 16px', borderRadius: 8, wordBreak: 'keep-all', textShadow: '0 2px 6px rgba(0,0,0,0.08)', transformOrigin: 'center', opacity: statsSettled && fillAnimDone ? undefined : 0 }}>
+            {completeMessage}
           </div>
           <button
             onClick={handleShare}

@@ -50,7 +50,25 @@ export async function GET(req: NextRequest) {
 
   const base = { easy, medium, hard, fastest, streaks };
 
-  // Admin/owner extra stats for Tyler
+  // Today's average solve times — included for all users (used for completion message)
+  const todayStart = new Date(todayStr);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+  const [eAvgToday, mAvgToday, hAvgToday, eCountToday, mCountToday, hCountToday] = await Promise.all([
+    prisma.picrossProgress.aggregate({ where: { date: { gte: todayStart, lt: todayEnd }, easyComplete: true, easySeconds: { gt: 0 } }, _avg: { easySeconds: true } }),
+    prisma.picrossProgress.aggregate({ where: { date: { gte: todayStart, lt: todayEnd }, mediumComplete: true, mediumSeconds: { gt: 0 } }, _avg: { mediumSeconds: true } }),
+    prisma.picrossProgress.aggregate({ where: { date: { gte: todayStart, lt: todayEnd }, hardComplete: true, hardSeconds: { gt: 0 } }, _avg: { hardSeconds: true } }),
+    prisma.picrossProgress.count({ where: { date: { gte: todayStart, lt: todayEnd }, easyComplete: true, easySeconds: { gt: 0 } } }),
+    prisma.picrossProgress.count({ where: { date: { gte: todayStart, lt: todayEnd }, mediumComplete: true, mediumSeconds: { gt: 0 } } }),
+    prisma.picrossProgress.count({ where: { date: { gte: todayStart, lt: todayEnd }, hardComplete: true, hardSeconds: { gt: 0 } } }),
+  ]);
+  const roundAvgBase = (v: number | null | undefined) => v != null ? Math.round(v) : null;
+  const todayAvg = {
+    easy:   { avg: roundAvgBase(eAvgToday._avg.easySeconds),   count: eCountToday },
+    medium: { avg: roundAvgBase(mAvgToday._avg.mediumSeconds), count: mCountToday },
+    hard:   { avg: roundAvgBase(hAvgToday._avg.hardSeconds),   count: hCountToday },
+  };
+  const baseWithAvg = { ...base, todayAvg };
   const email = (session.user?.email || '').toString().toLowerCase();
   if (email === ADMIN_EMAIL) {
     const start = new Date(todayStr);
@@ -66,30 +84,50 @@ export async function GET(req: NextRequest) {
           date: { gte: start, lt: end },
           OR: [{ easyComplete: true }, { mediumComplete: true }, { hardComplete: true }],
         },
-        select: { user: { select: { email: true } } },
+        select: {
+          user: { select: { email: true } },
+          easyComplete: true, easySeconds: true,
+          mediumComplete: true, mediumSeconds: true,
+          hardComplete: true, hardSeconds: true,
+        },
       }),
     ]);
 
-    const usersToday = solversToday.map(s => s.user.email);
+    const usersToday = solversToday.map(s => ({
+      email: s.user.email,
+      easy:   s.easyComplete   ? (s.easySeconds   > 0 ? s.easySeconds   : null) : null,
+      medium: s.mediumComplete ? (s.mediumSeconds > 0 ? s.mediumSeconds : null) : null,
+      hard:   s.hardComplete   ? (s.hardSeconds   > 0 ? s.hardSeconds   : null) : null,
+    }));
 
-    // per-date totals for the last 7 days (including today)
-    const perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number }> = [];
+    // per-date totals + average solve times for the last 7 days (including today)
+    const perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null }> = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(start);
       d.setDate(d.getDate() - i);
       const dayStart = new Date(d.toISOString().slice(0, 10));
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
-      const [e, m, h] = await Promise.all([
+      const [e, m, h, eAvg, mAvg, hAvg] = await Promise.all([
         prisma.picrossProgress.count({ where: { date: { gte: dayStart, lt: dayEnd }, easyComplete: true } }),
         prisma.picrossProgress.count({ where: { date: { gte: dayStart, lt: dayEnd }, mediumComplete: true } }),
         prisma.picrossProgress.count({ where: { date: { gte: dayStart, lt: dayEnd }, hardComplete: true } }),
+        prisma.picrossProgress.aggregate({ where: { date: { gte: dayStart, lt: dayEnd }, easyComplete: true, easySeconds: { gt: 0 } }, _avg: { easySeconds: true } }),
+        prisma.picrossProgress.aggregate({ where: { date: { gte: dayStart, lt: dayEnd }, mediumComplete: true, mediumSeconds: { gt: 0 } }, _avg: { mediumSeconds: true } }),
+        prisma.picrossProgress.aggregate({ where: { date: { gte: dayStart, lt: dayEnd }, hardComplete: true, hardSeconds: { gt: 0 } }, _avg: { hardSeconds: true } }),
       ]);
-      perDate.push({ date: dayStart.toISOString().slice(0, 10), easy: e, medium: m, hard: h, total: e + m + h });
+      const roundAvg = (v: number | null | undefined) => v != null ? Math.round(v) : null;
+      perDate.push({
+        date: dayStart.toISOString().slice(0, 10),
+        easy: e, medium: m, hard: h, total: e + m + h,
+        avgEasy: roundAvg(eAvg._avg.easySeconds),
+        avgMedium: roundAvg(mAvg._avg.mediumSeconds),
+        avgHard: roundAvg(hAvg._avg.hardSeconds),
+      });
     }
 
     return new Response(JSON.stringify({
-      ...base,
+      ...baseWithAvg,
       admin: {
         today: { easy: easyToday, medium: mediumToday, hard: hardToday, total: easyToday + mediumToday + hardToday, users: usersToday },
         perDate,
@@ -97,5 +135,5 @@ export async function GET(req: NextRequest) {
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
 
-  return new Response(JSON.stringify(base), { status: 200, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(baseWithAvg), { status: 200, headers: { "Content-Type": "application/json" } });
 }

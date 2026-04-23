@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
 import pickSequence from '../celebrations/sequenceBank';
@@ -36,6 +36,9 @@ export function useCelebration({
   const completeTextRef = useRef<HTMLDivElement | null>(null);
   const completeAnimStartedRef = useRef(false);
   const [solveStreak, setSolveStreak] = useState<number>(0);
+  const [solveAvg, setSolveAvg] = useState<number | null>(null);
+  const [statsSettled, setStatsSettled] = useState(false);
+  const [fillAnimDone, setFillAnimDone] = useState(false);
 
   // Keep refs current so triggerCelebration always reads fresh values
   const elapsedSecRef = useRef(elapsedSec);
@@ -101,10 +104,11 @@ export function useCelebration({
     });
 
     const total = Math.max(500, filled.length * delay + 200);
-    const endT = window.setTimeout(() => { isCelebratingRef.current = false; }, total);
+    const endT = window.setTimeout(() => { isCelebratingRef.current = false; setFillAnimDone(true); }, total);
     celebrationTimeouts.current.push(endT as unknown as number);
 
-    // Personal-best detection (runs after animation starts, separate async)
+    // Personal-best + avg detection — setStatsSettled(true) when done so GSAP animation can start
+    setStatsSettled(false);
     (async () => {
       const currentElapsed = elapsedSecRef.current;
       try {
@@ -117,6 +121,10 @@ export function useCelebration({
               prior = Number(json?.fastest?.[difficulty] ?? null) || null;
               const streak = Number(json?.streaks?.[difficulty]?.current) || 0;
               if (streak > 0) setSolveStreak(streak);
+              const todayAvgEntry = json?.todayAvg?.[difficulty];
+              if (todayAvgEntry && todayAvgEntry.count >= 10 && todayAvgEntry.avg > 0) {
+                setSolveAvg(todayAvgEntry.avg);
+              }
             }
           } catch {}
         } else {
@@ -132,6 +140,7 @@ export function useCelebration({
           pbTimeoutRef.current = window.setTimeout(() => { setShowNewPB(false); pbTimeoutRef.current = null; }, 8000) as unknown as number;
         }
       } catch (err) { console.debug('picross:detect pb err', err); }
+      finally { setStatsSettled(true); }
     })();
   };
 
@@ -139,6 +148,8 @@ export function useCelebration({
   useEffect(() => {
     if (!cleared) {
       setCelebrateGrid(null);
+      setStatsSettled(false);
+      setFillAnimDone(false);
       for (const t of celebrationTimeouts.current) try { window.clearTimeout(t); } catch {}
       celebrationTimeouts.current = [];
       isCelebratingRef.current = false;
@@ -148,16 +159,17 @@ export function useCelebration({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleared]);
 
-  // GSAP letter animation when complete text appears
-  useEffect(() => {
-    if (!celebrateGrid || !completeTextRef.current) {
-      completeAnimStartedRef.current = false;
+  // GSAP letter animation — useLayoutEffect fires before browser paint, preventing flash
+  useLayoutEffect(() => {
+    if (!celebrateGrid || !statsSettled || !fillAnimDone || !completeTextRef.current) {
+      if (!celebrateGrid) completeAnimStartedRef.current = false;
       return;
     }
     if (completeAnimStartedRef.current) return;
     completeAnimStartedRef.current = true;
     try {
       const el = completeTextRef.current;
+      el.style.opacity = '';  // clear any hidden state before animating
       const original = el.textContent || 'Puzzle Complete!';
       const letters: HTMLElement[] = [];
       el.innerHTML = '';
@@ -173,7 +185,7 @@ export function useCelebration({
       }
       gsap.from(letters, { scale: 0.35, y: 20, opacity: 0, duration: 0.45, ease: 'back.out(1.7)', stagger: 0.05 });
     } catch (err) { console.debug('gsap letter animation failed', err); }
-  }, [celebrateGrid]);
+  }, [celebrateGrid, statsSettled, fillAnimDone]);
 
   // Clean up PB timeout on unmount
   useEffect(() => {
@@ -192,5 +204,8 @@ export function useCelebration({
     clearCelebration,
     completeTextRef,
     solveStreak,
+    solveAvg,
+    statsSettled,
+    fillAnimDone,
   };
 }

@@ -281,50 +281,60 @@ function PicrossSplashInner() {
     if (!el) return;
     const replay = !!(searchParams && searchParams.get && searchParams.get('replay'));
     if (dailyAnimStartedRef.current && !replay) return;
-    dailyAnimStartedRef.current = false; // allow re-run when replay is present
     const original = el.textContent || 'Daily Nonograms';
-    // build spans
-    const letters: HTMLElement[] = [];
-    el.innerHTML = '';
-    for (const ch of Array.from(original)) {
-      const span = document.createElement('span');
-      span.className = 'daily-letter';
-      span.style.display = 'inline-block';
-      span.style.transformOrigin = 'center';
-      span.textContent = ch === ' ' ? '\u00A0' : ch;
-      letters.push(span);
-      el.appendChild(span);
-    }
-    try {
-      dailyAnimStartedRef.current = true;
-      gsap.from(letters, {
-        scale: 0.5,
-        y: 12,
-        opacity: 0,
-        duration: 0.45,
-        ease: 'back.out(1.6)',
-        stagger: 0.04,
-      });
-      // Animate subtitle after the letters finish
+
+    // Defer all DOM work + GSAP to the next animation frame so that React
+    // Strict Mode's synchronous cleanup (which fires between the two effect
+    // invocations) can cancel the RAF before it commits to the screen.
+    // This prevents the double-animation in dev while still playing correctly.
+    let rafId: number | null = requestAnimationFrame(() => {
+      rafId = null;
+      dailyAnimStartedRef.current = false;
+      const letters: HTMLElement[] = [];
+      el.style.visibility = 'visible';
+      el.innerHTML = '';
+      for (const ch of Array.from(original)) {
+        const span = document.createElement('span');
+        span.className = 'daily-letter';
+        span.style.display = 'inline-block';
+        span.style.transformOrigin = 'center';
+        span.textContent = ch === ' ' ? '\u00A0' : ch;
+        letters.push(span);
+        el.appendChild(span);
+      }
       try {
-        const subtitleEl = dailySubtitleRef.current;
-        if (subtitleEl) {
-          const letterDelay = Math.max(0.2, original.length * 0.04 + 0.05);
-          const startDelay = 0.45 + letterDelay; // letters animation + small buffer
-          gsap.to(subtitleEl, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out', delay: startDelay });
-        }
-      } catch (err) { console.debug('gsap subtitle animation failed', err); }
-    } catch (err) {
-      console.debug('gsap daily title animation failed', err);
-    }
-    // If this was a replay request, clear the query param after animation starts
-    if (replay) {
-      try {
-        try { if (replayTimeoutRef.current) { window.clearTimeout(replayTimeoutRef.current); replayTimeoutRef.current = null; } } catch {}
-        replayTimeoutRef.current = window.setTimeout(() => { try { router.replace('/nonogram'); } catch {} }, 800) as unknown as number;
-      } catch {}
-    }
+        dailyAnimStartedRef.current = true;
+        gsap.from(letters, {
+          scale: 0.5,
+          y: 12,
+          opacity: 0,
+          duration: 0.45,
+          ease: 'back.out(1.6)',
+          stagger: 0.04,
+        });
+        // Animate subtitle after the letters finish
+        try {
+          const subtitleEl = dailySubtitleRef.current;
+          if (subtitleEl) {
+            const letterDelay = Math.max(0.2, original.length * 0.04 + 0.05);
+            const startDelay = 0.45 + letterDelay;
+            gsap.to(subtitleEl, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out', delay: startDelay });
+          }
+        } catch (err) { console.debug('gsap subtitle animation failed', err); }
+      } catch (err) {
+        console.debug('gsap daily title animation failed', err);
+      }
+      // If this was a replay request, clear the query param after animation starts
+      if (replay) {
+        try {
+          try { if (replayTimeoutRef.current) { window.clearTimeout(replayTimeoutRef.current); replayTimeoutRef.current = null; } } catch {}
+          replayTimeoutRef.current = window.setTimeout(() => { try { router.replace('/nonogram'); } catch {} }, 800) as unknown as number;
+        } catch {}
+      }
+    });
+
     return () => {
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
       try { if (replayTimeoutRef.current) { window.clearTimeout(replayTimeoutRef.current); replayTimeoutRef.current = null; } } catch {}
       try { el.textContent = original; } catch {}
     };
@@ -389,8 +399,8 @@ function PicrossSplashInner() {
           <UserMenu />
         </div>
       </div>
-      <h1 ref={dailyTitleRef} style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111' }}>Daily Nonograms</h1>
-      <div ref={dailySubtitleRef} style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by Tyler Apsley</div>
+      <h1 ref={dailyTitleRef} style={{ fontFamily: "Courier New", fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111', visibility: 'hidden' }}>Daily Nonograms</h1>
+      <div ref={dailySubtitleRef} style={{ fontFamily: "Courier New", fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
           const disabled = (d.value === 'hard' && !isTyler) || (d.value === 'medium' && !isAuthenticated);

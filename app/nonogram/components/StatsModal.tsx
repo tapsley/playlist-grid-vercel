@@ -10,8 +10,8 @@ interface StatsData {
   fastest: { easy: number | null; medium: number | null; hard: number | null };
   streaks: { easy: Streak; medium: Streak; hard: Streak };
   admin?: {
-    today: { easy: number; medium: number; hard: number; total: number; users: string[] };
-    perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number }>;
+    today: { easy: number; medium: number; hard: number; total: number; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null }> };
+    perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null }>;
   };
 }
 
@@ -26,6 +26,13 @@ const DIFFICULTIES = [
   { key: 'medium', label: 'Medium', icon: '/mediumIcon.jpg' },
   { key: 'hard',   label: 'Hard',   icon: '/hardIcon.jpg' },
 ] as const;
+
+function fmtTime(sec: number | null | undefined): string {
+  if (sec == null || sec <= 0) return '—';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 function StatCell({ value, label }: { value: number | null | undefined; label: string }) {
   return (
@@ -55,10 +62,13 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
   const [stats, setStats] = useState<StatsData | null>(() => _cache?.data ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usersPage, setUsersPage] = useState(0);
+  const USERS_PER_PAGE = 10;
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setUsersPage(0);
     // If already cached from prefetch, show immediately and refresh in background
     if (_cache) setStats(_cache.data);
     (async () => {
@@ -156,14 +166,37 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                 </div>
 
                 {/* Users who solved today */}
-                {stats.admin.today.users && stats.admin.today.users.length > 0 && (
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, color: '#fff', marginBottom: 6, letterSpacing: '0.1em' }}>SOLVED TODAY</div>
-                    {stats.admin.today.users.map((email: string) => (
-                      <div key={email} style={{ fontSize: 13, color: '#fff', paddingBottom: 2 }}>{email}</div>
-                    ))}
-                  </div>
-                )}
+                {stats.admin.today.users && stats.admin.today.users.length > 0 && (() => {
+                  const users = stats.admin.today.users;
+                  const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
+                  const page = Math.min(usersPage, totalPages - 1);
+                  const visible = users.slice(page * USERS_PER_PAGE, (page + 1) * USERS_PER_PAGE);
+                  return (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em' }}>SOLVED TODAY ({users.length})</div>
+                        {totalPages > 1 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#cca3ff' }}>
+                            <button onClick={() => setUsersPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ background: 'none', border: 'none', color: page === 0 ? '#555' : '#cca3ff', cursor: page === 0 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8592;</button>
+                            <span>{page + 1} / {totalPages}</span>
+                            <button onClick={() => setUsersPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ background: 'none', border: 'none', color: page === totalPages - 1 ? '#555' : '#cca3ff', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8594;</button>
+                          </div>
+                        )}
+                      </div>
+                      {visible.map((u) => (
+                        <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff', paddingBottom: 4 }}>
+                          <span>{u.email}</span>
+                          <span style={{ color: '#cca3ff', fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
+                            {[u.easy, u.medium, u.hard]
+                              .map((s, i) => s != null ? `${['E','M','H'][i]} ${fmtTime(s)}` : null)
+                              .filter(Boolean)
+                              .join('  ')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Last 7 days */}
                 {stats.admin.perDate && stats.admin.perDate.length > 0 && (
@@ -177,6 +210,9 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                           <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Med</th>
                           <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Hard</th>
                           <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Total</th>
+                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg E</th>
+                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg M</th>
+                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg H</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -187,6 +223,9 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                             <td style={{ textAlign: 'center', color: '#fff' }}>{row.medium}</td>
                             <td style={{ textAlign: 'center', color: '#fff' }}>{row.hard}</td>
                             <td style={{ textAlign: 'center', color: '#fff', fontWeight: 700 }}>{row.total}</td>
+                            <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgEasy)}</td>
+                            <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgMedium)}</td>
+                            <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgHard)}</td>
                           </tr>
                         ))}
                       </tbody>

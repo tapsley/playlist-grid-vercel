@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import React, { createContext, useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,6 +52,8 @@ export default function RootLayout({
   }, [isDarkMode]);
 
   const toggle = () => setIsDarkMode((v) => !v);
+  const pathname = usePathname();
+  const showHeader = !pathname?.startsWith('/nonogram');
 
   return (
     <html lang="en">
@@ -63,7 +66,7 @@ export default function RootLayout({
         <DarkModeContext.Provider value={{ isDarkMode, toggle }}>
           <SessionProviderClient>
             <PicrossPrefetchProvider>
-              <Header />
+              {showHeader && <Header />}
               {children}
             </PicrossPrefetchProvider>
           </SessionProviderClient>
