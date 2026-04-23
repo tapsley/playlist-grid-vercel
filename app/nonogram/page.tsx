@@ -343,7 +343,7 @@ function PicrossSplashInner() {
 
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%' }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%', colorScheme: 'light' }}>
       <div style={{ position: "absolute", top: 16, right: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {isAuthenticated && (
