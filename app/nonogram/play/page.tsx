@@ -306,7 +306,7 @@ function PicrossPlayInner() {
   // ------ Handlers ------
   const fmtTime = (sec: number) => { const m = Math.floor(sec / 60); const s = sec % 60; return `${m}:${s.toString().padStart(2, '0')}`; };
   const completeMessage = (solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg)
-    ? `Faster than today's average player! (${fmtTime(solveAvg)})`
+    ? `Faster than today's average! (${fmtTime(solveAvg)})`
     : 'Puzzle Complete!';
 
   const [copied, setCopied] = useState<boolean>(false);

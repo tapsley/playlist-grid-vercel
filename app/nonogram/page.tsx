@@ -402,7 +402,7 @@ function PicrossSplashInner() {
           <UserMenu />
         </div>
       </div>
-      <h1 ref={dailyTitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 36, lineHeight: 1, marginTop: 45, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111', visibility: 'hidden' }}>Daily Nonograms</h1>
+      <h1 ref={dailyTitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 36, lineHeight: 1, marginTop: 75, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111', visibility: 'hidden' }}>Daily Nonograms</h1>
       <div ref={dailySubtitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
