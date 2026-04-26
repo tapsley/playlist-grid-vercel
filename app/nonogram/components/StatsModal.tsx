@@ -102,16 +102,23 @@ function SolveHistogram({ times, myTime }: { times: number[]; myTime: number | n
 
   return (
     <div style={{ width: '100%' }}>
+      {/* Arrow row — sits above the bars, always visible */}
+      <div style={{ display: 'flex', height: 16, marginBottom: 2 }}>
+        {buckets.map((_, i) => (
+          <div key={i} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {i === myBucketIdx && (
+              <span style={{ fontSize: 12, color: '#f9c74f', fontWeight: 700, lineHeight: 1, userSelect: 'none' }}>&#9660;</span>
+            )}
+          </div>
+        ))}
+      </div>
       {/* Bar area */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', height: CHART_H, gap: 2, paddingTop: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', height: CHART_H, gap: 2 }}>
         {buckets.map((b, i) => {
           const isMe = i === myBucketIdx;
-          const targetH = b.count > 0 ? Math.max((b.count / maxCount) * (CHART_H - 18), 4) : 0;
+          const targetH = b.count > 0 ? Math.max((b.count / maxCount) * CHART_H, 4) : 0;
           return (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', position: 'relative' }}>
-              {isMe && (
-                <div style={{ position: 'absolute', top: 0, fontSize: 12, color: '#f9c74f', lineHeight: 1, fontWeight: 700, userSelect: 'none' }}>&#9660;</div>
-              )}
               <div style={{
                 width: '100%',
                 background: isMe ? '#f9c74f' : '#9b72cf',
