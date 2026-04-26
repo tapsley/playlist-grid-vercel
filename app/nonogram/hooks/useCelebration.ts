@@ -37,6 +37,7 @@ export function useCelebration({
   const completeAnimStartedRef = useRef(false);
   const [solveStreak, setSolveStreak] = useState<number>(0);
   const [solveAvg, setSolveAvg] = useState<number | null>(null);
+  const [solveDistribution, setSolveDistribution] = useState<number[]>([]);
   const [statsSettled, setStatsSettled] = useState(false);
   const [fillAnimDone, setFillAnimDone] = useState(false);
 
@@ -122,9 +123,11 @@ export function useCelebration({
               const streak = Number(json?.streaks?.[difficulty]?.current) || 0;
               if (streak > 0) setSolveStreak(streak);
               const todayAvgEntry = json?.todayAvg?.[difficulty];
-              if (todayAvgEntry && todayAvgEntry.count >= 10 && todayAvgEntry.avg > 0) {
+              if (todayAvgEntry && todayAvgEntry.avg > 0) {
                 setSolveAvg(todayAvgEntry.avg);
               }
+              const dist: unknown = json?.todayDistribution?.[difficulty];
+              if (Array.isArray(dist)) setSolveDistribution(dist.filter((n): n is number => typeof n === 'number'));
             }
           } catch {}
         } else {
@@ -205,6 +208,7 @@ export function useCelebration({
     completeTextRef,
     solveStreak,
     solveAvg,
+    solveDistribution,
     statsSettled,
     fillAnimDone,
   };

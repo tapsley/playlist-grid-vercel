@@ -54,13 +54,21 @@ export async function GET(req: NextRequest) {
   const todayStart = new Date(todayStr);
   const todayEnd = new Date(todayStart);
   todayEnd.setDate(todayEnd.getDate() + 1);
-  const [eAvgToday, mAvgToday, hAvgToday, eCountToday, mCountToday, hCountToday] = await Promise.all([
+  const [eAvgToday, mAvgToday, hAvgToday, eCountToday, mCountToday, hCountToday, allTodayProgress, myTodayProgress] = await Promise.all([
     prisma.picrossProgress.aggregate({ where: { date: { gte: todayStart, lt: todayEnd }, easyComplete: true, easySeconds: { gt: 0 } }, _avg: { easySeconds: true } }),
     prisma.picrossProgress.aggregate({ where: { date: { gte: todayStart, lt: todayEnd }, mediumComplete: true, mediumSeconds: { gt: 0 } }, _avg: { mediumSeconds: true } }),
     prisma.picrossProgress.aggregate({ where: { date: { gte: todayStart, lt: todayEnd }, hardComplete: true, hardSeconds: { gt: 0 } }, _avg: { hardSeconds: true } }),
     prisma.picrossProgress.count({ where: { date: { gte: todayStart, lt: todayEnd }, easyComplete: true, easySeconds: { gt: 0 } } }),
     prisma.picrossProgress.count({ where: { date: { gte: todayStart, lt: todayEnd }, mediumComplete: true, mediumSeconds: { gt: 0 } } }),
     prisma.picrossProgress.count({ where: { date: { gte: todayStart, lt: todayEnd }, hardComplete: true, hardSeconds: { gt: 0 } } }),
+    prisma.picrossProgress.findMany({
+      where: { date: { gte: todayStart, lt: todayEnd }, OR: [{ easyComplete: true }, { mediumComplete: true }, { hardComplete: true }] },
+      select: { easyComplete: true, easySeconds: true, mediumComplete: true, mediumSeconds: true, hardComplete: true, hardSeconds: true },
+    }),
+    prisma.picrossProgress.findFirst({
+      where: { userId: session.user.id, date: { gte: todayStart, lt: todayEnd } },
+      select: { easyComplete: true, easySeconds: true, mediumComplete: true, mediumSeconds: true, hardComplete: true, hardSeconds: true },
+    }),
   ]);
   const roundAvgBase = (v: number | null | undefined) => v != null ? Math.round(v) : null;
   const todayAvg = {
@@ -68,7 +76,17 @@ export async function GET(req: NextRequest) {
     medium: { avg: roundAvgBase(mAvgToday._avg.mediumSeconds), count: mCountToday },
     hard:   { avg: roundAvgBase(hAvgToday._avg.hardSeconds),   count: hCountToday },
   };
-  const baseWithAvg = { ...base, todayAvg };
+  const todayDistribution = {
+    easy:   allTodayProgress.filter(p => p.easyComplete   && p.easySeconds   > 0).map(p => p.easySeconds),
+    medium: allTodayProgress.filter(p => p.mediumComplete && p.mediumSeconds > 0).map(p => p.mediumSeconds),
+    hard:   allTodayProgress.filter(p => p.hardComplete   && p.hardSeconds   > 0).map(p => p.hardSeconds),
+  };
+  const myTodaySeconds = {
+    easy:   myTodayProgress?.easyComplete   && myTodayProgress.easySeconds   > 0 ? myTodayProgress.easySeconds   : null,
+    medium: myTodayProgress?.mediumComplete && myTodayProgress.mediumSeconds > 0 ? myTodayProgress.mediumSeconds : null,
+    hard:   myTodayProgress?.hardComplete   && myTodayProgress.hardSeconds   > 0 ? myTodayProgress.hardSeconds   : null,
+  };
+  const baseWithAvg = { ...base, todayAvg, todayDistribution, myTodaySeconds };
   const email = (session.user?.email || '').toString().toLowerCase();
   if (email === ADMIN_EMAIL) {
     const start = new Date(todayStr);

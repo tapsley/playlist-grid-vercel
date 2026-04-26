@@ -161,6 +161,7 @@ function PicrossPlayInner() {
     completeTextRef,
     solveStreak,
     solveAvg,
+    solveDistribution,
     statsSettled,
     fillAnimDone,
   } = useCelebration({
@@ -305,9 +306,22 @@ function PicrossPlayInner() {
 
   // ------ Handlers ------
   const fmtTime = (sec: number) => { const m = Math.floor(sec / 60); const s = sec % 60; return `${m}:${s.toString().padStart(2, '0')}`; };
-  const completeMessage = (solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg)
-    ? `Faster than today's average! (${fmtTime(solveAvg)})`
-    : 'Puzzle Complete!';
+  const isFaster = solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg;
+  const completeMessage = isFaster ? `Faster than today's average!` : 'Puzzle Complete!';
+  const avgLine = isFaster && solveAvg !== null ? `(${fmtTime(solveAvg)})` : null;
+
+  // Emoji percentile bar — exclude own time so comparison is against other solvers
+  const emojiBar = useMemo(() => {
+    if (elapsedSec <= 0) return '';
+    const idx = solveDistribution.indexOf(elapsedSec);
+    const others = idx === -1 ? [...solveDistribution] : solveDistribution.filter((_, i) => i !== idx);
+    if (others.length === 0) return '🥇 First solve today!';
+    const BLOCKS = 10;
+    // Match histogram orientation: left = fast, right = slow
+    const slowerThanMe = others.filter(t => t < elapsedSec).length;
+    const yellowIdx = Math.round((slowerThanMe / others.length) * (BLOCKS - 1));
+    return Array.from({ length: BLOCKS }, (_, i) => i === yellowIdx ? '🟨' : '🟪').join('');
+  }, [elapsedSec, solveDistribution]);
 
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -322,12 +336,13 @@ function PicrossPlayInner() {
     const secs = elapsedSec % 60;
     const timeStr = elapsedSec > 0 ? `⏱ ${mins}:${secs.toString().padStart(2, '0')}` : null;
     const streakStr = solveStreak > 0 ? `🔥 Streak: ${solveStreak}` : null;
-    const avgStr = solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg ? `faster than average -> ${fmtTime(solveAvg)}` : null;
     const timeLine = [timeStr].filter(Boolean).join(' | ');
+
     const lines = [
       `Daily Nonogram — ${shortDate}`,
       diffLabel,
       timeLine || null,
+      emojiBar || null,
       'tapsley.space/nonogram',
     ].filter(Boolean).join('\n');
     navigator.clipboard.writeText(lines).then(() => {
@@ -491,9 +506,41 @@ function PicrossPlayInner() {
 
       {cleared && !editorMode ? (
         <div style={{ marginTop: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-          <div ref={completeTextRef} style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, padding: '12px 16px', borderRadius: 8, wordBreak: 'keep-all', textShadow: '0 2px 6px rgba(0,0,0,0.08)', transformOrigin: 'center', opacity: statsSettled && fillAnimDone ? undefined : 0 }}>
+          <div ref={completeTextRef} style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, padding: '12px 16px 4px', borderRadius: 8, wordBreak: 'keep-all', textShadow: '0 2px 6px rgba(0,0,0,0.08)', transformOrigin: 'center', opacity: statsSettled && fillAnimDone ? undefined : 0 }}>
             {completeMessage}
           </div>
+          {avgLine && statsSettled && fillAnimDone && (
+            <div style={{ color: '#5a2b8a', fontWeight: 600, fontSize: 14, opacity: 0.8, marginBottom: 2, textAlign: 'center', animation: 'fade-in-up 0.5s ease 1.65s both' }}>
+              {avgLine}
+            </div>
+          )}
+          {emojiBar && statsSettled && fillAnimDone && (
+            <div style={{ fontSize: 22, letterSpacing: 2, marginBottom: 4, display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: 1 }}>
+              <style>{`
+                @keyframes emoji-bounce-in {
+                  0%   { opacity: 0; transform: scale(0.3) translateY(8px); }
+                  60%  { transform: scale(1.25) translateY(-4px); }
+                  80%  { transform: scale(0.95) translateY(1px); }
+                  100% { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                @keyframes fade-in-up {
+                  from { opacity: 0; transform: translateY(6px); }
+                  to   { opacity: 0.8; transform: translateY(0); }
+                }
+              `}</style>
+              {Array.from(emojiBar).map((ch, i) => (
+                <span
+                  key={i}
+                  style={{
+                    display: 'inline-block',
+                    animation: `emoji-bounce-in 0.4s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.06}s both`,
+                  }}
+                >
+                  {ch}
+                </span>
+              ))}
+            </div>
+          )}
           <button
             onClick={handleShare}
             style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
