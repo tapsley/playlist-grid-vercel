@@ -4,7 +4,7 @@
 import { usePicrossPrefetch } from "./PicrossPrefetchContext";
   
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, Suspense } from "react";
 import { gsap } from 'gsap';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
@@ -50,11 +50,54 @@ const TUTORIAL_PAGES: { text: React.ReactNode; image: string; imageAlt: string }
   },
 ];
 
-function TutorialPages() {
+const TIPS_PAGES: { text: React.ReactNode; image: string; imageAlt: string }[] = [
+  {
+    text: <><b>Look for numbers that add up to 10:</b> If the numbers and their gaps for a row or column add up to ten, you can fill it all the way in right away!</>,
+    image: '/add10Demo.gif',
+    imageAlt: 'Overlap Example',
+  },
+  {
+    text: <><b>Look for overlaps:</b> Large numbers in a row or column have an area in the middle that overlaps when counting from either direction. You can fill this area in, knowing that it must be filled in any configuration. </>,
+    image: '/overlapDemo.gif',
+    imageAlt: 'Overlap Example',
+  },
+  {
+    text: <><b>Use <b style={{color: '#ff0404'}}>X</b> to mark empty squares:</b> In general it's good to mark squares you know are empty to help visualize potential placements for filled squares. For example, this can make the overlap area larger.</>,
+    image: '/blanksDemo.gif',
+    imageAlt: 'Tips placeholder',
+  },
+  {
+    text: <><b>Sometimes you have to count it out:</b> You can use the overlap technique in rows with multiple numbers, just account for spaces between groups. Even confirming 1 square can be crucial to finding the solution!</>,
+    image: '/overlap2Demo.gif',
+    imageAlt: 'Count It Out Example',
+  }
+];
+
+function TutorialPages({ pages }: { pages: typeof TUTORIAL_PAGES }) {
   const [page, setPage] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
   const textRef = useRef<HTMLParagraphElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const directionRef = useRef<1 | -1>(1); // 1 = forward, -1 = backward
+  const prevPagesRef = useRef(pages);
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const pageMemoryRef = useRef(new Map<typeof TUTORIAL_PAGES, number>());
+
+  // useLayoutEffect runs synchronously before the browser paints, so gsap.set(opacity:0)
+  // is invisible to the user. animKey is incremented to guarantee the animation effect
+  // fires even when the page index doesn't change between tabs.
+  useLayoutEffect(() => {
+    if (prevPagesRef.current === pages) return;
+    const targets = [textRef.current, imgRef.current].filter(Boolean);
+    gsap.killTweensOf(targets);
+    gsap.set(targets, { opacity: 0 });
+    pageMemoryRef.current.set(prevPagesRef.current, pageRef.current);
+    prevPagesRef.current = pages;
+    directionRef.current = 1;
+    setPage(pageMemoryRef.current.get(pages) ?? 0);
+    setAnimKey(k => k + 1);
+  }, [pages]);
 
   const navigate = (next: number) => {
     if (next === page) return;
@@ -75,9 +118,10 @@ function TutorialPages() {
       { opacity: 0, x: directionRef.current * 24 },
       { opacity: 1, x: 0, duration: 0.22, ease: 'power2.out' },
     );
-  }, [page]);
+  }, [page, animKey]);
 
-  const current = TUTORIAL_PAGES[page];
+  const safePage = Math.min(page, pages.length - 1);
+  const current = pages[safePage];
   const btnStyle: React.CSSProperties = { fontFamily: COURIER_FONT, fontWeight: 700, padding: '5px 14px', borderRadius: 6, border: '2px solid #cca3ff', background: '#fff', color: '#7c3aed', cursor: 'pointer', fontSize: 14 };
   const btnDisabledStyle: React.CSSProperties = { ...btnStyle, opacity: 0.35, cursor: 'default' };
 
@@ -90,9 +134,9 @@ function TutorialPages() {
         <img ref={imgRef} src={current.image} alt={current.imageAlt} style={{ width: '100%', borderRadius: 8 }} />
       </div>
       <div className="tutorial-nav" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button style={page === 0 ? btnDisabledStyle : btnStyle} disabled={page === 0} onClick={() => navigate(page - 1)}>← Prev</button>
-        <span style={{ fontSize: 13, color: '#666' }}>{page + 1} / {TUTORIAL_PAGES.length}</span>
-        <button style={page === TUTORIAL_PAGES.length - 1 ? btnDisabledStyle : btnStyle} disabled={page === TUTORIAL_PAGES.length - 1} onClick={() => navigate(page + 1)}>Next →</button>
+        <button style={safePage === 0 ? btnDisabledStyle : btnStyle} disabled={safePage === 0} onClick={() => navigate(safePage - 1)}>← Prev</button>
+        <span style={{ fontSize: 13, color: '#666' }}>{safePage + 1} / {pages.length}</span>
+        <button style={safePage === pages.length - 1 ? btnDisabledStyle : btnStyle} disabled={safePage === pages.length - 1} onClick={() => navigate(safePage + 1)}>Next →</button>
       </div>
     </div>
   );
@@ -167,6 +211,7 @@ function PicrossSplashInner() {
   };
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [tutorialTab, setTutorialTab] = useState<'how' | 'tips'>('how');
 
   // Prefetch stats in the background so the popup opens instantly.
   // Also listen for pageshow (fires on bfcache restore when using phone back)
@@ -457,28 +502,41 @@ function PicrossSplashInner() {
           </div>
         </div>
       )}
-      <div style={{ width: 'min(1000px, 92%)', background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', marginBottom: 48, color: '#111' }}>
-        <h2 style={{ fontFamily: COURIER_FONT, fontSize: 22, marginTop: 0, marginBottom: 12, fontWeight: 800 }}>HOW TO PLAY</h2>
-        <div style={{ fontFamily: COURIER_FONT }}>
-          <TutorialPages />
-            <br/>
-            <h3 style={{ fontSize: 22, marginTop: 0, marginBottom: 0, fontWeight: 800 }}>TIPS AND TRICKS</h3>
-
-              <ol style={{ margin: 12 }}>
-                <li style={{ marginBottom: 30 }}><b>Look for overlaps:</b> For example, if a row has a clue of “8”, the squares that overlap in the middle must be filled, giving you a starting point!
-                  <img src="/overlapDemo.png" alt="Overlap Example" style={{ width: '100%', marginTop: 8, borderRadius: 6 }} />
-                </li>
-                <li style={{ marginBottom: 30 }}><b>Use <b style={{color: '#ff0404'}}>X</b> to mark empty squares:</b> This helps you visualize potential placements for filled squares and avoid mistakes. <b style={{ color: '#ff0404' }}>X</b> squares can't be filled by accident when sliding around in fill mode.</li>
-                <li style={{ marginBottom: 30 }}><b>Combine these techniques to unlock more knowledge:</b> <b style={{color: '#ff0404'}}>X</b> squares can lead to more overlaps which can help you deduce the placement of other filled squares.
-                  <img src="/overlapDemo2.png" alt="Overlap + X Example" style={{ width: '100%', marginTop: 8, borderRadius: 6 }} />
-                </li> 
-                <li style={{ marginBottom: 30 }}><b>Sometimes you have to count it out:</b> You can use the overlap technique in rows with multiple numbers, just account for spaces.
-                  <img src="/overlapDemo3.png" alt="Count It Out Example" style={{ width: '100%', marginTop: 8, borderRadius: 6 }} />
-                </li>
-                <li style={{ marginBottom: 30 }}><b>Cross-reference rows and columns:</b> Each time you confidently fill in squares in a row, check the intersecting columns for new information, and vice versa.</li>
-                <li style={{ marginBottom: 30 }}><b>It's all about deduction:</b> If you don't know which square to fill next, figure out which squares definitely won't be filled. Eliminating options will make the solution clearer.</li>
-              </ol>
-
+      <div style={{ width: 'min(1000px, 92%)', marginBottom: 48, color: '#111' }}>
+        {/* Tab strip */}
+        <div style={{ display: 'flex', gap: 0, paddingLeft: 0, alignItems: 'flex-end' }}>
+          {(['how', 'tips'] as const).map((tab) => {
+            const active = tutorialTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setTutorialTab(tab)}
+                style={{
+                  fontFamily: COURIER_FONT,
+                  fontWeight: 800,
+                  fontSize: 20,
+                  padding: '8px 20px',
+                  marginRight: 5,
+                  borderRadius: '8px 8px 0 0',
+                  cursor: active ? 'default' : 'pointer',
+                  background: active ? '#fff' : '#ede0ff',
+                  color: '#000000',
+                  position: 'relative',
+                  bottom: active ? '-2px' : '0',
+                  zIndex: active ? 2 : 1,
+                  transition: 'background 0.15s',
+                }}
+              >
+                {tab === 'how' ? 'HOW TO PLAY' : 'TIPS & TRICKS'}
+              </button>
+            );
+          })}
+        </div>
+        {/* Card */}
+        <div style={{ background: '#fff', borderRadius: '0px 8px 8px 8px', padding: 24, boxShadow: '0 8px 30px rgba(0,0,0,0.08)',  position: 'relative', zIndex: 1 }}>
+          <div style={{ fontFamily: COURIER_FONT }}>
+            <TutorialPages pages={tutorialTab === 'how' ? TUTORIAL_PAGES : TIPS_PAGES} />
+          </div>
         </div>
       </div>
       <StatsModal open={showStats} onClose={() => setShowStats(false)} isAdmin={isTyler} />
