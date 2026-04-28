@@ -335,9 +335,26 @@ function PicrossPlayInner() {
 
   // ------ Handlers ------
   const fmtTime = (sec: number) => { const m = Math.floor(sec / 60); const s = sec % 60; return `${m}:${s.toString().padStart(2, '0')}`; };
+
+  // Derive "others" once — exclude own entry so comparisons are against other solvers
+  const otherSolveTimes = useMemo(() => {
+    if (elapsedSec <= 0) return solveDistribution;
+    const idx = solveDistribution.indexOf(elapsedSec);
+    return idx === -1 ? solveDistribution : solveDistribution.filter((_, i) => i !== idx);
+  }, [solveDistribution, elapsedSec]);
+
+  const isFirstSolveToday = elapsedSec > 0 && otherSolveTimes.length === 0;
+  const isFastestToday = elapsedSec > 0 && otherSolveTimes.length > 0 && elapsedSec <= Math.min(...otherSolveTimes);
   const isFaster = solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg;
-  const completeMessage = isFaster ? `Faster than today's average!` : 'Puzzle Complete!';
-  const avgLine = isFaster && solveAvg !== null ? `(${fmtTime(solveAvg)})` : null;
+
+  const completeMessage = isFirstSolveToday
+    ? 'First solve today!'
+    : isFastestToday
+      ? 'Fastest solve today!'
+      : isFaster
+        ? `Faster than today's average!`
+        : 'Puzzle Complete!';
+  const avgLine = isFaster && !isFirstSolveToday && !isFastestToday && solveAvg !== null ? `(${fmtTime(solveAvg)})` : null;
 
   // For past puzzles suppress the social/competitive elements — just show "Puzzle Complete!"
   const displayCompleteMessage = isPastPuzzle ? 'Puzzle Complete!' : completeMessage;
@@ -347,15 +364,13 @@ function PicrossPlayInner() {
   const emojiBar = useMemo(() => {
     if (isPastPuzzle) return '';
     if (elapsedSec <= 0) return '';
-    const idx = solveDistribution.indexOf(elapsedSec);
-    const others = idx === -1 ? [...solveDistribution] : solveDistribution.filter((_, i) => i !== idx);
-    if (others.length === 0) return '🥇 First solve today!';
+    if (otherSolveTimes.length === 0) return '🥇 First solve today!';
     const BLOCKS = 10;
     // Match histogram orientation: left = fast, right = slow
-    const slowerThanMe = others.filter(t => t < elapsedSec).length;
-    const yellowIdx = Math.round((slowerThanMe / others.length) * (BLOCKS - 1));
+    const slowerThanMe = otherSolveTimes.filter(t => t < elapsedSec).length;
+    const yellowIdx = Math.round((slowerThanMe / otherSolveTimes.length) * (BLOCKS - 1));
     return Array.from({ length: BLOCKS }, (_, i) => i === yellowIdx ? '🟨' : '🟪').join('');
-  }, [isPastPuzzle, elapsedSec, solveDistribution]);
+  }, [isPastPuzzle, elapsedSec, otherSolveTimes]);
 
   const [copied, setCopied] = useState<boolean>(false);
 
