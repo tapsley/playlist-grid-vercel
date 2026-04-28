@@ -16,6 +16,7 @@ import { ADMIN_EMAIL } from '../../lib/constants';
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
 import StatsModal, { prefetchStats } from './components/StatsModal';
+import PastPuzzlesModal from './components/PastPuzzlesModal';
 
 const TUTORIAL_PAGES: { text: React.ReactNode; image: string; imageAlt: string }[] = [
   {
@@ -163,7 +164,7 @@ function PicrossSplashInner() {
   const { data: session } = useSession();
   const isTyler = !!(session?.user?.email && session.user.email.trim().toLowerCase() === ADMIN_EMAIL);
   const isAuthenticated = !!(session?.user?.email);
-  const { progress, puzzle } = usePicrossPrefetch();
+  const { progress, puzzle, setPrefetch, fetchPrefetch } = usePicrossPrefetch();
   // Ensure progress is always an object and never null
   const safeProgress = (progress && typeof progress === 'object') ? progress : {};
   const typedProgress = safeProgress as Record<string, import("./PicrossPrefetchContext").CellState[][] | undefined>;
@@ -212,6 +213,9 @@ function PicrossSplashInner() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [tutorialTab, setTutorialTab] = useState<'how' | 'tips'>('how');
+  const [showPastPuzzles, setShowPastPuzzles] = useState(false);
+  const [calendarYear, setCalendarYear] = useState<number | undefined>(undefined);
+  const [calendarMonth, setCalendarMonth] = useState<number | undefined>(undefined);
 
   // Prefetch stats in the background so the popup opens instantly.
   // Also listen for pageshow (fires on bfcache restore when using phone back)
@@ -224,6 +228,7 @@ function PicrossSplashInner() {
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
   }, [isAuthenticated]);
+
   const [playStartAnimation, setPlayStartAnimation] = useState<boolean>(() => {
     try { return !!getPicrossSettings().playStartAnimation; } catch { return true; }
   });
@@ -388,6 +393,31 @@ function PicrossSplashInner() {
   // re-run when the search params string changes (so ?replay=1 triggers it)
   }, [searchParams?.toString()]);
 
+  // When returning from a past puzzle (?openCalendar=YYYY-MM), reopen the
+  // calendar at the correct month. The shared context was never contaminated
+  // (past puzzles use local state in the play page), so icons are already correct.
+  // Call fetchPrefetch as a background refresh in case session just changed.
+  useEffect(() => {
+    const openCalendar = searchParams?.get?.('openCalendar');
+    if (!openCalendar) return;
+    const parts = openCalendar.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (!y || !m) return;
+    setCalendarYear(y);
+    setCalendarMonth(m);
+    setShowPastPuzzles(true);
+    router.replace('/nonogram');
+    fetchPrefetch();
+  }, [searchParams?.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Navigate to a past puzzle. The play page manages its own data loading via
+  // local state so we never overwrite the shared context (which drives today's icons).
+  const handleSelectPuzzle = (date: string, difficulty: string) => {
+    setShowPastPuzzles(false);
+    stopDailyAnimations();
+    router.push(`/nonogram/play?date=${date}&difficulty=${difficulty}&fromCalendar=${date.slice(0, 7)}`);
+  };
 
   return (
     <div className="nonogram-root" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 0, paddingTop: 24, position: "relative", background: '#cca3ff', minHeight: '100vh', width: '100%', colorScheme: 'light' }}>
@@ -415,6 +445,31 @@ function PicrossSplashInner() {
               }}
             >
               ⚙
+            </button>
+          )}
+          {isTyler && (
+            <button
+              aria-label="Past Puzzles"
+              title="Past Puzzles"
+              onClick={() => setShowPastPuzzles(true)}
+              style={{
+                background: '#23272f', color: '#fff', border: 'none',
+                width: 40, height: 40, borderRadius: 8,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+                <rect x="1" y="4" width="18" height="14" rx="2" fill="none" stroke="white" strokeWidth="1.8"/>
+                <line x1="5" y1="2" x2="5" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="15" y1="2" x2="15" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="1" y1="8.5" x2="19" y2="8.5" stroke="white" strokeWidth="1.5"/>
+                <rect x="4" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                <rect x="8.75" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                <rect x="13.5" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                <rect x="4" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
+                <rect x="8.75" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
+              </svg>
             </button>
           )}
           {isAuthenticated && (
@@ -539,6 +594,15 @@ function PicrossSplashInner() {
           </div>
         </div>
       </div>
+      {isTyler && (
+        <PastPuzzlesModal
+          open={showPastPuzzles}
+          onClose={() => setShowPastPuzzles(false)}
+          onSelectPuzzle={handleSelectPuzzle}
+          initialYear={calendarYear}
+          initialMonth={calendarMonth}
+        />
+      )}
       <StatsModal open={showStats} onClose={() => setShowStats(false)} isAdmin={isTyler} />
       <style jsx>{`
         :global(.tutorial-layout) {

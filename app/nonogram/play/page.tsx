@@ -1,7 +1,7 @@
 ﻿// Moved PicrossPage implementation here from page.tsx
 "use client";
-import React, { useState, useMemo, useEffect, useRef } from "react";
-import type { CellState } from "../PicrossPrefetchContext";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import type { CellState, PrefetchState, PrefetchShape } from "../PicrossPrefetchContext";
 import { usePicrossPrefetch } from "../PicrossPrefetchContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -60,6 +60,33 @@ function PicrossPlayInner() {
 
   // Freeze dateStr at mount so a midnight rollover does not switch puzzles mid-session
   const [dateStr] = useState<string>(() => (searchParams?.get?.('date')) || getMSTDateString());
+  const isPastPuzzle = dateStr !== getMSTDateString();
+  const fromCalendar = searchParams?.get?.('fromCalendar') ?? null;
+
+  // Local state for past-puzzle data — never written to the shared context so the
+  // splash-page difficulty icons always reflect today's progress, not a past day's.
+  const [pastData, setPastData] = useState<{ puzzle: Record<string, boolean[][]>; progress: Record<string, CellState[][]> }>({ puzzle: {}, progress: {} });
+
+  // Route all setPrefetch calls through local state when viewing a past puzzle.
+  // This prevents usePointerDrag / useCelebration from polluting the shared context.
+  const effectiveSetPrefetch = useCallback((v: Parameters<PrefetchShape['setPrefetch']>[0]) => {
+    if (isPastPuzzle) {
+      setPastData(prev => {
+        const patch = typeof v === 'function'
+          ? (v as (p: PrefetchState) => Partial<PrefetchState>)({ puzzle: prev.puzzle, progress: prev.progress } as PrefetchState)
+          : v;
+        return {
+          puzzle: { ...prev.puzzle, ...(patch.puzzle ?? {}) },
+          progress: { ...prev.progress, ...(patch.progress ?? {}) },
+        };
+      });
+    } else {
+      setPrefetch(v);
+    }
+  }, [isPastPuzzle, setPrefetch]);
+
+  const effectivePuzzle = isPastPuzzle ? pastData.puzzle : prefetchPuzzle;
+  const effectiveProgress = isPastPuzzle ? pastData.progress : prefetchProgress;
 
   let formattedDate = dateStr;
   try {
@@ -77,11 +104,11 @@ function PicrossPlayInner() {
   const difficulty = ((searchParams?.get?.('difficulty')) || 'easy') as string;
   const size = DIFFICULTY_CONFIG[difficulty]?.size ?? 5;
 
-  const puzzle = (prefetchPuzzle?.[difficulty]) ?? getDefaultPuzzle(size);
-  const grid: CellState[][] = (prefetchProgress?.[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+  const puzzle = (effectivePuzzle?.[difficulty]) ?? getDefaultPuzzle(size);
+  const grid: CellState[][] = (effectiveProgress?.[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
 
   // Determine first-start: any non-zero cell or recorded seconds counts as prior progress
-  let hasProgress = !!(prefetchProgress?.[difficulty]?.some(row => row.some(v => Number(v) !== 0)));
+  let hasProgress = !!(effectiveProgress?.[difficulty]?.some(row => row.some(v => Number(v) !== 0)));
   try {
     const secKey = `picross:seconds:${dateStr}:${difficulty}`;
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(secKey) : null;
@@ -112,6 +139,8 @@ function PicrossPlayInner() {
   } catch {}
 
   const [startAnimationDone, setStartAnimationDone] = useState<boolean>(() => !firstStart);
+  // For past puzzles: show a loading overlay until we've confirmed the correct puzzle is in context.
+  const [pastPuzzleLoaded, setPastPuzzleLoaded] = useState(!isPastPuzzle);
   const userIsLoggedIn = !!session?.user?.email;
 
   const [inputMode, setInputMode] = useState<'fill' | 'maybe' | 'x'>('fill');
@@ -145,7 +174,7 @@ function PicrossPlayInner() {
     handlePrevDate,
     handleClearEditor,
     findNextAbort,
-  } = useEditorMode({ isEditorAllowed, size, difficulty, prefetchPuzzle, setPrefetch });
+  } = useEditorMode({ isEditorAllowed, size, difficulty, prefetchPuzzle: effectivePuzzle, setPrefetch: effectiveSetPrefetch });
 
   const { elapsedSec, saveSecondsNow } = useTimer({
     dateStr, difficulty, userIsLoggedIn, startAnimationDone, cleared, editorMode, grid,
@@ -165,11 +194,11 @@ function PicrossPlayInner() {
     statsSettled,
     fillAnimDone,
   } = useCelebration({
-    cleared, elapsedSec, grid, puzzle, size, difficulty, userIsLoggedIn, isAdmin, setPrefetch,
+    cleared, elapsedSec, grid, puzzle, size, difficulty, userIsLoggedIn, isAdmin, setPrefetch: effectiveSetPrefetch,
   });
 
   const { pointerActiveRef, pointerActionRef, applyActionToCell } = usePointerDrag({
-    editorMode, startAnimationDone, cleared, isCelebratingRef, size, difficulty, setPrefetch,
+    editorMode, startAnimationDone, cleared, isCelebratingRef, size, difficulty, setPrefetch: effectiveSetPrefetch,
   });
 
   // ------ Layout state ------
@@ -310,8 +339,13 @@ function PicrossPlayInner() {
   const completeMessage = isFaster ? `Faster than today's average!` : 'Puzzle Complete!';
   const avgLine = isFaster && solveAvg !== null ? `(${fmtTime(solveAvg)})` : null;
 
+  // For past puzzles suppress the social/competitive elements — just show "Puzzle Complete!"
+  const displayCompleteMessage = isPastPuzzle ? 'Puzzle Complete!' : completeMessage;
+  const displayAvgLine = isPastPuzzle ? null : avgLine;
+
   // Emoji percentile bar — exclude own time so comparison is against other solvers
   const emojiBar = useMemo(() => {
+    if (isPastPuzzle) return '';
     if (elapsedSec <= 0) return '';
     const idx = solveDistribution.indexOf(elapsedSec);
     const others = idx === -1 ? [...solveDistribution] : solveDistribution.filter((_, i) => i !== idx);
@@ -321,7 +355,7 @@ function PicrossPlayInner() {
     const slowerThanMe = others.filter(t => t < elapsedSec).length;
     const yellowIdx = Math.round((slowerThanMe / others.length) * (BLOCKS - 1));
     return Array.from({ length: BLOCKS }, (_, i) => i === yellowIdx ? '🟨' : '🟪').join('');
-  }, [elapsedSec, solveDistribution]);
+  }, [isPastPuzzle, elapsedSec, solveDistribution]);
 
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -440,14 +474,65 @@ function PicrossPlayInner() {
     return () => { if (debounceTimeout.current) clearTimeout(debounceTimeout.current); };
   }, [grid, cleared, difficulty, editorMode, dateStr]);
 
+  // For past puzzles: always fetch the correct puzzle + progress from the server.
+  // Store result in local pastData (NOT the shared context) so splash-page icons
+  // always reflect today's progress, not a past day's.
+  useEffect(() => {
+    if (!isPastPuzzle) return;
+    (async () => {
+      try {
+        const [puzRes, progRes] = await Promise.all([
+          fetch(`/api/picross/puzzle?date=${dateStr}`),
+          fetch(`/api/picross/progress?date=${dateStr}`),
+        ]);
+        const puzData = puzRes.ok ? await puzRes.json() : null;
+        const progData = progRes.ok ? await progRes.json() : null;
+        setPastData({
+          puzzle:   { easy: puzData?.easy   ?? [], medium: puzData?.medium   ?? [], hard: puzData?.hard   ?? [] },
+          progress: { easy: progData?.easy  ?? [], medium: progData?.medium  ?? [], hard: progData?.hard  ?? [] },
+        });
+        // If this past puzzle is already solved, skip the START screen and go
+        // straight to the celebration. We must check completion here against the
+        // freshly fetched data because `cleared` (a useMemo) hasn't re-run yet.
+        try {
+          const diff = (searchParams?.get?.('difficulty')) || 'easy';
+          const puz: boolean[][] = puzData?.[diff] ?? [];
+          const prog: number[][] = progData?.[diff] ?? [];
+          const isCleared = puz.length > 0 && puz.every((row, r) =>
+            row.every((cell, c) => {
+              const val = Number(prog?.[r]?.[c] ?? 0);
+              return cell ? val === 1 : val !== 1;
+            })
+          );
+          if (isCleared) {
+            setStartAnimationDone(true);
+            // Defer so useCelebration's clearedRef has time to update
+            setTimeout(() => { try { triggerCelebration(); } catch {} }, 50);
+          }
+        } catch {}
+      } catch (err) { console.debug('past puzzle load err', err); }
+      setPastPuzzleLoaded(true);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="nonogram-root" style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', marginTop: 0, background: '#cca3ff', width: '100%', overflow: 'hidden', paddingTop: 15, colorScheme: 'light' }}>
+      {isPastPuzzle && !pastPuzzleLoaded && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#cca3ff', zIndex: 50 }}>
+          <style>{`@keyframes past-spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{ width: 44, height: 44, borderRadius: '50%', border: '5px solid rgba(90,43,138,0.25)', borderTopColor: '#5a2b8a', animation: 'past-spin 0.8s linear infinite' }} />
+        </div>
+      )}
       <div style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 15, paddingRight: 15, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 30 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             onClick={async () => {
               try { await saveSecondsNow(); } catch (err) { console.debug('picross:save on back err', err); }
-              router.push('/nonogram?replay=1');
+              if (fromCalendar) {
+                router.push(`/nonogram?openCalendar=${fromCalendar}`);
+              } else {
+                router.push('/nonogram?replay=1');
+              }
             }}
             aria-label="Back"
             style={{ color: '#000', background: 'transparent', border: 'none', padding: '0px 0px', margin: 0, fontSize: 36, lineHeight: 1, cursor: 'pointer', fontWeight: 800, position: 'relative',  left: '7px' }}
@@ -507,11 +592,11 @@ function PicrossPlayInner() {
       {cleared && !editorMode ? (
         <div style={{ marginTop: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
           <div ref={completeTextRef} style={{ background: 'transparent', color: '#5a2b8a', fontWeight: 800, padding: '12px 16px 4px', borderRadius: 8, wordBreak: 'keep-all', textShadow: '0 2px 6px rgba(0,0,0,0.08)', transformOrigin: 'center', opacity: statsSettled && fillAnimDone ? undefined : 0 }}>
-            {completeMessage}
+            {displayCompleteMessage}
           </div>
-          {avgLine && statsSettled && fillAnimDone && (
+          {displayAvgLine && statsSettled && fillAnimDone && (
             <div style={{ color: '#5a2b8a', fontWeight: 600, fontSize: 14, opacity: 0.8, marginBottom: 2, textAlign: 'center', animation: 'fade-in-up 0.5s ease 1.65s both' }}>
-              {avgLine}
+              {displayAvgLine}
             </div>
           )}
           {emojiBar && statsSettled && fillAnimDone && (
