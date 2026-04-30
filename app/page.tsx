@@ -21,9 +21,9 @@ const projectCards: ProjectCard[] = [
   },
   {
     href: "/nonogram",
-    title: "Daily Nonogram",
+    title: "Daily Nonograms",
     description:
-      "Take a break with a little Picros- I mean Nonogram! \n\nCome back every day for a new puzzle!",
+      "Take a break with a little Picros- I mean Nonogram! \n\nCome back every day for new puzzles!",
     imageSrc: "/dailyPicross.png",
     imageAlt: "Daily Nonogram page preview",
   },
@@ -58,6 +58,14 @@ const projectCards: ProjectCard[] = [
       "A manager for the video clips used in the Nintendo Clips Roku app. \n\nFrontend: Next.js + React + TypeScript.\nBackend: API routes + Prisma + PostgreSQL + GCS.",
     imageSrc: "/videoManager.png",
     imageAlt: "Video Manager page preview",
+  },
+  {
+    href: "/job-tracker/demo",
+    title: "Job Tracker",
+    description:
+      "A job application tracker I built to manage my own job search.\n\nStack: Next.js + Apollo Server + GraphQL + AWS DynamoDB + Apollo Client.",
+    imageSrc: "/jobTracker.png",
+    imageAlt: "Job Tracker preview",
   },
   {
     href: "https://www.utahwildultimate.org/",
