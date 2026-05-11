@@ -54,17 +54,17 @@ function StatCell({ value, label }: { value: number | null | undefined; label: s
 const CHART_H = 110; // px — height of the bars area
 
 function computeBuckets(times: number[]): { buckets: { start: number; count: number }[]; bucketSize: number } {
-  if (times.length === 0) return { buckets: [], bucketSize: 30 };
+  if (times.length === 0) return { buckets: [], bucketSize: 1 };
   const mn = Math.min(...times);
   const mx = Math.max(...times);
-  const STEPS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600];
-  let bucketSize = 30;
+  const STEPS = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600];
+  let bucketSize = 1;
   if (mn < mx) {
     const range = mx - mn;
     let found = false;
     for (const s of STEPS) {
       const n = Math.ceil(range / s);
-      if (n >= 3 && n <= 12) { bucketSize = s; found = true; break; }
+      if (n >= 1 && n <= 12) { bucketSize = s; found = true; break; }
     }
     if (!found) bucketSize = STEPS[STEPS.length - 1];
   }
