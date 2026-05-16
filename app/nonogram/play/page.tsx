@@ -164,7 +164,6 @@ function PicrossPlayInner() {
   // ------ Custom hooks ------
   const {
     editorMode,
-    setEditorMode,
     editorPuzzle,
     setEditorPuzzle,
     saveDate,
@@ -173,7 +172,8 @@ function PicrossPlayInner() {
     handleNextDate,
     handlePrevDate,
     handleClearEditor,
-    findNextAbort,
+    activateEditorMode,
+    deactivateEditorMode,
   } = useEditorMode({ isEditorAllowed, size, difficulty, prefetchPuzzle: effectivePuzzle, setPrefetch: effectiveSetPrefetch });
 
   const { elapsedSec, saveSecondsNow } = useTimer({
@@ -570,7 +570,8 @@ function PicrossPlayInner() {
         rowClues={rowClues}
         colClues={colClues}
         editorMode={editorMode}
-        setEditorMode={setEditorMode}
+        activateEditorMode={activateEditorMode}
+        deactivateEditorMode={deactivateEditorMode}
         editorPuzzle={editorPuzzle}
         setEditorPuzzle={setEditorPuzzle}
         prefetchPuzzle={prefetchPuzzle}
@@ -578,7 +579,6 @@ function PicrossPlayInner() {
         setPrefetch={setPrefetch}
         difficulty={difficulty}
         isEditorAllowed={isEditorAllowed}
-        findNextAbort={findNextAbort}
         elapsedSec={elapsedSec}
         cleared={cleared}
         showNewPB={showNewPB}

@@ -6,7 +6,6 @@ import ClueRow from './ClueRow';
 import GridCell from './GridCell';
 import { computeFulfilledArray } from '../runUtils';
 import type { RunMeta } from '../runUtils';
-import { getMSTDateString } from '../time';
 import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
 import type { CellAction } from '../hooks/usePointerDrag';
 
@@ -25,7 +24,8 @@ export interface GridBoardProps {
   rowClues: number[][];
   colClues: number[][];
   editorMode: boolean;
-  setEditorMode: React.Dispatch<React.SetStateAction<boolean>>;
+  activateEditorMode: () => void;
+  deactivateEditorMode: () => void;
   editorPuzzle: boolean[][] | null;
   setEditorPuzzle: React.Dispatch<React.SetStateAction<boolean[][] | null>>;
   prefetchPuzzle: Record<string, boolean[][]> | null;
@@ -33,7 +33,6 @@ export interface GridBoardProps {
   setPrefetch: PrefetchShape['setPrefetch'];
   difficulty: string;
   isEditorAllowed: boolean;
-  findNextAbort: React.MutableRefObject<AbortController | null>;
   elapsedSec: number;
   cleared: boolean;
   showNewPB: boolean;
@@ -69,7 +68,8 @@ export default function GridBoard(props: GridBoardProps) {
     rowClues,
     colClues,
     editorMode,
-    setEditorMode,
+    activateEditorMode,
+    deactivateEditorMode,
     editorPuzzle,
     setEditorPuzzle,
     prefetchPuzzle,
@@ -77,7 +77,6 @@ export default function GridBoard(props: GridBoardProps) {
     setPrefetch,
     difficulty,
     isEditorAllowed,
-    findNextAbort,
     elapsedSec,
     cleared,
     showNewPB,
@@ -174,40 +173,7 @@ export default function GridBoard(props: GridBoardProps) {
           {isEditorAllowed && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
               <input type="checkbox" checked={editorMode} onChange={e => {
-                const checked = e.target.checked;
-                setEditorMode(checked);
-                if (checked) {
-                  setEditorPuzzle((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? getDefaultPuzzle(size));
-                  (async () => {
-                    if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} }
-                    const ac = new AbortController(); findNextAbort.current = ac;
-                    try {
-                      const today = new Date();
-                      for (let i = 0; i < 365; i++) {
-                        const d = new Date(today); d.setDate(today.getDate() + i); const ds = getMSTDateString(d);
-                        const res = await fetch(`/api/picross/puzzle?date=${ds}`, { signal: ac.signal });
-                          if (res.status === 404) {
-                            setEditorPuzzle(getDefaultPuzzle(size));
-                            setSaveDate(ds);
-                            findNextAbort.current = null;
-                            return;
-                          }
-                          if (res.ok) {
-                            const json = await res.json();
-                            const entry = json?.[difficulty];
-                            const hasCells = Array.isArray(entry) && (entry as unknown[]).some(row => Array.isArray(row) && (row as unknown[]).some(Boolean));
-                            if (!hasCells) {
-                              setEditorPuzzle(getDefaultPuzzle(size));
-                              setSaveDate(ds);
-                              findNextAbort.current = null;
-                              return;
-                            }
-                          }
-                      }
-                      setSaveDate(getMSTDateString(today));
-                    } catch (err) { const maybe = err as { name?: string } | undefined; if (maybe?.name === 'AbortError') return; console.debug('findNextFreeDate error', err); } finally { findNextAbort.current = null; }
-                  })();
-                } else { setEditorPuzzle(null); setSaveDate(''); if (findNextAbort.current) { try { findNextAbort.current.abort(); } catch {} } }
+                if (e.target.checked) activateEditorMode(); else deactivateEditorMode();
               }} />
               Editor
             </label>
