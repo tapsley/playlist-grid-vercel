@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_EMAIL } from "@/lib/constants";
 
 // GET /api/picross/puzzle?date=YYYY-MM-DD
 export async function GET(req: NextRequest) {
@@ -16,6 +19,10 @@ export async function GET(req: NextRequest) {
 // body: { date: 'YYYY-MM-DD', difficulty: 'easy'|'medium'|'hard', puzzle: boolean[][] }
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email || session.user.email.trim().toLowerCase() !== ADMIN_EMAIL) {
+      return new Response("Forbidden", { status: 403 });
+    }
     const body = await req.json();
     const { date: dateStr, difficulty, puzzle } = body as { date?: string; difficulty?: string; puzzle?: unknown };
     if (!dateStr || !difficulty || !Array.isArray(puzzle)) {
