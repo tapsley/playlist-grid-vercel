@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useEffect } from 'react';
-import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
+import { CellState, type PrefetchState, type PrefetchShape } from '../PicrossPrefetchContext';
 import { createEmptyGrid, clampCellState } from '../runUtils';
 
 export type CellAction = "fill" | "erase" | "fillX" | "fillMaybe" | "eraseMaybe";
@@ -42,26 +42,26 @@ export function usePointerDrag({
     if (isCelebratingRef.current) return;
     if (cleared) return;
     setPrefetch(prev => {
-      const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, 0 as CellState);
+      const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
       const next: CellState[][] = cur.map((row: CellState[]) =>
-        row.map(v => clampCellState(v) as CellState)
+        row.map(v => clampCellState(v))
       );
-      const currentVal = next[r][c] as number;
+      const currentVal = next[r][c];
       if (action === "fill") {
-        if (currentVal === 1 || currentVal === 3) return prev;
-        next[r][c] = 1;
+        if (currentVal === CellState.FILLED || currentVal === CellState.X) return prev;
+        next[r][c] = CellState.FILLED;
       } else if (action === "erase") {
-        if (currentVal === 0) return prev;
-        next[r][c] = 0;
+        if (currentVal === CellState.EMPTY) return prev;
+        next[r][c] = CellState.EMPTY;
       } else if (action === "fillX") {
-        if (currentVal === 1 || currentVal === 3) return prev;
-        next[r][c] = 3;
+        if (currentVal === CellState.FILLED || currentVal === CellState.X) return prev;
+        next[r][c] = CellState.X;
       } else if (action === "fillMaybe") {
-        if (currentVal === 1 || currentVal === 3 || currentVal === 2) return prev;
-        next[r][c] = 2;
+        if (currentVal === CellState.FILLED || currentVal === CellState.X || currentVal === CellState.MAYBE) return prev;
+        next[r][c] = CellState.MAYBE;
       } else if (action === "eraseMaybe") {
-        if (currentVal !== 2) return prev;
-        next[r][c] = 0;
+        if (currentVal !== CellState.MAYBE) return prev;
+        next[r][c] = CellState.EMPTY;
       }
       return {
         ...prev,

@@ -6,7 +6,7 @@ import ClueRow from './ClueRow';
 import GridCell from './GridCell';
 import { computeFulfilledArray, computeClues, createEmptyGrid, clampCellState } from '../runUtils';
 import type { RunMeta } from '../runUtils';
-import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
+import { CellState, type PrefetchState, type PrefetchShape } from '../PicrossPrefetchContext';
 import type { CellAction } from '../hooks/usePointerDrag';
 
 // Divider color used for 5x/10x block separators — change here to update UI
@@ -26,8 +26,8 @@ function getCellStyle(
     background: (() => {
       if (celebrateGrid && celebrateGrid[r] && celebrateGrid[r][c]) return '#d4af37';
       if (editorMode) return (cell ? '#222' : '#fff');
-      if (cell === 1) return '#222';
-      if (cell === 2) return '#f0f0f0';
+      if (cell === CellState.FILLED) return '#222';
+      if (cell === CellState.MAYBE) return '#f0f0f0';
       return '#fff';
     })(),
     cursor: 'pointer', fontSize: Math.max(12, Math.round(cellPx * 0.65)), userSelect: 'none', touchAction: 'none', position: 'relative',
@@ -208,9 +208,9 @@ export default function GridBoard(props: GridBoardProps) {
                       pointerActionRef.current = newVal ? 'fill' : 'erase';
                       return;
                     }
-                    const val = (prefetchProgress && prefetchProgress[difficulty] && prefetchProgress[difficulty][r] && prefetchProgress[difficulty][r][c]) ?? 0;
+                    const val = (prefetchProgress && prefetchProgress[difficulty] && prefetchProgress[difficulty][r] && prefetchProgress[difficulty][r][c]) ?? CellState.EMPTY;
                     if (e.button === 2) {
-                      if (val === 1 || val === 3) {
+                      if (val === CellState.FILLED || val === CellState.X) {
                         pointerActionRef.current = 'erase';
                         applyActionToCell(r, c, 'erase');
                       } else {
@@ -221,14 +221,14 @@ export default function GridBoard(props: GridBoardProps) {
                     }
 
                     if (inputMode === 'fill') {
-                      if (val === 1) {
+                      if (val === CellState.FILLED) {
                         pointerActionRef.current = 'erase';
                         applyActionToCell(r, c, 'erase');
-                      } else if (val === 3) {
+                      } else if (val === CellState.X) {
                         setPrefetch(prev => {
-                          const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, 0 as CellState);
-                          const next: CellState[][] = cur.map(row => row.map(v => clampCellState(v) as CellState));
-                          next[r][c] = 0;
+                          const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
+                          const next: CellState[][] = cur.map(row => row.map(v => clampCellState(v)));
+                          next[r][c] = CellState.EMPTY;
                           return { ...prev, progress: { ...prev.progress, [difficulty]: next } } as PrefetchState;
                         });
                         pointerActionRef.current = 'fill';
@@ -237,7 +237,7 @@ export default function GridBoard(props: GridBoardProps) {
                         applyActionToCell(r, c, 'fill');
                       }
                     } else if (inputMode === 'x') {
-                      if (val === 1 || val === 3) {
+                      if (val === CellState.FILLED || val === CellState.X) {
                         pointerActionRef.current = 'erase';
                         applyActionToCell(r, c, 'erase');
                       } else {
@@ -245,7 +245,7 @@ export default function GridBoard(props: GridBoardProps) {
                         applyActionToCell(r, c, 'fillX');
                       }
                     } else {
-                      pointerActionRef.current = (val === 2 ? 'eraseMaybe' : 'fillMaybe');
+                      pointerActionRef.current = (val === CellState.MAYBE ? 'eraseMaybe' : 'fillMaybe');
                       applyActionToCell(r, c, pointerActionRef.current);
                     }
                   }}

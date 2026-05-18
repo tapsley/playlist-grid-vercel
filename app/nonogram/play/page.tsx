@@ -1,7 +1,7 @@
 ﻿// Moved PicrossPage implementation here from page.tsx
 "use client";
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import type { CellState, PrefetchState, PrefetchShape } from "../PicrossPrefetchContext";
+import { CellState, type PrefetchState, type PrefetchShape } from "../PicrossPrefetchContext";
 import { usePicrossPrefetch } from "../PicrossPrefetchContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -137,9 +137,9 @@ function PicrossPlayInner() {
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         const shouldBeFilled = !!(puzzle[r]?.[c]);
-        const val = typeof grid[r]?.[c] !== 'undefined' ? Number(grid[r][c]) : 0;
-        if (shouldBeFilled) { if (val !== 1) return false; }
-        else { if (val === 1) return false; }
+        const val = grid[r]?.[c] ?? CellState.EMPTY;
+        if (shouldBeFilled) { if (val !== CellState.FILLED) return false; }
+        else { if (val === CellState.FILLED) return false; }
       }
     }
     return true;
@@ -248,12 +248,12 @@ function PicrossPlayInner() {
       const p = editorPuzzle ?? ((prefetchPuzzle?.[difficulty]) ?? getDefaultPuzzle(size));
       return !!(p?.[r]?.[c]);
     }
-    return Number(grid?.[r]?.[c]) === 1;
+    return grid?.[r]?.[c] === CellState.FILLED;
   };
 
   const isXCell = (r: number, c: number): boolean => {
     if (editorMode) return false;
-    return Number(grid?.[r]?.[c]) === 3;
+    return grid?.[r]?.[c] === CellState.X;
   };
 
   const getRunsForRow = (r: number): number[] => {
@@ -386,7 +386,7 @@ function PicrossPlayInner() {
       ...prev,
       progress: {
         ...prev.progress,
-        [difficulty]: Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState)),
+        [difficulty]: createEmptyGrid(size, CellState.EMPTY),
       },
     }));
     try {
@@ -497,7 +497,7 @@ function PicrossPlayInner() {
           const isCleared = puz.length > 0 && puz.every((row, r) =>
             row.every((cell, c) => {
               const val = Number(prog?.[r]?.[c] ?? 0);
-              return cell ? val === 1 : val !== 1;
+              return cell ? val === CellState.FILLED : val !== CellState.FILLED;
             })
           );
           if (isCleared) {

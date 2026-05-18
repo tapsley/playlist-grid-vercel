@@ -3,9 +3,8 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { getMSTDateString } from './time';
-import { createEmptyGrid, clampCellState } from './runUtils';
-
-export type CellState = 0 | 1 | 2 | 3;
+import { createEmptyGrid, clampCellState, CellState } from './runUtils';
+export { CellState };
 
 // small safe deep clone helper — uses structuredClone when available
 const deepClone = <T,>(val: T): T => {
@@ -57,7 +56,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         for (const k of Object.keys(patch.progress)) {
           const raw = patch.progress[k] as unknown;
           if (Array.isArray(raw)) {
-            next.progress[k] = deepClone((raw as unknown[]).map(row => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n) as CellState) : []));
+            next.progress[k] = deepClone((raw as unknown[]).map(row => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n)) : []));
           } else {
             next.progress[k] = deepClone([] as CellState[][]);
           }
@@ -115,7 +114,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
       const progress: Record<string, CellState[][]> = {};
       for (const k of Object.keys(progressData || {})) {
         const val = progressData[k];
-        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n) as CellState) : []);
+        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n)) : []);
       }
 
       // If the server returned per-difficulty seconds, persist them locally
@@ -147,7 +146,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
               if (raw) {
                 const parsed = JSON.parse(raw) as { grid?: number[][] } | null;
                 if (parsed?.grid && Array.isArray(parsed.grid)) {
-                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => clampCellState(n) as CellState));
+                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => clampCellState(n)));
                 }
               }
             } catch {

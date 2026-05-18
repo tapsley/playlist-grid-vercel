@@ -8,9 +8,16 @@ export function createEmptyGrid<T>(size: number, fill: T): T[][] {
   return Array(size).fill(0).map(() => Array(size).fill(fill));
 }
 
+export enum CellState {
+  EMPTY = 0,
+  FILLED = 1,
+  MAYBE = 2,
+  X = 3,
+}
+
 /** Clamp an unknown value to a valid CellState (0–3). */
-export function clampCellState(val: unknown): 0 | 1 | 2 | 3 {
-  return Math.max(0, Math.min(3, Math.trunc(Number(val) || 0))) as 0 | 1 | 2 | 3;
+export function clampCellState(val: unknown): CellState {
+  return Math.max(0, Math.min(3, Math.trunc(Number(val) || 0))) as CellState;
 }
 
 /** Compute row and column clue arrays from a boolean puzzle grid. */
