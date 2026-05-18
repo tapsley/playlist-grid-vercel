@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useSession } from "next-auth/react";
 import { getMSTDateString } from './time';
 import { createEmptyGrid, clampCellState, CellState } from './runUtils';
+import { storageKeys } from './storageKeys';
 export { CellState };
 
 // small safe deep clone helper — uses structuredClone when available
@@ -14,6 +15,68 @@ const deepClone = <T,>(val: T): T => {
   }
   return JSON.parse(JSON.stringify(val));
 };
+
+/** Normalize a raw API progress payload into a typed CellState grid map. */
+function normalizeProgress(raw: Record<string, unknown>): Record<string, CellState[][]> {
+  const result: Record<string, CellState[][]> = {};
+  for (const k of Object.keys(raw)) {
+    const val = raw[k];
+    if (Array.isArray(val)) {
+      result[k] = (val as unknown[]).map(row =>
+        Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n)) : []
+      );
+    }
+  }
+  return result;
+}
+
+/** Persist elapsed-seconds values from a progress API response to localStorage. */
+function persistSecondsToStorage(dateStr: string, progressData: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return;
+  const pairs: Array<[string, unknown]> = [
+    [storageKeys.seconds(dateStr, 'easy'),   progressData.easySeconds],
+    [storageKeys.seconds(dateStr, 'medium'), progressData.mediumSeconds],
+    [storageKeys.seconds(dateStr, 'hard'),   progressData.hardSeconds],
+  ];
+  for (const [key, raw] of pairs) {
+    const sec = typeof raw === 'number' ? Number(raw) || 0 : 0;
+    try { if (sec > 0) window.localStorage.setItem(key, String(sec)); } catch {}
+  }
+}
+
+/** For anonymous users: overwrite progress entries from localStorage for this date. */
+function mergeAnonymousProgress(dateStr: string, progress: Record<string, CellState[][]>): void {
+  for (const d of ['easy', 'medium', 'hard']) {
+    try {
+      const raw = window.localStorage.getItem(storageKeys.progress(dateStr, d));
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { grid?: number[][] } | null;
+      if (parsed?.grid && Array.isArray(parsed.grid)) {
+        progress[d] = parsed.grid.map(row => (row as number[]).map(n => clampCellState(n)));
+      }
+    } catch {
+      // ignore per-key parse/localStorage errors
+    }
+  }
+}
+
+/** Persist a single difficulty's progress grid to localStorage, preserving any stored seconds. */
+function persistProgressToStorage(dateKey: string, difficulty: string, grid: CellState[][]): void {
+  const key = storageKeys.progress(dateKey, difficulty);
+  try {
+    const payload: { grid: CellState[][]; seconds?: number } = { grid };
+    try {
+      const existing = window.localStorage.getItem(key);
+      if (existing) {
+        const parsed = JSON.parse(existing) as { seconds?: number } | null;
+        if (parsed && typeof parsed.seconds === 'number') payload.seconds = parsed.seconds;
+      }
+    } catch {}
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  } catch (err) {
+    console.debug('persist to localStorage failed', err);
+  }
+}
 
 export type PrefetchState = {
   puzzle: Record<string, boolean[][]>;
@@ -42,7 +105,6 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
   const setPrefetch = useCallback((v: Partial<PrefetchState> | ((prev: PrefetchState) => Partial<PrefetchState>)) => {
     setPrefetchState(prev => {
       const patch = typeof v === "function" ? (v as (p: PrefetchState) => Partial<PrefetchState>)(deepClone(prev)) : v;
-      // merge immutably, cloning arrays/objects to avoid external mutation
       const next: PrefetchState = {
         puzzle: { ...prev.puzzle },
         progress: { ...prev.progress },
@@ -55,113 +117,47 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
       if (patch.progress) {
         for (const k of Object.keys(patch.progress)) {
           const raw = patch.progress[k] as unknown;
-          if (Array.isArray(raw)) {
-            next.progress[k] = deepClone((raw as unknown[]).map(row => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n)) : []));
-          } else {
-            next.progress[k] = deepClone([] as CellState[][]);
-          }
+          next.progress[k] = Array.isArray(raw)
+            ? deepClone((raw as unknown[]).map(row => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n)) : []))
+            : deepClone([] as CellState[][]);
         }
-      }
-
-      // If user is not logged in, persist progress changes to localStorage for current date
-      try {
-        // Persist a local copy of progress for both anonymous and logged-in users
-        // so the UI can load quickly from localStorage while server sync occurs.
-        if (patch.progress) {
+        try {
           const dateKey = currentDateRef.current ?? getMSTDateString();
           for (const k of Object.keys(patch.progress)) {
-            const key = `picross:progress:${dateKey}:${k}`;
-            try {
-              const payload: any = { grid: next.progress[k] };
-              try {
-                const existing = window.localStorage.getItem(key);
-                if (existing) {
-                  const parsed = JSON.parse(existing) as { seconds?: number } | null;
-                  if (parsed && typeof parsed.seconds === 'number') payload.seconds = parsed.seconds;
-                }
-              } catch {}
-              window.localStorage.setItem(key, JSON.stringify(payload));
-            } catch (err) {
-              // ignore localStorage failures
-              console.debug('persist to localStorage failed', err);
-            }
+            persistProgressToStorage(dateKey, k, next.progress[k]);
           }
+        } catch {
+          // guard for environments without window/localStorage
         }
-      } catch {
-        // guards for environments without window/localStorage
       }
-
       return next;
     });
   }, [session?.user?.email]);
 
   const fetchPrefetch = useCallback(async () => {
     try {
-        const today = new Date();
-        const dateStr = getMSTDateString(today);
-        currentDateRef.current = dateStr;
+      const today = new Date();
+      const dateStr = getMSTDateString(today);
+      currentDateRef.current = dateStr;
+
       const puzzleRes = await fetch(`/api/picross/puzzle?date=${dateStr}`);
       const progressRes = session?.user?.email ? await fetch(`/api/picross/progress?date=${dateStr}`) : null;
       const puzzleData = puzzleRes.ok ? await puzzleRes.json() : {};
       const progressData = progressRes && progressRes.ok ? await progressRes.json() : {};
 
-      // Normalize shapes: ensure maps of arrays
       const puzzle: Record<string, boolean[][]> = {};
       for (const k of Object.keys(puzzleData || {})) {
         const val = puzzleData[k];
         if (Array.isArray(val)) puzzle[k] = val.map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(Boolean) as boolean[] : []);
       }
-      const progress: Record<string, CellState[][]> = {};
-      for (const k of Object.keys(progressData || {})) {
-        const val = progressData[k];
-        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n)) : []);
-      }
+      const progress = normalizeProgress(progressData);
 
-      // If the server returned per-difficulty seconds, persist them locally
-      // so synchronous reads (e.g., splash/play pages) can make correct
-      // decisions without awaiting an async fetch. This helps avoid wrong
-      // START animation behavior when the user navigates directly after login.
-      try {
-        if (progressRes && progressRes.ok && typeof window !== 'undefined') {
-          const dateStr = getMSTDateString();
-          try {
-            const easySec = typeof progressData.easySeconds === 'number' ? Number(progressData.easySeconds) || 0 : 0;
-            const mediumSec = typeof progressData.mediumSeconds === 'number' ? Number(progressData.mediumSeconds) || 0 : 0;
-            const hardSec = typeof progressData.hardSeconds === 'number' ? Number(progressData.hardSeconds) || 0 : 0;
-            try { if (easySec > 0) window.localStorage.setItem(`picross:seconds:${dateStr}:easy`, String(easySec)); } catch {}
-            try { if (mediumSec > 0) window.localStorage.setItem(`picross:seconds:${dateStr}:medium`, String(mediumSec)); } catch {}
-            try { if (hardSec > 0) window.localStorage.setItem(`picross:seconds:${dateStr}:hard`, String(hardSec)); } catch {}
-          } catch {}
-        }
-      } catch {}
-
-      // If user is not logged in, merge in any locally persisted progress for this date
-      try {
-        const email = session?.user?.email || null;
-        if (!email) {
-          for (const d of ["easy", "medium", "hard"]) {
-            try {
-              const key = `picross:progress:${dateStr}:${d}`;
-              const raw = window.localStorage.getItem(key);
-              if (raw) {
-                const parsed = JSON.parse(raw) as { grid?: number[][] } | null;
-                if (parsed?.grid && Array.isArray(parsed.grid)) {
-                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => clampCellState(n)));
-                }
-              }
-            } catch {
-              // ignore parse/localStorage errors per-key
-            }
-          }
-        }
-      } catch {
-        // guard for missing window
-      }
+      if (progressRes?.ok) persistSecondsToStorage(dateStr, progressData);
+      if (!session?.user?.email) mergeAnonymousProgress(dateStr, progress);
 
       setPrefetchState({ puzzle: deepClone(puzzle), progress: deepClone(progress) });
     } catch (err) {
-      // swallow but keep a trace in dev tools
-      console.debug("fetchPrefetch error", err);
+      console.debug('fetchPrefetch error', err);
     }
   }, [session?.user?.email]);
 
@@ -175,11 +171,11 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
       // avoids interval timers and only resets when the app mounts or when
       // session email changes.
       const today = getMSTDateString();
-      const last = window.localStorage.getItem('picross:lastLoadedDate');
+      const last = window.localStorage.getItem(storageKeys.lastLoaded());
       if (last !== today) {
         // clear previous-day progress so users start fresh each day
         setPrefetchState(prev => ({ puzzle: prev.puzzle, progress: {} }));
-        try { window.localStorage.setItem('picross:lastLoadedDate', today); } catch {}
+        try { window.localStorage.setItem(storageKeys.lastLoaded(), today); } catch {}
 
         // Also seed an empty server-side progress row for today for logged-in
         // users so the date exists in the DB. Only send grids — no complete

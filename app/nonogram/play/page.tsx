@@ -9,6 +9,7 @@ import GridBoard from '../components/GridBoard';
 import Controls from '../components/Controls';
 import { getMSTDateString } from '../time';
 import { getPicrossSettings } from '../settings';
+import { storageKeys } from '../storageKeys';
 import { ADMIN_EMAIL } from '../../../lib/constants';
 import { useTimer } from '../hooks/useTimer';
 import { useCelebration } from '../hooks/useCelebration';
@@ -97,14 +98,14 @@ function PicrossPlayInner() {
   // Determine first-start: any non-zero cell or recorded seconds counts as prior progress
   let hasProgress = !!(effectiveProgress?.[difficulty]?.some(row => row.some(v => Number(v) !== 0)));
   try {
-    const secKey = `picross:seconds:${dateStr}:${difficulty}`;
+    const secKey = storageKeys.seconds(dateStr, difficulty);
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(secKey) : null;
     const secVal = raw ? Number(raw) || 0 : 0;
     if (secVal > 0) {
       hasProgress = true;
     } else {
       try {
-        const progKey = `picross:progress:${dateStr}:${difficulty}`;
+        const progKey = storageKeys.progress(dateStr, difficulty);
         const rawProg = typeof window !== 'undefined' ? window.localStorage.getItem(progKey) : null;
         if (rawProg) {
           const parsed = JSON.parse(rawProg) as { seconds?: number } | null;
@@ -116,7 +117,7 @@ function PicrossPlayInner() {
 
   let firstStart = !hasProgress;
   try {
-    const shownKey = `picross:startShown:${dateStr}:${difficulty}`;
+    const shownKey = storageKeys.startShown(dateStr, difficulty);
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(shownKey) : null;
     if (raw === '1') firstStart = false;
   } catch {}
@@ -391,7 +392,7 @@ function PicrossPlayInner() {
     }));
     try {
       window.localStorage.setItem(
-        `picross:progress:${dateStr}:${difficulty}`,
+        storageKeys.progress(dateStr, difficulty),
         JSON.stringify({ grid: Array.from({ length: size }, () => Array.from({ length: size }, () => 0)), complete: false }),
       );
     } catch {}
@@ -437,19 +438,19 @@ function PicrossPlayInner() {
             await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           } catch (err) { console.debug('picross:final server save failed', err); }
           try {
-            window.localStorage.setItem(`picross:seconds:${dateStr}:${difficulty}`, String(elapsedSec));
-            window.localStorage.setItem(`picross:progress:${dateStr}:${difficulty}`, JSON.stringify({ grid, complete: true, seconds: elapsedSec }));
+            window.localStorage.setItem(storageKeys.seconds(dateStr, difficulty), String(elapsedSec));
+            window.localStorage.setItem(storageKeys.progress(dateStr, difficulty), JSON.stringify({ grid, complete: true, seconds: elapsedSec }));
           } catch (err) { console.debug('picross:final local save err', err); }
         } else {
           try {
-            window.localStorage.setItem(`picross:seconds:${dateStr}:${difficulty}`, String(elapsedSec));
+            window.localStorage.setItem(storageKeys.seconds(dateStr, difficulty), String(elapsedSec));
             try {
-              const bestKey = `picross:fastest:${difficulty}`;
+              const bestKey = storageKeys.fastest(difficulty);
               const existing = Number(window.localStorage.getItem(bestKey) || 0) || 0;
               if (!existing || elapsedSec < existing) window.localStorage.setItem(bestKey, String(elapsedSec));
             } catch {}
             try {
-              window.localStorage.setItem(`picross:progress:${dateStr}:${difficulty}`, JSON.stringify({ grid, complete: true, seconds: elapsedSec }));
+              window.localStorage.setItem(storageKeys.progress(dateStr, difficulty), JSON.stringify({ grid, complete: true, seconds: elapsedSec }));
             } catch (err) { console.debug('picross:final save progress payload err', err); }
           } catch (err) { console.debug('picross:final save seconds err', err); }
         }
@@ -464,7 +465,7 @@ function PicrossPlayInner() {
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     debounceTimeout.current = window.setTimeout(() => {
       try {
-        window.localStorage.setItem(`picross:progress:${dateStr}:${difficulty}`, JSON.stringify({ grid, complete: cleared }));
+        window.localStorage.setItem(storageKeys.progress(dateStr, difficulty), JSON.stringify({ grid, complete: cleared }));
       } catch (err) { console.debug('localStorage write error', err); }
     }, 400) as unknown as number;
     return () => { if (debounceTimeout.current) clearTimeout(debounceTimeout.current); };
@@ -553,7 +554,7 @@ function PicrossPlayInner() {
         celebrateGrid={celebrateGrid}
         firstStart={!startAnimationDone}
         onStartComplete={() => {
-          try { window.localStorage.setItem(`picross:startShown:${dateStr}:${difficulty}`, '1'); } catch {}
+          try { window.localStorage.setItem(storageKeys.startShown(dateStr, difficulty), '1'); } catch {}
           setStartAnimationDone(true);
         }}
         setSaveDate={setSaveDate}

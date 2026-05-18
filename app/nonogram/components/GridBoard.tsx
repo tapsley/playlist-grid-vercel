@@ -129,6 +129,61 @@ export default function GridBoard(props: GridBoardProps) {
     return computeFulfilledArray(clue, getRunsForRow(r), getRunsMetaForRow(r), size, isFilledCell, isXCell, true, r);
   }), [displayGrid, displayRowClues, rowClues, size, editorMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleEditorPointerDown = (r: number, c: number) => {
+    const cur = (editorPuzzle && editorPuzzle[r] && typeof editorPuzzle[r][c] !== 'undefined')
+      ? !!editorPuzzle[r][c]
+      : !!(prefetchPuzzle && prefetchPuzzle[difficulty] && prefetchPuzzle[difficulty][r] && prefetchPuzzle[difficulty][r][c]);
+    const newVal = !cur;
+    setEditorPuzzle(prev => {
+      const next = editorPuzzleBase(prev);
+      next[r][c] = newVal;
+      return next;
+    });
+    pointerActionRef.current = newVal ? 'fill' : 'erase';
+  };
+
+  const handlePlayPointerDown = (r: number, c: number, e: React.PointerEvent) => {
+    const val = (prefetchProgress && prefetchProgress[difficulty] && prefetchProgress[difficulty][r] && prefetchProgress[difficulty][r][c]) ?? CellState.EMPTY;
+    if (e.button === 2) {
+      if (val === CellState.FILLED || val === CellState.X) {
+        pointerActionRef.current = 'erase';
+        applyActionToCell(r, c, 'erase');
+      } else {
+        pointerActionRef.current = 'fillX';
+        applyActionToCell(r, c, 'fillX');
+      }
+      return;
+    }
+    if (inputMode === 'fill') {
+      if (val === CellState.FILLED) {
+        pointerActionRef.current = 'erase';
+        applyActionToCell(r, c, 'erase');
+      } else if (val === CellState.X) {
+        setPrefetch(prev => {
+          const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
+          const next: CellState[][] = cur.map(row => row.map(v => clampCellState(v)));
+          next[r][c] = CellState.EMPTY;
+          return { ...prev, progress: { ...prev.progress, [difficulty]: next } } as PrefetchState;
+        });
+        pointerActionRef.current = 'fill';
+      } else {
+        pointerActionRef.current = 'fill';
+        applyActionToCell(r, c, 'fill');
+      }
+    } else if (inputMode === 'x') {
+      if (val === CellState.FILLED || val === CellState.X) {
+        pointerActionRef.current = 'erase';
+        applyActionToCell(r, c, 'erase');
+      } else {
+        pointerActionRef.current = 'fillX';
+        applyActionToCell(r, c, 'fillX');
+      }
+    } else {
+      pointerActionRef.current = (val === CellState.MAYBE ? 'eraseMaybe' : 'fillMaybe');
+      applyActionToCell(r, c, pointerActionRef.current);
+    }
+  };
+
   return (
     <div onPointerMove={(e: React.PointerEvent) => {
       if (cleared && !editorMode) return;
@@ -197,57 +252,8 @@ export default function GridBoard(props: GridBoardProps) {
                     e.preventDefault();
                     if (cleared && !editorMode) return;
                     pointerActiveRef.current = true;
-                    if (editorMode) {
-                      const cur = (editorPuzzle && editorPuzzle[r] && typeof editorPuzzle[r][c] !== 'undefined') ? !!editorPuzzle[r][c] : !!(prefetchPuzzle && prefetchPuzzle[difficulty] && prefetchPuzzle[difficulty][r] && prefetchPuzzle[difficulty][r][c]);
-                      const newVal = !cur;
-                      setEditorPuzzle(prev => {
-                        const next = editorPuzzleBase(prev);
-                        next[r][c] = newVal;
-                        return next;
-                      });
-                      pointerActionRef.current = newVal ? 'fill' : 'erase';
-                      return;
-                    }
-                    const val = (prefetchProgress && prefetchProgress[difficulty] && prefetchProgress[difficulty][r] && prefetchProgress[difficulty][r][c]) ?? CellState.EMPTY;
-                    if (e.button === 2) {
-                      if (val === CellState.FILLED || val === CellState.X) {
-                        pointerActionRef.current = 'erase';
-                        applyActionToCell(r, c, 'erase');
-                      } else {
-                        pointerActionRef.current = 'fillX';
-                        applyActionToCell(r, c, 'fillX');
-                      }
-                      return;
-                    }
-
-                    if (inputMode === 'fill') {
-                      if (val === CellState.FILLED) {
-                        pointerActionRef.current = 'erase';
-                        applyActionToCell(r, c, 'erase');
-                      } else if (val === CellState.X) {
-                        setPrefetch(prev => {
-                          const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
-                          const next: CellState[][] = cur.map(row => row.map(v => clampCellState(v)));
-                          next[r][c] = CellState.EMPTY;
-                          return { ...prev, progress: { ...prev.progress, [difficulty]: next } } as PrefetchState;
-                        });
-                        pointerActionRef.current = 'fill';
-                      } else {
-                        pointerActionRef.current = 'fill';
-                        applyActionToCell(r, c, 'fill');
-                      }
-                    } else if (inputMode === 'x') {
-                      if (val === CellState.FILLED || val === CellState.X) {
-                        pointerActionRef.current = 'erase';
-                        applyActionToCell(r, c, 'erase');
-                      } else {
-                        pointerActionRef.current = 'fillX';
-                        applyActionToCell(r, c, 'fillX');
-                      }
-                    } else {
-                      pointerActionRef.current = (val === CellState.MAYBE ? 'eraseMaybe' : 'fillMaybe');
-                      applyActionToCell(r, c, pointerActionRef.current);
-                    }
+                    if (editorMode) handleEditorPointerDown(r, c);
+                    else handlePlayPointerDown(r, c, e);
                   }}
                   onPointerEnter={() => {
                     if (cleared && !editorMode) return;

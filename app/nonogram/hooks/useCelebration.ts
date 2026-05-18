@@ -3,6 +3,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
 import pickSequence from '../celebrations/sequenceBank';
+import { storageKeys } from '../storageKeys';
 import { ADMIN_EMAIL } from '../../../lib/constants';
 
 interface UseCelebrationOptions {
@@ -132,12 +133,12 @@ export function useCelebration({
           } catch {}
         } else {
           try {
-            const raw = window.localStorage.getItem(`picross:fastest:${difficulty}`);
+            const raw = window.localStorage.getItem(storageKeys.fastest(difficulty));
             if (raw) prior = Number(raw) || null;
           } catch {}
         }
         if (currentElapsed > 0 && (prior === null || currentElapsed < prior)) {
-          try { window.localStorage.setItem(`picross:fastest:${difficulty}`, String(currentElapsed)); } catch {}
+          try { window.localStorage.setItem(storageKeys.fastest(difficulty), String(currentElapsed)); } catch {}
           setShowNewPB(true);
           if (pbTimeoutRef.current) window.clearTimeout(pbTimeoutRef.current);
           pbTimeoutRef.current = window.setTimeout(() => { setShowNewPB(false); pbTimeoutRef.current = null; }, 8000) as unknown as number;
