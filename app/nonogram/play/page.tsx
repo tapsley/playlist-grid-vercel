@@ -14,7 +14,7 @@ import { useTimer } from '../hooks/useTimer';
 import { useCelebration } from '../hooks/useCelebration';
 import { usePointerDrag } from '../hooks/usePointerDrag';
 import { useEditorMode } from '../hooks/useEditorMode';
-import { createEmptyGrid } from '../runUtils';
+import { createEmptyGrid, computeClues } from '../runUtils';
 
 const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number; cellPxDefault?: number; autoScaleEnabled?: boolean; minCellPx?: number; maxCellPx?: number; minClueFontPx?: number; clueGap?: number }> = {
   easy:   { size: 5,  leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20, cellPxDefault: 32, autoScaleEnabled: false, minCellPx: 12, maxCellPx: 48, minClueFontPx: 12, clueGap: 12 },
@@ -26,29 +26,15 @@ function getDefaultPuzzle(size: number): boolean[][] {
   return createEmptyGrid(size, false);
 }
 
-function getClues(puzzle: boolean[][]) {
-  const rows = puzzle.map(row => {
-    const clues: number[] = [];
-    let count = 0;
-    for (const cell of row) {
-      if (cell) count++;
-      else if (count) { clues.push(count); count = 0; }
-    }
-    if (count) clues.push(count);
-    return clues.length ? clues : [0];
-  });
-  const cols: number[][] = [];
-  for (let c = 0; c < puzzle[0].length; c++) {
-    const clues: number[] = [];
-    let count = 0;
-    for (let r = 0; r < puzzle.length; r++) {
-      if (puzzle[r][c]) count++;
-      else if (count) { clues.push(count); count = 0; }
-    }
-    if (count) clues.push(count);
-    cols.push(clues.length ? clues : [0]);
-  }
-  return { rows, cols };
+function getCompleteMessage(
+  isFirstSolveToday: boolean,
+  isFastestToday: boolean,
+  isFaster: boolean,
+): string {
+  if (isFirstSolveToday) return 'First solve today!';
+  if (isFastestToday) return 'Fastest solve today!';
+  if (isFaster) return `Faster than today's average!`;
+  return 'Puzzle Complete!';
 }
 
 const DEFAULT_FONT = "var(--font-courier-prime), 'Courier New', monospace";
@@ -254,7 +240,7 @@ function PicrossPlayInner() {
   }, [size]);
 
   // ------ Clues ------
-  const { rows: rowClues, cols: colClues } = useMemo(() => getClues(puzzle), [puzzle]);
+  const { rows: rowClues, cols: colClues } = useMemo(() => computeClues(puzzle), [puzzle]);
 
   // ------ Grid helpers ------
   const isFilledCell = (r: number, c: number): boolean => {
@@ -348,13 +334,7 @@ function PicrossPlayInner() {
   const isFastestToday = elapsedSec > 0 && otherSolveTimes.length > 0 && elapsedSec <= Math.min(...otherSolveTimes);
   const isFaster = solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg;
 
-  const completeMessage = isFirstSolveToday
-    ? 'First solve today!'
-    : isFastestToday
-      ? 'Fastest solve today!'
-      : isFaster
-        ? `Faster than today's average!`
-        : 'Puzzle Complete!';
+  const completeMessage = getCompleteMessage(isFirstSolveToday, isFastestToday, isFaster);
   const avgLine = isFaster && !isFirstSolveToday && !isFastestToday && solveAvg !== null ? `(${fmtTime(solveAvg)})` : null;
 
   // For past puzzles suppress the social/competitive elements — just show "Puzzle Complete!"

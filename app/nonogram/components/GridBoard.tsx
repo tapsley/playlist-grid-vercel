@@ -4,7 +4,7 @@ import TimerWithPB from './TimerWithPB';
 import ClueColumn from './ClueColumn';
 import ClueRow from './ClueRow';
 import GridCell from './GridCell';
-import { computeFulfilledArray, createEmptyGrid, clampCellState } from '../runUtils';
+import { computeFulfilledArray, computeClues, createEmptyGrid, clampCellState } from '../runUtils';
 import type { RunMeta } from '../runUtils';
 import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
 import type { CellAction } from '../hooks/usePointerDrag';
@@ -111,29 +111,6 @@ export default function GridBoard(props: GridBoardProps) {
   const editorPuzzleBase = (prev: boolean[][] | null) =>
     (prev ?? (prefetchPuzzle?.[difficulty] ?? createEmptyGrid(size, false))).map(row => [...row]);
 
-  const computeClues = (puzzle: boolean[][]) => {
-    if (!puzzle || puzzle.length === 0) return { rows: [], cols: [] };
-    const rows = puzzle.map(row => {
-      const clues: number[] = [];
-      let count = 0;
-      for (const cell of row) {
-        if (cell) count++; else if (count) { clues.push(count); count = 0; }
-      }
-      if (count) clues.push(count);
-      return clues.length ? clues : [0];
-    });
-    const cols: number[][] = [];
-    for (let c = 0; c < puzzle[0].length; c++) {
-      const clues: number[] = [];
-      let count = 0;
-      for (let r = 0; r < puzzle.length; r++) {
-        if (puzzle[r][c]) count++; else if (count) { clues.push(count); count = 0; }
-      }
-      if (count) clues.push(count);
-      cols.push(clues.length ? clues : [0]);
-    }
-    return { rows, cols };
-  };
   // derive display puzzle/grid and computed clues for editor vs play mode
   const displayPuzzleForClues = editorMode ? (editorPuzzle ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? createEmptyGrid(size, false))) : (puzzle ?? createEmptyGrid(size, false));
   const { rows: displayRowClues, cols: displayColClues } = computeClues(displayPuzzleForClues);

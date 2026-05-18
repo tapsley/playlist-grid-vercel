@@ -13,6 +13,31 @@ export function clampCellState(val: unknown): 0 | 1 | 2 | 3 {
   return Math.max(0, Math.min(3, Math.trunc(Number(val) || 0))) as 0 | 1 | 2 | 3;
 }
 
+/** Compute row and column clue arrays from a boolean puzzle grid. */
+export function computeClues(puzzle: boolean[][]): { rows: number[][]; cols: number[][] } {
+  if (!puzzle || puzzle.length === 0) return { rows: [], cols: [] };
+  const rows = puzzle.map(row => {
+    const clues: number[] = [];
+    let count = 0;
+    for (const cell of row) {
+      if (cell) count++; else if (count) { clues.push(count); count = 0; }
+    }
+    if (count) clues.push(count);
+    return clues.length ? clues : [0];
+  });
+  const cols: number[][] = [];
+  for (let c = 0; c < puzzle[0].length; c++) {
+    const clues: number[] = [];
+    let count = 0;
+    for (let r = 0; r < puzzle.length; r++) {
+      if (puzzle[r][c]) count++; else if (count) { clues.push(count); count = 0; }
+    }
+    if (count) clues.push(count);
+    cols.push(clues.length ? clues : [0]);
+  }
+  return { rows, cols };
+}
+
 export const generatePlacements = (
   clues: number[],
   size: number,
