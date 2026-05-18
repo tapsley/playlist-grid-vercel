@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
+import { CellState, type PrefetchState, type PrefetchShape } from '../PicrossPrefetchContext';
 import pickSequence from '../celebrations/sequenceBank';
 import { storageKeys } from '../storageKeys';
 import { ADMIN_EMAIL } from '../../../lib/constants';
@@ -47,10 +47,12 @@ export function useCelebration({
   const gridRef = useRef(grid);
   const puzzleRef = useRef(puzzle);
   const clearedRef = useRef(cleared);
-  useEffect(() => { elapsedSecRef.current = elapsedSec; }, [elapsedSec]);
-  useEffect(() => { gridRef.current = grid; }, [grid]);
-  useEffect(() => { puzzleRef.current = puzzle; }, [puzzle]);
-  useEffect(() => { clearedRef.current = cleared; }, [cleared]);
+  useEffect(() => {
+    elapsedSecRef.current = elapsedSec;
+    gridRef.current = grid;
+    puzzleRef.current = puzzle;
+    clearedRef.current = cleared;
+  }, [elapsedSec, grid, puzzle, cleared]);
 
   // Clears all celebration state and stops any in-progress animation
   const clearCelebration = () => {
@@ -76,7 +78,7 @@ export function useCelebration({
     try {
       setPrefetch(prev => {
         const cur: CellState[][] = (prev.progress?.[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
-        const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (v === 2 || v === 3) ? 0 : v));
+        const next: CellState[][] = cur.map((row: CellState[]) => row.map(v => (v === CellState.MAYBE || v === CellState.X) ? CellState.EMPTY : v));
         return { ...prev, progress: { ...prev.progress, [difficulty]: next } } as PrefetchState;
       });
     } catch (err) { console.debug('clear maybe/x before celebration failed', err); }
@@ -84,7 +86,7 @@ export function useCelebration({
     const filled: Array<[number, number]> = [];
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
-        if (currentPuzzle[r]?.[c] && currentGrid[r]?.[c] === 1) filled.push([r, c]);
+        if (currentPuzzle[r]?.[c] && currentGrid[r]?.[c] === CellState.FILLED) filled.push([r, c]);
       }
     }
 

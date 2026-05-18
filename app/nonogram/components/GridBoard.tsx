@@ -107,14 +107,15 @@ export default function GridBoard(props: GridBoardProps) {
 
   const showTimer = props.showTimer ?? true;
 
+  const basePuzzle = prefetchPuzzle?.[difficulty] ?? createEmptyGrid(size, false);
   /** Build a mutable copy of the editor puzzle, falling back to prefetch → empty grid. */
   const editorPuzzleBase = (prev: boolean[][] | null) =>
-    (prev ?? (prefetchPuzzle?.[difficulty] ?? createEmptyGrid(size, false))).map(row => [...row]);
+    (prev ?? basePuzzle).map(row => [...row]);
 
   // derive display puzzle/grid and computed clues for editor vs play mode
-  const displayPuzzleForClues = editorMode ? (editorPuzzle ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? createEmptyGrid(size, false))) : (puzzle ?? createEmptyGrid(size, false));
+  const displayPuzzleForClues = editorMode ? (editorPuzzle ?? basePuzzle) : (puzzle ?? createEmptyGrid(size, false));
   const { rows: displayRowClues, cols: displayColClues } = computeClues(displayPuzzleForClues);
-  const displayGrid = editorMode ? (editorPuzzle ?? ((prefetchPuzzle && prefetchPuzzle[difficulty]) ?? createEmptyGrid(size, false))) : grid;
+  const displayGrid = editorMode ? (editorPuzzle ?? basePuzzle) : grid;
 
   // Memoize fulfilled arrays — only recompute when the display grid changes
   // eslint-disable-next-line react-hooks/exhaustive-deps

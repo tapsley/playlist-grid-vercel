@@ -38,6 +38,43 @@ function getCompleteMessage(
   return 'Puzzle Complete!';
 }
 
+function detectFirstStart(
+  dateStr: string,
+  difficulty: string,
+  effectiveProgress: Record<string, CellState[][]> | null | undefined,
+): boolean {
+  // Any non-zero cell or recorded seconds counts as prior progress
+  let hasProgress = !!(effectiveProgress?.[difficulty]?.some(row => row.some(v => Number(v) !== 0)));
+  if (!hasProgress) {
+    try {
+      const secVal = Number(
+        typeof window !== 'undefined' ? window.localStorage.getItem(storageKeys.seconds(dateStr, difficulty)) : null
+      ) || 0;
+      if (secVal > 0) {
+        hasProgress = true;
+      } else {
+        try {
+          const rawProg = typeof window !== 'undefined' ? window.localStorage.getItem(storageKeys.progress(dateStr, difficulty)) : null;
+          if (rawProg) {
+            const parsed = JSON.parse(rawProg) as { seconds?: number } | null;
+            if (parsed && typeof parsed.seconds === 'number' && parsed.seconds > 0) hasProgress = true;
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+  if (hasProgress) return false;
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(storageKeys.startShown(dateStr, difficulty)) : null;
+    if (raw === '1') return false;
+  } catch {}
+  try {
+    const settings = typeof window !== 'undefined' ? getPicrossSettings() : { playStartAnimation: true, showTimer: true };
+    if (settings?.playStartAnimation === false) return false;
+  } catch {}
+  return true;
+}
+
 const DEFAULT_FONT = "var(--font-courier-prime), 'Courier New', monospace";
 
 function PicrossPlayInner() {
@@ -93,40 +130,9 @@ function PicrossPlayInner() {
   const size = DIFFICULTY_CONFIG[difficulty]?.size ?? 5;
 
   const puzzle = (effectivePuzzle?.[difficulty]) ?? getDefaultPuzzle(size);
-  const grid: CellState[][] = (effectiveProgress?.[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+  const grid: CellState[][] = (effectiveProgress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
 
-  // Determine first-start: any non-zero cell or recorded seconds counts as prior progress
-  let hasProgress = !!(effectiveProgress?.[difficulty]?.some(row => row.some(v => Number(v) !== 0)));
-  try {
-    const secKey = storageKeys.seconds(dateStr, difficulty);
-    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(secKey) : null;
-    const secVal = raw ? Number(raw) || 0 : 0;
-    if (secVal > 0) {
-      hasProgress = true;
-    } else {
-      try {
-        const progKey = storageKeys.progress(dateStr, difficulty);
-        const rawProg = typeof window !== 'undefined' ? window.localStorage.getItem(progKey) : null;
-        if (rawProg) {
-          const parsed = JSON.parse(rawProg) as { seconds?: number } | null;
-          if (parsed && typeof parsed.seconds === 'number' && parsed.seconds > 0) hasProgress = true;
-        }
-      } catch {}
-    }
-  } catch {}
-
-  let firstStart = !hasProgress;
-  try {
-    const shownKey = storageKeys.startShown(dateStr, difficulty);
-    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(shownKey) : null;
-    if (raw === '1') firstStart = false;
-  } catch {}
-  try {
-    const settings = typeof window !== 'undefined' ? getPicrossSettings() : { playStartAnimation: true, showTimer: true };
-    if (settings?.playStartAnimation === false) firstStart = false;
-  } catch {}
-
-  const [startAnimationDone, setStartAnimationDone] = useState<boolean>(() => !firstStart);
+  const [startAnimationDone, setStartAnimationDone] = useState<boolean>(() => !detectFirstStart(dateStr, difficulty, effectiveProgress));
   // For past puzzles: show a loading overlay until we've confirmed the correct puzzle is in context.
   const [pastPuzzleLoaded, setPastPuzzleLoaded] = useState(!isPastPuzzle);
   const userIsLoggedIn = !!session?.user?.email;
@@ -393,7 +399,7 @@ function PicrossPlayInner() {
     try {
       window.localStorage.setItem(
         storageKeys.progress(dateStr, difficulty),
-        JSON.stringify({ grid: Array.from({ length: size }, () => Array.from({ length: size }, () => 0)), complete: false }),
+        JSON.stringify({ grid: createEmptyGrid(size, CellState.EMPTY), complete: false }),
       );
     } catch {}
     clearCelebration();
@@ -401,9 +407,9 @@ function PicrossPlayInner() {
       (async () => {
         try {
           const body: Record<string, unknown> = { date: dateStr };
-          if (difficulty === 'easy') body.easy = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
-          if (difficulty === 'medium') body.medium = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
-          if (difficulty === 'hard') body.hard = Array.from({ length: size }, () => Array.from({ length: size }, () => 0));
+          if (difficulty === 'easy') body.easy = createEmptyGrid(size, CellState.EMPTY);
+          if (difficulty === 'medium') body.medium = createEmptyGrid(size, CellState.EMPTY);
+          if (difficulty === 'hard') body.hard = createEmptyGrid(size, CellState.EMPTY);
           await fetch('/api/picross/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         } catch (err) { console.debug('server clear failed', err); }
       })();

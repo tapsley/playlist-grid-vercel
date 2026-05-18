@@ -89,23 +89,17 @@ export function useEditorMode({
     return getDefaultPuzzle(size);
   };
 
-  const handleNextDate = async () => {
+  const navigateDate = async (offset: number) => {
     const base = saveDate || new Date().toISOString().slice(0, 10);
     const d = new Date(base);
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + offset);
     const ds = d.toISOString().slice(0, 10);
     setEditorPuzzle(await loadDatePuzzle(ds));
     setSaveDate(ds);
   };
 
-  const handlePrevDate = async () => {
-    const base = saveDate || new Date().toISOString().slice(0, 10);
-    const d = new Date(base);
-    d.setDate(d.getDate() - 1);
-    const ds = d.toISOString().slice(0, 10);
-    setEditorPuzzle(await loadDatePuzzle(ds));
-    setSaveDate(ds);
-  };
+  const handleNextDate = () => navigateDate(1);
+  const handlePrevDate = () => navigateDate(-1);
 
   const handleClearEditor = () => {
     setEditorPuzzle(getDefaultPuzzle(size));
