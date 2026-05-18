@@ -503,7 +503,7 @@ function PicrossSplashInner() {
           <UserMenu />
         </div>
       </div>
-      <h1 ref={dailyTitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 36, lineHeight: 1, marginTop: 75, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111', visibility: 'hidden' }}>Daily Nonograms</h1>
+      <h1 ref={dailyTitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 36, lineHeight: 1, marginTop: 75, marginBottom: 20, fontWeight: 900, letterSpacing: 3, color: '#111', visibility: 'hidden', whiteSpace: 'nowrap' }}>Daily Nonograms</h1>
       <div ref={dailySubtitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
@@ -514,7 +514,7 @@ function PicrossSplashInner() {
               {disabled ? (
                 <div className="nonogram-difficulty-btn disabled" style={containerStyle}>
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
-                  <div style={{ fontFamily: COURIER_FONT, position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333' }}>
+                  <div style={{ fontFamily: COURIER_FONT, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333' }}>
                     {d.value === 'hard' ? 'Coming soon!' : d.value === 'medium' ? 'Sign in to play!' : 'Locked'}
                   </div>
                 </div>

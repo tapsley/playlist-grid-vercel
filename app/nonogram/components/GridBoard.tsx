@@ -233,7 +233,7 @@ export default function GridBoard(props: GridBoardProps) {
         const clueForRow = editorMode ? (displayRowClues[r] || []) : ((rowClues && rowClues[r]) || []);
         return (
           <div key={r} style={{ display: 'flex' }}>
-            <div style={{ width: leftWidth, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff' }}>
+            <div style={{ width: leftWidth, height: cellPx, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: CLUE_FONT_PX, paddingRight: 12, background: (r % 2 === 0) ? '#e8e8e8' : '#ffffff', overflow: 'hidden' }}>
             <ClueRow clue={clueForRow} fulfilled={fulfilledRows[r]} clueGap={clueGap} fontSize={CLUE_FONT_PX} firstStart={firstStart} />
             </div>
             {row.map((cell: CellState, c: number) => {
