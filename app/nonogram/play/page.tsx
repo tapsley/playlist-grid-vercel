@@ -14,6 +14,7 @@ import { useTimer } from '../hooks/useTimer';
 import { useCelebration } from '../hooks/useCelebration';
 import { usePointerDrag } from '../hooks/usePointerDrag';
 import { useEditorMode } from '../hooks/useEditorMode';
+import { createEmptyGrid } from '../runUtils';
 
 const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number; cellPxDefault?: number; autoScaleEnabled?: boolean; minCellPx?: number; maxCellPx?: number; minClueFontPx?: number; clueGap?: number }> = {
   easy:   { size: 5,  leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20, cellPxDefault: 32, autoScaleEnabled: false, minCellPx: 12, maxCellPx: 48, minClueFontPx: 12, clueGap: 12 },
@@ -22,7 +23,7 @@ const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; top
 };
 
 function getDefaultPuzzle(size: number): boolean[][] {
-  return Array(size).fill(0).map(() => Array(size).fill(false));
+  return createEmptyGrid(size, false);
 }
 
 function getClues(puzzle: boolean[][]) {
@@ -367,8 +368,8 @@ function PicrossPlayInner() {
     if (otherSolveTimes.length === 0) return '🥇 First solve today!';
     const BLOCKS = 10;
     // Match histogram orientation: left = fast, right = slow
-    const slowerThanMe = otherSolveTimes.filter(t => t < elapsedSec).length;
-    const yellowIdx = Math.round((slowerThanMe / otherSolveTimes.length) * (BLOCKS - 1));
+    const fasterThanMe = otherSolveTimes.filter(t => t < elapsedSec).length;
+    const yellowIdx = Math.round((fasterThanMe / otherSolveTimes.length) * (BLOCKS - 1));
     return Array.from({ length: BLOCKS }, (_, i) => i === yellowIdx ? '🟨' : '🟪').join('');
   }, [isPastPuzzle, elapsedSec, otherSolveTimes]);
 
@@ -559,48 +560,23 @@ function PicrossPlayInner() {
       </div>
 
       <GridBoard
-        size={size}
-        leftWidth={leftWidth}
-        topHeight={topHeight}
-        cellPx={cellPx}
-        CLUE_FONT_PX={CLUE_FONT_PX}
-        clueGap={clueGap}
+        layout={{ size, leftWidth, topHeight, cellPx, CLUE_FONT_PX, clueGap, fontFamily, fontWeight }}
+        editor={{ editorMode, activateEditorMode, deactivateEditorMode, editorPuzzle, setEditorPuzzle, isEditorAllowed }}
+        prefetch={{ prefetchPuzzle, prefetchProgress, setPrefetch, difficulty }}
+        pointer={{ pointerActiveRef, pointerActionRef, applyActionToCell, inputMode }}
+        clues={{ rowClues, colClues, getRunsForCol, getRunsMetaForCol, getRunsForRow, getRunsMetaForRow, isFilledCell, isXCell }}
         puzzle={puzzle}
         grid={grid}
-        rowClues={rowClues}
-        colClues={colClues}
-        editorMode={editorMode}
-        activateEditorMode={activateEditorMode}
-        deactivateEditorMode={deactivateEditorMode}
-        editorPuzzle={editorPuzzle}
-        setEditorPuzzle={setEditorPuzzle}
-        prefetchPuzzle={prefetchPuzzle}
-        prefetchProgress={prefetchProgress}
-        setPrefetch={setPrefetch}
-        difficulty={difficulty}
-        isEditorAllowed={isEditorAllowed}
         elapsedSec={elapsedSec}
         cleared={cleared}
         showNewPB={showNewPB}
-        pointerActiveRef={pointerActiveRef}
-        pointerActionRef={pointerActionRef}
-        applyActionToCell={applyActionToCell}
-        inputMode={inputMode}
-        setSaveDate={setSaveDate}
-        getRunsForCol={getRunsForCol}
-        getRunsMetaForCol={getRunsMetaForCol}
-        getRunsForRow={getRunsForRow}
-        getRunsMetaForRow={getRunsMetaForRow}
-        isFilledCell={isFilledCell}
-        isXCell={isXCell}
         celebrateGrid={celebrateGrid}
-        fontFamily={fontFamily}
-        fontWeight={fontWeight}
         firstStart={!startAnimationDone}
         onStartComplete={() => {
           try { window.localStorage.setItem(`picross:startShown:${dateStr}:${difficulty}`, '1'); } catch {}
           setStartAnimationDone(true);
         }}
+        setSaveDate={setSaveDate}
         showTimer={(typeof window === 'undefined') ? true : (getPicrossSettings().showTimer !== false)}
       />
 

@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useEffect } from 'react';
 import type { CellState, PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
+import { createEmptyGrid, clampCellState } from '../runUtils';
 
 export type CellAction = "fill" | "erase" | "fillX" | "fillMaybe" | "eraseMaybe";
 
@@ -41,9 +42,9 @@ export function usePointerDrag({
     if (isCelebratingRef.current) return;
     if (cleared) return;
     setPrefetch(prev => {
-      const cur: CellState[][] = (prev.progress?.[difficulty]) ?? Array.from({ length: size }, () => Array.from({ length: size }, () => 0 as CellState));
+      const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, 0 as CellState);
       const next: CellState[][] = cur.map((row: CellState[]) =>
-        row.map(v => Math.max(0, Math.min(3, Math.trunc(Number(v) || 0))) as CellState)
+        row.map(v => clampCellState(v) as CellState)
       );
       const currentVal = next[r][c] as number;
       if (action === "fill") {

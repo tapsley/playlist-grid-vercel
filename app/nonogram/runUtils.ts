@@ -3,6 +3,16 @@ export type IsFilledFn = (r: number, c: number) => boolean;
 export type IsXFn = (r: number, c: number) => boolean;
 export type RunMeta = { len: number; start: number; end: number; bounded: boolean };
 
+/** Create a size×size 2-D array pre-filled with `fill`. */
+export function createEmptyGrid<T>(size: number, fill: T): T[][] {
+  return Array(size).fill(0).map(() => Array(size).fill(fill));
+}
+
+/** Clamp an unknown value to a valid CellState (0–3). */
+export function clampCellState(val: unknown): 0 | 1 | 2 | 3 {
+  return Math.max(0, Math.min(3, Math.trunc(Number(val) || 0))) as 0 | 1 | 2 | 3;
+}
+
 export const generatePlacements = (
   clues: number[],
   size: number,

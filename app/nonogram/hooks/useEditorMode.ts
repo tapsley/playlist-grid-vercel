@@ -2,9 +2,10 @@
 import { useState, useEffect, useRef } from 'react';
 import type { PrefetchState, PrefetchShape } from '../PicrossPrefetchContext';
 import { getMSTDateString } from '../time';
+import { createEmptyGrid } from '../runUtils';
 
 function getDefaultPuzzle(size: number): boolean[][] {
-  return Array(size).fill(0).map(() => Array(size).fill(false));
+  return createEmptyGrid(size, false);
 }
 
 function isPuzzleEmpty(entry: unknown): boolean {

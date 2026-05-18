@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
 import StatsModal, { prefetchStats } from './components/StatsModal';
 import PastPuzzlesModal from './components/PastPuzzlesModal';
+import { createEmptyGrid } from './runUtils';
 
 const TUTORIAL_PAGES: { text: React.ReactNode; image: string; imageAlt: string }[] = [
   {
@@ -151,9 +152,9 @@ const difficulties = [
 
 // Placeholder puzzles for each difficulty
 const demoPuzzles: Record<string, boolean[][]> = {
-  easy: Array(5).fill(0).map(() => Array(5).fill(false)),
-  medium: Array(10).fill(0).map(() => Array(10).fill(false)),
-  hard: Array(15).fill(0).map(() => Array(15).fill(false)),
+  easy: createEmptyGrid(5, false),
+  medium: createEmptyGrid(10, false),
+  hard: createEmptyGrid(15, false),
 };
 
 

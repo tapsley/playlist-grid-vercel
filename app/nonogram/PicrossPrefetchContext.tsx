@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { getMSTDateString } from './time';
+import { createEmptyGrid, clampCellState } from './runUtils';
 
 export type CellState = 0 | 1 | 2 | 3;
 
@@ -56,10 +57,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         for (const k of Object.keys(patch.progress)) {
           const raw = patch.progress[k] as unknown;
           if (Array.isArray(raw)) {
-            next.progress[k] = deepClone((raw as unknown[]).map(row => Array.isArray(row) ? (row as unknown[]).map(n => {
-              const num = Number(n as unknown) || 0;
-              return (Math.max(0, Math.min(3, Math.trunc(num)))) as CellState;
-            }) : []));
+            next.progress[k] = deepClone((raw as unknown[]).map(row => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n) as CellState) : []));
           } else {
             next.progress[k] = deepClone([] as CellState[][]);
           }
@@ -117,10 +115,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
       const progress: Record<string, CellState[][]> = {};
       for (const k of Object.keys(progressData || {})) {
         const val = progressData[k];
-        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => {
-          const num = Number(n as unknown) || 0;
-          return (Math.max(0, Math.min(3, Math.trunc(num)))) as CellState;
-        }) : []);
+        if (Array.isArray(val)) progress[k] = (val as unknown[]).map((row: unknown) => Array.isArray(row) ? (row as unknown[]).map(n => clampCellState(n) as CellState) : []);
       }
 
       // If the server returned per-difficulty seconds, persist them locally
@@ -152,10 +147,7 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
               if (raw) {
                 const parsed = JSON.parse(raw) as { grid?: number[][] } | null;
                 if (parsed?.grid && Array.isArray(parsed.grid)) {
-                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => {
-                    const num = Number(n) || 0;
-                    return (Math.max(0, Math.min(3, Math.trunc(num)))) as CellState;
-                  }));
+                  progress[d] = parsed.grid.map(row => (row as number[]).map(n => clampCellState(n) as CellState));
                 }
               }
             } catch {
@@ -196,9 +188,9 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         if (session?.user?.email) {
           (async () => {
             try {
-              const defaultEasy = Array(5).fill(0).map(() => Array(5).fill(0));
-              const defaultMedium = Array(10).fill(0).map(() => Array(10).fill(0));
-              const defaultHard = Array(15).fill(0).map(() => Array(15).fill(0));
+              const defaultEasy = createEmptyGrid(5, 0);
+              const defaultMedium = createEmptyGrid(10, 0);
+              const defaultHard = createEmptyGrid(15, 0);
               await fetch('/api/picross/progress', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
