@@ -337,9 +337,9 @@ function PicrossPlayInner() {
     return idx === -1 ? solveDistribution : solveDistribution.filter((_, i) => i !== idx);
   }, [solveDistribution, elapsedSec]);
 
-  const isFirstSolveToday = elapsedSec > 0 && otherSolveTimes.length === 0;
-  const isFastestToday = elapsedSec > 0 && otherSolveTimes.length > 0 && elapsedSec <= Math.min(...otherSolveTimes);
-  const isFaster = solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg;
+  const isFirstSolveToday = userIsLoggedIn && elapsedSec > 0 && otherSolveTimes.length === 0;
+  const isFastestToday = userIsLoggedIn && elapsedSec > 0 && otherSolveTimes.length > 0 && elapsedSec <= Math.min(...otherSolveTimes);
+  const isFaster = userIsLoggedIn && solveAvg !== null && elapsedSec > 0 && elapsedSec < solveAvg;
 
   const completeMessage = getCompleteMessage(isFirstSolveToday, isFastestToday, isFaster);
   const avgLine = isFaster && !isFirstSolveToday && !isFastestToday && solveAvg !== null ? `(${fmtTime(solveAvg)})` : null;
@@ -351,14 +351,15 @@ function PicrossPlayInner() {
   // Emoji percentile bar — exclude own time so comparison is against other solvers
   const emojiBar = useMemo(() => {
     if (isPastPuzzle) return '';
+    if (!userIsLoggedIn) return '';
     if (elapsedSec <= 0) return '';
-    if (otherSolveTimes.length === 0) return '🥇 First solve today!';
+    if (otherSolveTimes.length === 0) return '';
     const BLOCKS = 10;
     // Match histogram orientation: left = fast, right = slow
     const fasterThanMe = otherSolveTimes.filter(t => t < elapsedSec).length;
     const yellowIdx = Math.round((fasterThanMe / otherSolveTimes.length) * (BLOCKS - 1));
     return Array.from({ length: BLOCKS }, (_, i) => i === yellowIdx ? '🟨' : '🟪').join('');
-  }, [isPastPuzzle, elapsedSec, otherSolveTimes]);
+  }, [isPastPuzzle, userIsLoggedIn, elapsedSec, otherSolveTimes]);
 
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -471,7 +472,18 @@ function PicrossPlayInner() {
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     debounceTimeout.current = window.setTimeout(() => {
       try {
-        window.localStorage.setItem(storageKeys.progress(dateStr, difficulty), JSON.stringify({ grid, complete: cleared }));
+        // Preserve any existing seconds so the debounce doesn't strip them after
+        // the completion save has already written { grid, complete: true, seconds }.
+        const key = storageKeys.progress(dateStr, difficulty);
+        const payload: { grid: unknown; complete: boolean; seconds?: number } = { grid, complete: cleared };
+        try {
+          const existing = window.localStorage.getItem(key);
+          if (existing) {
+            const parsed = JSON.parse(existing) as { seconds?: number } | null;
+            if (parsed && typeof parsed.seconds === 'number' && parsed.seconds > 0) payload.seconds = parsed.seconds;
+          }
+        } catch {}
+        window.localStorage.setItem(key, JSON.stringify(payload));
       } catch (err) { console.debug('localStorage write error', err); }
     }, 400) as unknown as number;
     return () => { if (debounceTimeout.current) clearTimeout(debounceTimeout.current); };
@@ -556,7 +568,8 @@ function PicrossPlayInner() {
         grid={grid}
         elapsedSec={elapsedSec}
         cleared={cleared}
-        showNewPB={showNewPB}
+        //showNewPB={showNewPB}
+        showNewPB={false}
         celebrateGrid={celebrateGrid}
         firstStart={!startAnimationDone}
         onStartComplete={() => {

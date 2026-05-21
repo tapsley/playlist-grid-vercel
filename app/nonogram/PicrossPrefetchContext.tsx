@@ -60,6 +60,66 @@ function mergeAnonymousProgress(dateStr: string, progress: Record<string, CellSt
   }
 }
 
+/**
+ * On first login, POST any locally-completed puzzles to the server so stats
+ * are recorded without the user having to re-open each solved puzzle.
+ */
+async function syncLocalCompletionsToServer(dateStr: string): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const diffs = ['easy', 'medium', 'hard'] as const;
+
+  // Capture localStorage SYNCHRONOUSLY before any await so concurrent effects
+  // (e.g. the splash page's anonymous-session cleanup) cannot race and delete
+  // the data between now and when we would have read it after an async fetch.
+  type LocalEntry = { grid: number[][]; seconds: number };
+  const localData: Partial<Record<string, LocalEntry>> = {};
+  for (const d of diffs) {
+    try {
+      const raw = window.localStorage.getItem(storageKeys.progress(dateStr, d));
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { grid?: number[][]; complete?: boolean; seconds?: number } | null;
+      if (!parsed?.complete || !Array.isArray(parsed.grid)) continue;
+      const seconds = typeof parsed.seconds === 'number' && parsed.seconds > 0
+        ? parsed.seconds
+        : (() => {
+            try { return Number(window.localStorage.getItem(storageKeys.seconds(dateStr, d))) || 0; } catch { return 0; }
+          })();
+      localData[d] = { grid: parsed.grid as number[][], seconds };
+    } catch { /* ignore per-difficulty errors */ }
+  }
+
+  // Nothing locally completed — nothing to sync
+  if (Object.keys(localData).length === 0) return;
+
+  // Fetch what the server already has so we don't overwrite an existing solve
+  let serverProgress: Record<string, unknown> = {};
+  try {
+    const res = await fetch(`/api/picross/progress?date=${dateStr}`);
+    if (res.ok) serverProgress = await res.json() ?? {};
+  } catch { /* ignore — treat as nothing on server */ }
+
+  const body: Record<string, unknown> = { date: dateStr };
+  let anyComplete = false;
+
+  for (const d of diffs) {
+    // Skip if the server already has this difficulty marked complete
+    if (serverProgress[`${d}Complete`] === true) continue;
+    const entry = localData[d];
+    if (!entry) continue;
+    anyComplete = true;
+    body[d] = entry.grid;
+    body[`${d}Complete`] = true;
+    if (entry.seconds > 0) body[`${d}Seconds`] = entry.seconds;
+  }
+
+  if (!anyComplete) return;
+  await fetch('/api/picross/progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Persist a single difficulty's progress grid to localStorage, preserving any stored seconds. */
 function persistProgressToStorage(dateKey: string, difficulty: string, grid: CellState[][]): void {
   const key = storageKeys.progress(dateKey, difficulty);
@@ -163,6 +223,12 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
 
   // Fetch once when user logs in (email transitions) or if already logged in on mount
   useEffect(() => {
+    const email = session?.user?.email ?? null;
+    // Detect anonymous → authenticated transition so we can sync any locally-completed
+    // puzzles to the server before refreshing from it.
+    const loginTransition = lastEmailRef.current === null && email !== null;
+    lastEmailRef.current = email;
+
     // always fetch puzzles on mount and when session email changes; fetchPrefetch
     // will only attempt to fetch progress when an email exists.
     try {
@@ -200,7 +266,16 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
     } catch {
       // ignore localStorage errors
     }
-    fetchPrefetch();
+
+    if (loginTransition) {
+      // Sync before fetching so the server has the completed state when fetchPrefetch runs
+      const today = getMSTDateString();
+      syncLocalCompletionsToServer(today)
+        .catch(err => console.debug('syncLocalCompletions failed', err))
+        .finally(() => { fetchPrefetch(); });
+    } else {
+      fetchPrefetch();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.email]);
 
