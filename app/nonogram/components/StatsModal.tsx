@@ -10,6 +10,7 @@ interface StatsData {
   fastest: { easy: number | null; medium: number | null; hard: number | null };
   streaks: { easy: Streak; medium: Streak; hard: Streak };
   todayDistribution?: { easy: number[]; medium: number[]; hard: number[] };
+  todayAvg?: { easy: { avg: number | null; count: number }; medium: { avg: number | null; count: number }; hard: { avg: number | null; count: number } };
   myTodaySeconds?: { easy: number | null; medium: number | null; hard: number | null };
   admin?: {
     today: { easy: number; medium: number; hard: number; total: number; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null }> };
@@ -77,7 +78,7 @@ function computeBuckets(times: number[]): { buckets: { start: number; count: num
   return { buckets, bucketSize };
 }
 
-function SolveHistogram({ times, myTime }: { times: number[]; myTime: number | null }) {
+function SolveHistogram({ times, myTime, avg }: { times: number[]; myTime: number | null; avg: number | null }) {
   const [animated, setAnimated] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -135,16 +136,21 @@ function SolveHistogram({ times, myTime }: { times: number[]; myTime: number | n
       {/* X labels */}
       <div style={{ display: 'flex', marginTop: 3 }}>
         {buckets.map((b, i) => (
-          <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: '#888', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+          <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: '#fff', overflow: 'hidden', whiteSpace: 'nowrap' }}>
             {i % labelEvery === 0 ? fmtTime(b.start) : ''}
           </div>
         ))}
       </div>
       {/* User legend */}
       {myBucketIdx >= 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, color: '#f9c74f' }}>
-          <span>&#9660;</span>
-          <span>Your time: {fmtTime(myTime)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#f9c74f' }}>
+            <span>&#9660;</span>
+            <span>Your time: {fmtTime(myTime)}</span>
+          </div>
+          {avg != null && (
+            <div style={{ color: '#aaa' }}>Average: {fmtTime(avg)}</div>
+          )}
         </div>
       )}
     </div>
@@ -283,7 +289,8 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                   if (!diff) return null;
                   const times = stats.todayDistribution[diff as keyof typeof stats.todayDistribution] ?? [];
                   const myTime = stats.myTodaySeconds?.[diff as keyof typeof stats.myTodaySeconds] ?? null;
-                  return <SolveHistogram key={diff} times={times} myTime={myTime} />;
+                  const avg = stats.todayAvg?.[diff as keyof typeof stats.todayAvg]?.avg ?? null;
+                  return <SolveHistogram key={diff} times={times} myTime={myTime} avg={avg} />;
                 })()}
               </div>
             )}
@@ -316,6 +323,10 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                   const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
                   const page = Math.min(usersPage, totalPages - 1);
                   const visible = users.slice(page * USERS_PER_PAGE, (page + 1) * USERS_PER_PAGE);
+                  const fastestEasy   = users.reduce((m, u) => u.easy   != null && (m == null || u.easy   < m) ? u.easy   : m, null as number | null);
+                  const fastestMedium = users.reduce((m, u) => u.medium != null && (m == null || u.medium < m) ? u.medium : m, null as number | null);
+                  const fastestHard   = users.reduce((m, u) => u.hard   != null && (m == null || u.hard   < m) ? u.hard   : m, null as number | null);
+                  const fastestByDiff = [fastestEasy, fastestMedium, fastestHard];
                   return (
                     <div style={{ marginBottom: 14 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -331,11 +342,16 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                       {visible.map((u) => (
                         <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff', paddingBottom: 4 }}>
                           <span>{u.email}</span>
-                          <span style={{ color: '#cca3ff', fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
-                            {[u.easy, u.medium, u.hard]
-                              .map((s, i) => s != null ? `${['E','M','H'][i]} ${fmtTime(s)}` : null)
-                              .filter(Boolean)
-                              .join('  ')}
+                          <span style={{ fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
+                            {([u.easy, u.medium, u.hard] as (number | null)[]).map((s, i) => {
+                              if (s == null) return null;
+                              const isFastest = fastestByDiff[i] != null && s === fastestByDiff[i];
+                              return (
+                                <span key={i} style={{ color: isFastest ? '#f9c74f' : '#cca3ff', marginLeft: i > 0 ? 8 : 0 }}>
+                                  {['E','M','H'][i]} {fmtTime(s)}
+                                </span>
+                              );
+                            })}
                           </span>
                         </div>
                       ))}
