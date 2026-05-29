@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { getMSTDateString } from './time';
-import { createEmptyGrid, clampCellState, CellState } from './runUtils';
+import { clampCellState, CellState } from './runUtils';
 import { storageKeys } from './storageKeys';
 export { CellState };
 
@@ -244,18 +244,17 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
         try { window.localStorage.setItem(storageKeys.lastLoaded(), today); } catch {}
 
         // Also seed an empty server-side progress row for today for logged-in
-        // users so the date exists in the DB. Only send grids — no complete
-        // flags — so we never accidentally overwrite a solved state.
+        // users so the date exists in the DB. Do NOT send grid fields — only
+        // send the date so the route preserves any existing grids/seconds/
+        // complete flags (e.g. from another device). Grids default on the
+        // server side when creating a brand-new row.
         if (session?.user?.email) {
           (async () => {
             try {
-              const defaultEasy = createEmptyGrid(5, 0);
-              const defaultMedium = createEmptyGrid(10, 0);
-              const defaultHard = createEmptyGrid(15, 0);
               await fetch('/api/picross/progress', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: today, easy: defaultEasy, medium: defaultMedium, hard: defaultHard }),
+                body: JSON.stringify({ date: today }),
               });
             } catch (err) {
               console.debug('clear server-side progress failed', err);
@@ -281,11 +280,20 @@ export function PicrossPrefetchProvider({ children }: { children: React.ReactNod
 
   // Clear progress on logout so re-login always fetches user progress,
   // but keep puzzles so anonymous users still see the daily puzzle.
+  // Also clear localStorage for today so the next login doesn't accidentally
+  // sync the previous user's completed puzzles to a different account.
   useEffect(() => {
     const email = session?.user?.email || null;
     if (email) return;
     lastEmailRef.current = null;
     setPrefetchState(prev => ({ puzzle: prev.puzzle, progress: {} }));
+    try {
+      const today = getMSTDateString();
+      for (const d of ['easy', 'medium', 'hard']) {
+        try { window.localStorage.removeItem(storageKeys.progress(today, d)); } catch {}
+        try { window.localStorage.removeItem(storageKeys.seconds(today, d)); } catch {}
+      }
+    } catch {}
   }, [session?.user?.email]);
 
   // Always expose cloned state to consumers to avoid accidental mutation
