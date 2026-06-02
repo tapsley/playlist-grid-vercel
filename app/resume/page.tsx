@@ -3,7 +3,7 @@ export const metadata = {
 };
 
 export default function ResumePage() {
-  const pdfPath = '/Tyler_Apsley_Resume2026.pdf';
+  const pdfPath = '/Tyler_Apsley_2026Resume.pdf';
 
   return (
     <div className="min-h-screen bg-white text-gray-900 py-8 px-4">
