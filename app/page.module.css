@@ -1,9 +1,9 @@
 :root {
-  --home-bg-top: #fcf8fb;
-  --home-bg-bottom: #fedbfe;
+  --home-bg-top: #fcaae7;
+  --home-bg-bottom: #c764a1;
   --home-surface: #ffffff;
   --home-text: #0f172a;
-  --home-subtle: #475569;
+  --home-subtle: #475069;
   --home-border: #febff6;
   --home-shadow: rgba(15, 23, 42, 0.16);
 }
@@ -12,7 +12,7 @@
   min-height: 100vh;
   padding: 2rem 1.25rem 2.75rem;
   background:
-    radial-gradient(1000px 380px at 90% -8%, rgba(56, 189, 248, 0.2), transparent 70%),
+    radial-gradient(1000px 380px at 90% -8%, rgba(56, 189, 248, 0.2), transparent 50%),
     radial-gradient(900px 360px at 5% 96%, rgba(14, 116, 144, 0.15), transparent 70%),
     linear-gradient(180deg, var(--home-bg-top), var(--home-bg-bottom));
   color: var(--home-text);

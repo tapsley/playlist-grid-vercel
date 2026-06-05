@@ -23,16 +23,24 @@ const projectCards: ProjectCard[] = [
     href: "/nonogram",
     title: "Daily Nonograms",
     description:
-      "Take a break with a little Picros- I mean Nonogram! \n\nCome back every day for new puzzles!",
+      "Take a break with some Nonograms! \n\nCome back every day for new puzzles!",
     imageSrc: "/dailyPicross.png",
     imageAlt: "Daily Nonogram page preview",
+  },
+  {
+    href: "/ufapicks",
+    title: "UFA Picks Rebrand",
+    description:
+      "My friend asked me to update the UI/UX for their web app. \n\nCheck out the before and after pics!",
+    imageSrc: "/ufa4.png",
+    imageAlt: "UFA Picks before and after preview",
   },
   {
     href: "/playlist",
     title: "Playlist Grid feat. Spotify",
     description:
       "Any Spotify playlist presented as a beautiful grid of album art. \n\nThis is what I use to make my yearly music wrap-up post on Instagram.",
-    imageSrc: "/playlistGrid.png",
+    imageSrc: "/playlistGrid2.png",
     imageAlt: "Playlist Grid page preview",
   },
   {
@@ -40,7 +48,7 @@ const projectCards: ProjectCard[] = [
     title: "Daily Notes",
     description:
       "A proof of concept for a daily notes app. \n\nFrontend: React + Typescript. \nBackend: Next.js API routes + Prisma + SQLite. Authentication with NextAuth.",
-    imageSrc: "/dailyNotes.png",
+    imageSrc: "/dailyNotes2.png",
     imageAlt: "Daily Notes page preview",
   },
   {

@@ -18,6 +18,7 @@ const UserMenu = dynamic(() => import("./UserMenu"), { ssr: false });
     if (path.startsWith("/videoManager")) return "#ffffff"; // white
     if (path.startsWith("/job-tracker")) return "#ffffff"; // white
     if (path.startsWith("/nonogram")) return "#cca3ff"; //nonogram purple
+    if (path.startsWith("/ufapicks")) return "#E82829"; // UFA red
     return "#fd9cce"; // default/home pink-400
   }
 
