@@ -28,6 +28,22 @@ const projectCards: ProjectCard[] = [
     imageAlt: "Daily Nonogram page preview",
   },
   {
+    href: "/roku",
+    title: "Roku Player",
+    description:
+      "An in-browser Roku player to experience my custom apps, including my latest one: Nintendo Clips. (Desktop recommended) \n\nRoku apps built with Brightscript and SceneGraph.",
+    imageSrc: "/rokuPlayer.png",
+    imageAlt: "Roku Player page preview",
+  },
+  {
+    href: "/videoManager",
+    title: "Video Manager",
+    description:
+      "A manager for the video clips used in the Nintendo Clips Roku app. \n\nFrontend: Next.js + React + TypeScript.\nBackend: API routes + Prisma + PostgreSQL + GCS.",
+    imageSrc: "/videoManager.png",
+    imageAlt: "Video Manager page preview",
+  },
+  {
     href: "/ufapicks",
     title: "UFA Picks Rebrand",
     description:
@@ -52,20 +68,13 @@ const projectCards: ProjectCard[] = [
     imageAlt: "Daily Notes page preview",
   },
   {
-    href: "/roku",
-    title: "Roku Player",
+    href: "https://www.utahwildultimate.org/",
+    title: "Utah Wild Ultimate",
     description:
-      "An in-browser Roku player to experience my custom apps, including my latest one: Nintendo Clips. \n\nRoku apps built with Brightscript and SceneGraph.",
-    imageSrc: "/rokuPlayer.png",
-    imageAlt: "Roku Player page preview",
-  },
-  {
-    href: "/videoManager",
-    title: "Video Manager",
-    description:
-      "A manager for the video clips used in the Nintendo Clips Roku app. \n\nFrontend: Next.js + React + TypeScript.\nBackend: API routes + Prisma + PostgreSQL + GCS.",
-    imageSrc: "/videoManager.png",
-    imageAlt: "Video Manager page preview",
+      "I have proudly been the Website Manager for the Utah Wild since 2024. I keep the site up to date with the latest roster, game scores, and other information. \n\nWebsite hosted by Wix.",
+    imageSrc: "/utahWild.png",
+    imageAlt: "Utah Wild Ultimate page preview",
+    openInNewTab: true,
   },
   {
     href: "/job-tracker/demo",
@@ -74,15 +83,6 @@ const projectCards: ProjectCard[] = [
       "A job application tracker I built to manage my own job search.\n\nStack: Next.js + Apollo Server + GraphQL + AWS DynamoDB + Apollo Client.",
     imageSrc: "/jobTracker.png",
     imageAlt: "Job Tracker preview",
-  },
-  {
-    href: "https://www.utahwildultimate.org/",
-    title: "Utah Wild Ultimate",
-    description:
-      "I have proudly been the Website Manager for the Utah Wild since 2024. I keep the site up to date with the latest roster, game scores, and other information. \n\nWebsite hosted by Wix.",
-    imageSrc: "/utahWild.png",
-    imageAlt: "Utah Wild Ultimate page preview",
-    openInNewTab: true,
   },
 ];
 

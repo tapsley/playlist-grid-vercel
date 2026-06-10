@@ -30,10 +30,12 @@ export default function RokuPage() {
         rel="stylesheet"
         type="text/css"
       />
-      <h1 className="text-white px-4 py-2">I wanted a way to show my Roku projects on my website and I found this web player made by <a href="https://lvcabral.com/brs/?pkg=pop-roku" target="_blank" rel="noreferrer" className="underline">Marcelo Lv Cabral</a>. It's amazing! This UI is lifted from <a href="https://github.com/lvcabral/brs-engine" target="_blank" rel="noreferrer" className="underline">his work</a>, so big thanks to him!</h1>
-      <h1 className="text-white px-4 py-2"> You can play the Roku apps that I have built here! Press ESC to exit the app, and be aware that the functionality may not match exactly what you would see on a real Roku.</h1>
-      <h1 className="text-white px-4 py-2"> My latest app is Nintendo Clips, for which I also built the entire backend. You can see how that works in the Video Manager part of this website. As part of that work I also wrote a worker that extracts a thumbnail from each video, which you will see in the Roku app. I hope you enjoy seeing my collection of mostly unremarkable clips I recorded on my Nintendo Switch!</h1>
-      <h1 className="text-white px-4 py-2">Also, if the apps don't appear at first just refresh XD</h1>
+      <div className="px-30 py-2">
+        <h1 className="text-white px-4 py-2">I wanted a way for people to see and experience the Roku projects I have built right here on my website and I found this web player made by <a href="https://lvcabral.com/brs/?pkg=pop-roku" target="_blank" rel="noreferrer" className="underline">Marcelo Lv Cabral</a>. It's amazing! This UI and the BrightScript Simulation Engine are lifted from <a href="https://github.com/lvcabral/brs-engine" target="_blank" rel="noreferrer" className="underline">his work</a>, so big thanks to him!</h1>
+        <h1 className="text-white px-4 py-2"> You can play the Roku apps that I have built here! Press ESC to exit the app, and be aware that the functionality may not match exactly what you would see on a real Roku. Also a keyboard is required to interact with the apps in the player, so <b>viewing on mobile is not recommended.</b></h1>
+        <h1 className="text-white px-4 py-2"> My latest app is Nintendo Clips - you can browse gameplay clips I recorded on my Nintendo Switch the way you would on a streaming service. I built the entire backend, which hosts the video clips and manages filtering and metadata and things like that. You can see how that works on the <a href="/videoManager" className="underline">Video Manager</a> page of this website. As part of that work I also wrote a worker that extracts a thumbnail from each video, which you will see in the Roku app. I hope you enjoy seeing my collection of mostly unremarkable clips I recorded on my Nintendo Switch!</h1>
+        <h1 className="text-white px-4 py-2">Also, if the apps don't appear at first just refresh XD</h1>
+      </div>
       <div
         id="container"
         className="mx-auto min-h-[80%] min-w-[1200px] max-w-[1260px] rounded-[5px] bg-[whitesmoke] px-[30px] pb-[5px] pt-[10px] shadow-[3px_3px_5px_#444]"
