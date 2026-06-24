@@ -11,6 +11,15 @@ type ProjectCard = {
   openInNewTab?: boolean;
 };
 
+const featuredCard: ProjectCard = {
+  href: "/nonogram",
+  title: "Daily Nonograms",
+  description:
+    "Take a break with some Nonograms!\nCome back every day for new puzzles!\n\nSign in to track your stats and see how you stack up against other solvers!",
+  imageSrc: "/dailyPicrossHero.png",
+  imageAlt: "Daily Nonogram page preview",
+};
+
 const projectCards: ProjectCard[] = [
   {
     href: "/resume",
@@ -20,12 +29,12 @@ const projectCards: ProjectCard[] = [
     imageAlt: "Resume page preview",
   },
   {
-    href: "/nonogram",
-    title: "Daily Nonograms",
+    href: "/ufapicks",
+    title: "UFA Picks Rebrand",
     description:
-      "Take a break with some Nonograms! \n\nCome back every day for new puzzles!",
-    imageSrc: "/dailyPicross.png",
-    imageAlt: "Daily Nonogram page preview",
+      "My friend asked me to update the UI/UX for their web app. \n\nCheck out the before and after pics!",
+    imageSrc: "/ufa4.png",
+    imageAlt: "UFA Picks before and after preview",
   },
   {
     href: "/roku",
@@ -42,14 +51,6 @@ const projectCards: ProjectCard[] = [
       "A manager for the video clips used in the Nintendo Clips Roku app. \n\nFrontend: Next.js + React + TypeScript.\nBackend: API routes + Prisma + PostgreSQL + GCS.",
     imageSrc: "/videoManager.png",
     imageAlt: "Video Manager page preview",
-  },
-  {
-    href: "/ufapicks",
-    title: "UFA Picks Rebrand",
-    description:
-      "My friend asked me to update the UI/UX for their web app. \n\nCheck out the before and after pics!",
-    imageSrc: "/ufa4.png",
-    imageAlt: "UFA Picks before and after preview",
   },
   {
     href: "/playlist",
@@ -97,6 +98,27 @@ export default function SplashPage() {
             below.
           </p>
         </header>
+
+        <Link
+          href={featuredCard.href}
+          className={styles.heroCard}
+        >
+          <div className={styles.heroImageFrame}>
+            <Image
+              src={featuredCard.imageSrc}
+              alt={featuredCard.imageAlt}
+              fill
+              sizes="(max-width: 640px) 100vw, 55vw"
+              className={styles.heroPreviewImage}
+            />
+          </div>
+          <div className={styles.heroBody}>
+            <span className={styles.heroLabel}>✦ Featured Project</span>
+            <h2 className={styles.heroTitle}>{featuredCard.title}</h2>
+            <p className={styles.heroDescription}>{featuredCard.description}</p>
+            <span className={styles.heroButton}>Play Now →</span>
+          </div>
+        </Link>
 
         <div className={styles.grid}>
           {projectCards.map((card) => (

@@ -152,6 +152,12 @@ function PicrossPlayInner() {
     return true;
   }, [puzzle, grid, size]);
 
+  // Only allow the completion save to fire when cleared transitions from false→true.
+  // Without this, a stale context (yesterday's solved grid still loaded) or the brief
+  // loading state (all-false default puzzle) would cause cleared=true on mount and
+  // trigger a spurious save for today's date with elapsedSec=0.
+  const clearedWasFalseRef = useRef<boolean>(!cleared);
+
   const isAdmin = (session?.user?.email ?? '').trim().toLowerCase() === ADMIN_EMAIL;
   const isEditorAllowed = isAdmin;
 
@@ -433,7 +439,11 @@ function PicrossPlayInner() {
 
   // Final completion save (with complete flags) when puzzle is first solved
   useEffect(() => {
-    if (!cleared) return;
+    if (!cleared) {
+      clearedWasFalseRef.current = true;
+      return;
+    }
+    if (!clearedWasFalseRef.current) return;
     (async () => {
       try {
         if (userIsLoggedIn) {

@@ -107,7 +107,9 @@ export async function GET(req: NextRequest) {
           easyComplete: true, easySeconds: true,
           mediumComplete: true, mediumSeconds: true,
           hardComplete: true, hardSeconds: true,
+          updatedAt: true,
         },
+        orderBy: { updatedAt: 'asc' },
       }),
     ]);
 
@@ -116,6 +118,7 @@ export async function GET(req: NextRequest) {
       easy:   s.easyComplete   ? (s.easySeconds   > 0 ? s.easySeconds   : null) : null,
       medium: s.mediumComplete ? (s.mediumSeconds > 0 ? s.mediumSeconds : null) : null,
       hard:   s.hardComplete   ? (s.hardSeconds   > 0 ? s.hardSeconds   : null) : null,
+      updatedAt: s.updatedAt.toISOString(),
     }));
 
     // per-date totals + average solve times for the last 7 days (including today)

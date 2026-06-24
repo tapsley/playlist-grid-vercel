@@ -13,7 +13,7 @@ interface StatsData {
   todayAvg?: { easy: { avg: number | null; count: number }; medium: { avg: number | null; count: number }; hard: { avg: number | null; count: number } };
   myTodaySeconds?: { easy: number | null; medium: number | null; hard: number | null };
   admin?: {
-    today: { easy: number; medium: number; hard: number; total: number; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null }> };
+    today: { easy: number; medium: number; hard: number; total: number; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null; updatedAt?: string }> };
     perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null }>;
   };
 }
@@ -319,7 +319,10 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
 
                 {/* Users who solved today */}
                 {stats.admin.today.users && stats.admin.today.users.length > 0 && (() => {
-                  const users = stats.admin.today.users;
+                  const users = [...stats.admin.today.users].sort((a, b) => {
+                    if (!a.updatedAt || !b.updatedAt) return 0;
+                    return a.updatedAt < b.updatedAt ? -1 : a.updatedAt < b.updatedAt ? 1 : 0;
+                  });
                   const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
                   const page = Math.min(usersPage, totalPages - 1);
                   const visible = users.slice(page * USERS_PER_PAGE, (page + 1) * USERS_PER_PAGE);
