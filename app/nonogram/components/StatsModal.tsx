@@ -150,17 +150,19 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                     alt={label}
                     style={{ width: 110, height: 110, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
                   />
-                  <div style={{ display: 'flex', gap: 4, flex: 1, justifyContent: 'space-around' }}>
-                    <StatCell value={solved} label={solved === 1 ? "Puzzle Solved" : "Puzzles Solved"} />
-                    <StatCell value={streak.current} label="Current Streak" />
-                    <StatCell value={streak.max} label="Longest Streak" />
-                  </div>
-                  {(gold > 0 || silver > 0) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                      {gold > 0 && <span style={{ fontSize: 13 }}>🥇 ×{gold}</span>}
-                      {silver > 0 && <span style={{ fontSize: 13 }}>🥈 ×{silver}</span>}
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'space-around' }}>
+                      <StatCell value={solved} label={solved === 1 ? "Puzzle Solved" : "Puzzles Solved"} />
+                      <StatCell value={streak.current} label="Current Streak" />
+                      <StatCell value={streak.max} label="Longest Streak" />
                     </div>
-                  )}
+                    {(gold > 0 || silver > 0) && (
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 35 }}>
+                        {gold > 0 && <span style={{ fontSize: 13 }}>🥇 {gold}</span>}
+                        {silver > 0 && <span style={{ fontSize: 13 }}>🥈 {silver}</span>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
