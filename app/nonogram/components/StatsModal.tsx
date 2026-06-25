@@ -14,6 +14,8 @@ interface StatsData {
   myTodaySeconds?: { easy: number | null; medium: number | null; hard: number | null };
   admin?: {
     today: { easy: number; medium: number; hard: number; total: number; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null; updatedAt?: string }> };
+    monthlyUniqueUsers: number;
+    newUsersThisMonth: number;
     perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null }>;
   };
 }
@@ -316,6 +318,18 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                     ))}
                   </div>
                 </div>
+
+                {/* Monthly unique players */}
+                {stats.admin.monthlyUniqueUsers != null && (
+                  <div style={{ marginBottom: 4, fontSize: 12, color: '#aaa' }}>
+                    THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{stats.admin.monthlyUniqueUsers}</span> unique {stats.admin.monthlyUniqueUsers === 1 ? 'player' : 'players'}
+                  </div>
+                )}
+                {stats.admin.newUsersThisMonth != null && (
+                  <div style={{ marginBottom: 14, fontSize: 12, color: '#aaa' }}>
+                    NEW THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{stats.admin.newUsersThisMonth}</span>
+                  </div>
+                )}
 
                 {/* Users who solved today */}
                 {stats.admin.today.users && stats.admin.today.users.length > 0 && (() => {

@@ -93,7 +93,8 @@ export async function GET(req: NextRequest) {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const [easyToday, mediumToday, hardToday, solversToday] = await Promise.all([
+    const monthStart = new Date(todayStr.slice(0, 7) + '-01');
+    const [easyToday, mediumToday, hardToday, solversToday, monthlyUniqueSolvers] = await Promise.all([
       prisma.picrossProgress.count({ where: { date: { gte: start, lt: end }, easyComplete: true } }),
       prisma.picrossProgress.count({ where: { date: { gte: start, lt: end }, mediumComplete: true } }),
       prisma.picrossProgress.count({ where: { date: { gte: start, lt: end }, hardComplete: true } }),
@@ -111,7 +112,30 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { updatedAt: 'asc' },
       }),
+      prisma.picrossProgress.findMany({
+        where: {
+          date: { gte: monthStart },
+          OR: [{ easyComplete: true }, { mediumComplete: true }, { hardComplete: true }],
+        },
+        select: { userId: true },
+        distinct: ['userId'],
+      }),
     ]);
+
+    const monthlyUserIds = monthlyUniqueSolvers.map(s => s.userId);
+    const priorSolvers = monthlyUserIds.length > 0
+      ? await prisma.picrossProgress.findMany({
+          where: {
+            userId: { in: monthlyUserIds },
+            date: { lt: monthStart },
+            OR: [{ easyComplete: true }, { mediumComplete: true }, { hardComplete: true }],
+          },
+          select: { userId: true },
+          distinct: ['userId'],
+        })
+      : [];
+    const priorSolverIds = new Set(priorSolvers.map(s => s.userId));
+    const newUsersThisMonth = monthlyUserIds.filter(id => !priorSolverIds.has(id)).length;
 
     const usersToday = solversToday.map(s => ({
       email: s.user.email,
@@ -151,6 +175,8 @@ export async function GET(req: NextRequest) {
       ...baseWithAvg,
       admin: {
         today: { easy: easyToday, medium: mediumToday, hard: hardToday, total: easyToday + mediumToday + hardToday, users: usersToday },
+        monthlyUniqueUsers: monthlyUniqueSolvers.length,
+        newUsersThisMonth,
         perDate,
       }
     }), { status: 200, headers: { "Content-Type": "application/json" } });
