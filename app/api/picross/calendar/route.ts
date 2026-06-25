@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
 
-  const [puzzleRows, progressRows] = await Promise.all([
+  const [puzzleRows, progressRows, medalRows] = await Promise.all([
     prisma.picrossPuzzle.findMany({
       where: { date: { gte: monthStart, lt: monthEnd } },
       select: { date: true, easy: true, medium: true, hard: true },
@@ -51,6 +51,10 @@ export async function GET(req: NextRequest) {
         hard: true, hardComplete: true,
       },
     }),
+    prisma.picrossMedal.findMany({
+      where: { userId: session.user.id, date: { gte: monthStart, lt: monthEnd } },
+      select: { date: true, difficulty: true, type: true },
+    }),
   ]);
 
   const puzzleDates = new Set(puzzleRows.map((p) => p.date.toISOString().slice(0, 10)));
@@ -61,12 +65,22 @@ export async function GET(req: NextRequest) {
     progressRows.map((p) => [p.date.toISOString().slice(0, 10), p])
   );
 
+  // Build medals map: date → { easy, medium, hard }
+  const medalsByDate = new Map<string, { easy: string | null; medium: string | null; hard: string | null }>();
+  for (const m of medalRows) {
+    const d = m.date.toISOString().slice(0, 10);
+    if (!medalsByDate.has(d)) medalsByDate.set(d, { easy: null, medium: null, hard: null });
+    const entry = medalsByDate.get(d)!;
+    entry[m.difficulty as "easy" | "medium" | "hard"] = m.type;
+  }
+
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const days = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const puz = puzzleGridByDate.get(dateStr);
     const prog = progressByDate.get(dateStr);
+    const dayMedals = medalsByDate.get(dateStr) ?? { easy: null, medium: null, hard: null };
     days.push({
       date: dateStr,
       puzzleExists: puzzleDates.has(dateStr),
@@ -79,6 +93,7 @@ export async function GET(req: NextRequest) {
       easyProgress:   prog?.easy   ?? null,
       mediumProgress: prog?.medium ?? null,
       hardProgress:   prog?.hard   ?? null,
+      medals: dayMedals,
     });
   }
 

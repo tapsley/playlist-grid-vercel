@@ -15,7 +15,7 @@ import { getMSTDateString } from './time';
 import { ADMIN_EMAIL } from '../../lib/constants';
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
-import StatsModal, { prefetchStats } from './components/StatsModal';
+import StatsModal, { prefetchStats, getYesterdayMedals } from './components/StatsModal';
 import PastPuzzlesModal from './components/PastPuzzlesModal';
 import { createEmptyGrid } from './runUtils';
 
@@ -211,6 +211,9 @@ function PicrossSplashInner() {
       // ignore
     }
   };
+  const medalBadgeRef = useRef<HTMLSpanElement | null>(null);
+  const [newMedalType, setNewMedalType] = useState<'gold' | 'silver' | 'preview' | null>(null);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [tutorialTab, setTutorialTab] = useState<'how' | 'tips'>('how');
@@ -222,13 +225,32 @@ function PicrossSplashInner() {
   // Also listen for pageshow (fires on bfcache restore when using phone back)
   // so stats are refreshed even when the page isn't remounted.
   useEffect(() => {
-    if (isAuthenticated) prefetchStats();
+    if (!isAuthenticated) return;
+    const todayStr = getMSTDateString();
+    const notifKey = `picross:medalNotif:${todayStr}`;
+    prefetchStats().then(() => {
+      if (localStorage.getItem(notifKey)) return;
+      const medals = getYesterdayMedals();
+      if (medals.length === 0) return;
+      localStorage.setItem(notifKey, '1');
+      const hasGold = medals.some(m => m.type === 'gold');
+      setNewMedalType(hasGold ? 'gold' : 'silver');
+    });
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted && isAuthenticated) prefetchStats();
+      if (e.persisted) prefetchStats();
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!newMedalType || !medalBadgeRef.current) return;
+    gsap.fromTo(
+      medalBadgeRef.current,
+      { scale: 0, opacity: 0, rotate: -20 },
+      { scale: 1, opacity: 1, rotate: 0, duration: 0.55, ease: 'back.out(2.5)', delay: 0.6 }
+    );
+  }, [newMedalType]);
 
   const [playStartAnimation, setPlayStartAnimation] = useState<boolean>(() => {
     try { return !!getPicrossSettings().playStartAnimation; } catch { return true; }
@@ -449,29 +471,45 @@ function PicrossSplashInner() {
             </button>
           )}
           {isTyler && (
-            <button
-              aria-label="Past Puzzles"
-              title="Past Puzzles"
-              onClick={() => setShowPastPuzzles(true)}
-              style={{
-                background: '#23272f', color: '#fff', border: 'none',
-                width: 40, height: 40, borderRadius: 8,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-                <rect x="1" y="4" width="18" height="14" rx="2" fill="none" stroke="white" strokeWidth="1.8"/>
-                <line x1="5" y1="2" x2="5" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="15" y1="2" x2="15" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="1" y1="8.5" x2="19" y2="8.5" stroke="white" strokeWidth="1.5"/>
-                <rect x="4" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
-                <rect x="8.75" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
-                <rect x="13.5" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
-                <rect x="4" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
-                <rect x="8.75" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
-              </svg>
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                aria-label="Past Puzzles"
+                title="Past Puzzles"
+                onClick={() => { setShowPastPuzzles(true); setNewMedalType(null); }}
+                style={{
+                  background: '#23272f', color: '#fff', border: 'none',
+                  width: 40, height: 40, borderRadius: 8,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+                  <rect x="1" y="4" width="18" height="14" rx="2" fill="none" stroke="white" strokeWidth="1.8"/>
+                  <line x1="5" y1="2" x2="5" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="15" y1="2" x2="15" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="1" y1="8.5" x2="19" y2="8.5" stroke="white" strokeWidth="1.5"/>
+                  <rect x="4" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                  <rect x="8.75" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                  <rect x="13.5" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                  <rect x="4" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
+                  <rect x="8.75" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
+                </svg>
+              </button>
+              {newMedalType && (
+                <span
+                  ref={medalBadgeRef}
+                  style={{
+                    position: 'absolute', top: -10, right: -10,
+                    fontSize: 20, lineHeight: 1,
+                    opacity: 0, display: 'block',
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {newMedalType === 'gold' ? '🥇' : newMedalType === 'silver' ? '🥈' : '🏆'}
+                </span>
+              )}
+            </div>
           )}
           {isAuthenticated && (
             <button
@@ -547,8 +585,14 @@ function PicrossSplashInner() {
               {/* showTimer setting hidden for now */}
             </div>
             {isTyler && (
-              <div style={{ marginBottom: 12 }}>
-                <button onClick={resetStartShown} style={{ cursor: "pointer" ,padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}>Reset START shown for today</button>
+              <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={resetStartShown} style={{ cursor: "pointer", padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}>Reset START shown for today</button>
+                <button
+                  onClick={() => { setNewMedalType('preview'); setShowSettings(false); }}
+                  style={{ cursor: 'pointer', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}
+                >
+                  Preview medal badge 🏆
+                </button>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -602,6 +646,7 @@ function PicrossSplashInner() {
           onSelectPuzzle={handleSelectPuzzle}
           initialYear={calendarYear}
           initialMonth={calendarMonth}
+          isAdmin={isTyler}
         />
       )}
       <StatsModal open={showStats} onClose={() => setShowStats(false)} isAdmin={isTyler} />

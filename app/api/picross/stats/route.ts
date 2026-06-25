@@ -20,11 +20,19 @@ export async function GET(req: NextRequest) {
     return (lastStr === todayStr || lastStr === yesterStr) ? currentStreak : 0;
   }
 
-  const [statsRecord, easy, medium, hard] = await Promise.all([
+  const yesterdayStart = new Date(yesterStr);
+  const yesterdayEnd = new Date(yesterStr);
+  yesterdayEnd.setDate(yesterdayEnd.getDate() + 1);
+
+  const [statsRecord, easy, medium, hard, yesterdayMedals] = await Promise.all([
     prisma.picrossStats.findUnique({ where: { userId: session.user.id } }),
     prisma.picrossProgress.count({ where: { userId: session.user.id, easyComplete: true } }),
     prisma.picrossProgress.count({ where: { userId: session.user.id, mediumComplete: true } }),
     prisma.picrossProgress.count({ where: { userId: session.user.id, hardComplete: true } }),
+    prisma.picrossMedal.findMany({
+      where: { userId: session.user.id, date: { gte: yesterdayStart, lt: yesterdayEnd } },
+      select: { difficulty: true, type: true },
+    }),
   ]);
 
   const fastest = {
@@ -48,7 +56,16 @@ export async function GET(req: NextRequest) {
     },
   };
 
-  const base = { easy, medium, hard, fastest, streaks };
+  const medals = {
+    goldEasy:     statsRecord?.goldMedalsEasy     ?? 0,
+    goldMedium:   statsRecord?.goldMedalsMedium   ?? 0,
+    goldHard:     statsRecord?.goldMedalsHard     ?? 0,
+    silverEasy:   statsRecord?.silverMedalsEasy   ?? 0,
+    silverMedium: statsRecord?.silverMedalsMedium ?? 0,
+    silverHard:   statsRecord?.silverMedalsHard   ?? 0,
+  };
+
+  const base = { easy, medium, hard, fastest, streaks, medals, yesterdayMedals };
 
   // Today's average solve times — included for all users (used for completion message)
   const todayStart = new Date(todayStr);

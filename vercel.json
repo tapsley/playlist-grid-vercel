@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/picross/award-medals",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import SolveHistogram, { fmtTime } from "./SolveHistogram";
 import DifficultyIcon from "./DifficultyIcon";
 import type { CellState } from "../PicrossPrefetchContext";
 
@@ -18,6 +19,26 @@ interface DayInfo {
   easyProgress?: CellState[][] | null;
   mediumProgress?: CellState[][] | null;
   hardProgress?: CellState[][] | null;
+  medals?: { easy: string | null; medium: string | null; hard: string | null };
+}
+
+interface DayStatsDiff {
+  count: number;
+  avg: number | null;
+  fastest: number | null;
+  myTime: number | null;
+  times: number[];
+  medals: {
+    gold: { seconds: number; emails: string[] } | null;
+    silver: { seconds: number; count: number } | null;
+  };
+}
+
+interface DayStatsData {
+  date: string;
+  easy: DayStatsDiff;
+  medium: DayStatsDiff;
+  hard: DayStatsDiff;
 }
 
 interface Props {
@@ -26,6 +47,7 @@ interface Props {
   onSelectPuzzle: (date: string, difficulty: Difficulty) => void;
   initialYear?: number;
   initialMonth?: number;
+  isAdmin?: boolean;
 }
 
 const COURIER_FONT = "var(--font-courier-prime), 'Courier New', monospace";
@@ -41,6 +63,7 @@ export default function PastPuzzlesModal({
   onSelectPuzzle,
   initialYear,
   initialMonth,
+  isAdmin,
 }: Props) {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -50,6 +73,8 @@ export default function PastPuzzlesModal({
   const [activeDiff, setActiveDiff] = useState<Difficulty>("easy");
   const [days, setDays] = useState<DayInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dayStats, setDayStats] = useState<DayStatsData | null>(null);
+  const [dayStatsLoading, setDayStatsLoading] = useState(false);
 
   const loadMonth = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -152,7 +177,7 @@ export default function PastPuzzlesModal({
         {/* Difficulty tabs */}
         <div style={{ display: "flex", gap: 6, marginBottom: 12, flexShrink: 0 }}>
           {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
-            <button key={d} onClick={() => setActiveDiff(d)} style={diffBtnStyle(d)}>
+            <button key={d} onClick={() => { setActiveDiff(d); setDayStats(null); setDayStatsLoading(false); }} style={diffBtnStyle(d)}>
               {d}
             </button>
           ))}
@@ -204,40 +229,124 @@ export default function PastPuzzlesModal({
                 else if (status === "complete") { borderColor = "#7c3aed"; borderWidth = 2; }
                 else if (status === "in-progress") { borderColor = "#d97706"; borderWidth = 2; }
 
+                const medal = day.medals?.[activeDiff] ?? null;
+                const isPast = !isToday && exists;
+
                 return (
-                  <button
+                  <div
                     key={day.date}
-                    disabled={!exists || !grid}
-                    onClick={() => exists && grid && onSelectPuzzle(day.date, activeDiff)}
-                    title={exists ? `${day.date} · ${activeDiff} · ${status}` : undefined}
                     style={{
+                      position: "relative",
                       borderRadius: 6,
                       border: `${borderWidth}px solid ${borderColor}`,
                       background: "#fff",
-                      cursor: exists && grid ? "pointer" : "default",
                       opacity: exists ? 1 : 0.2,
-                      display: "flex", flexDirection: "column",
-                      alignItems: "center",
-                      padding: "3px 3px 2px",
-                      gap: 2,
                     }}
                   >
-                    <span style={{ fontSize: 9, fontWeight: isToday ? 800 : 500, color: isToday ? "#7c3aed" : "#888", lineHeight: 1 }}>
-                      {dayNum}
-                    </span>
-                    {grid ? (
-                      <div style={{ width: "100%" }}>
-                        <DifficultyIcon grid={grid} progress={progress ?? undefined} celebrate={celebrate} />
+                    {/* Clickable puzzle area */}
+                    <div
+                      role="button"
+                      tabIndex={exists && grid ? 0 : -1}
+                      onClick={() => exists && grid && onSelectPuzzle(day.date, activeDiff)}
+                      title={exists ? `${day.date} · ${activeDiff} · ${status}` : undefined}
+                      style={{
+                        cursor: exists && grid ? "pointer" : "default",
+                        display: "flex", flexDirection: "column",
+                        alignItems: "center",
+                        padding: "4px 4px 2px",
+                        gap: 2,
+                      }}
+                    >
+                      {/* Top row: date number + medal + stats icon */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", minHeight: 14 }}>
+                        <span style={{ fontSize: 11, fontWeight: isToday ? 800 : 500, color: isToday ? "#7c3aed" : "#888", lineHeight: 1 }}>
+                          {dayNum}
+                        </span>
+                        <span style={{ fontSize: 11, lineHeight: 1, opacity: medal ? 1 : 0.25, visibility: (medal || (isAdmin && status === "complete")) ? "visible" : "hidden" }}>
+                          {medal === "silver" ? "🥈" : "🥇"}
+                        </span>
+                        {isPast && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setDayStats(null);
+                              setDayStatsLoading(true);
+                              try {
+                                const res = await fetch(`/api/picross/day-stats?date=${day.date}`);
+                                if (res.ok) setDayStats(await res.json());
+                              } catch {}
+                              finally { setDayStatsLoading(false); }
+                            }}
+                            title={`Stats for ${day.date}`}
+                            style={{
+                              background: "none", border: "none", padding: 0,
+                              cursor: "pointer", display: "flex", alignItems: "center",
+                              opacity: 0.5, lineHeight: 1,
+                            }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 20 20" fill="#7c3aed">
+                              <rect x="1" y="11" width="4" height="8" rx="1"/>
+                              <rect x="7.5" y="6" width="4" height="13" rx="1"/>
+                              <rect x="14" y="1" width="4" height="18" rx="1"/>
+                            </svg>
+                          </button>
+                        )}
                       </div>
-                    ) : (
-                      <div style={{ width: "100%", aspectRatio: "1", background: "#f3f4f6", borderRadius: 4 }} />
-                    )}
-                  </button>
+
+                      {/* Puzzle icon */}
+                      {grid ? (
+                        <div style={{ width: "100%" }}>
+                          <DifficultyIcon grid={grid} progress={progress ?? undefined} celebrate={celebrate} />
+                        </div>
+                      ) : (
+                        <div style={{ width: "100%", aspectRatio: "1", background: "#f3f4f6", borderRadius: 4 }} />
+                      )}
+                    </div>
+
+                  </div>
                 );
               })}
             </div>
           )}
         </div>
+
+        {/* Day stats panel */}
+        {(dayStats || dayStatsLoading) && (
+          <div style={{ marginTop: 10, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #e5d8ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "#f9f5ff" }}>
+              <span style={{ fontFamily: COURIER_FONT, fontWeight: 700, fontSize: 11, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {dayStats ? (() => { const [y,m,d] = dayStats.date.split('-').map(Number); return `${MONTH_NAMES[m-1]} ${d}, ${y} — ${activeDiff.toUpperCase()}`; })() : ""}
+              </span>
+              <button onClick={() => { setDayStats(null); setDayStatsLoading(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#999", fontSize: 14, lineHeight: 1, padding: 0 }}>✕</button>
+            </div>
+            <div style={{ background: "#2c2c2c", padding: "10px 12px", minHeight: 170, display: "flex", flexDirection: "column" }}>
+              <div style={{ flex: 1 }}>
+                {dayStatsLoading ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 150 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: "50%", border: "3px solid rgba(204,163,255,0.2)", borderTopColor: "#cca3ff", animation: "pp-spin 0.8s linear infinite" }} />
+                  </div>
+                ) : dayStats && (() => {
+                  const s = dayStats[activeDiff];
+                  return (
+                    <>
+                      {isAdmin && (
+                        <div style={{ fontSize: 11, color: "#cca3ff", marginBottom: 8, fontFamily: COURIER_FONT }}>
+                          {s.count} solver{s.count !== 1 ? "s" : ""}
+                        </div>
+                      )}
+                      <SolveHistogram key={`${dayStats.date}-${activeDiff}`} times={s.times} myTime={s.myTime} avg={s.avg} hideBottomRow />
+                    </>
+                  );
+                })()}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, fontSize: 11, fontFamily: COURIER_FONT }}>
+                <span style={{ color: "#cca3ff" }}>🥇 {dayStats ? fmtTime(dayStats[activeDiff].fastest) : "—"}</span>
+                <span style={{ color: "#f9c74f" }}>{dayStats?.[activeDiff]?.myTime != null ? `▼ Your time: ${fmtTime(dayStats[activeDiff].myTime)}` : ""}</span>
+                <span style={{ color: "#aaa" }}>Average:  {dayStats ? fmtTime(dayStats[activeDiff].avg) : "—"}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Close */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, flexShrink: 0 }}>
