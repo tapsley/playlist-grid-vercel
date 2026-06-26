@@ -104,6 +104,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
   const [leaderboardDiffPage, setLeaderboardDiffPage] = useState(0);
   const [adminData, setAdminData] = useState<AdminData | null>(() => _adminCache);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState(false);
   const USERS_PER_PAGE = 10;
 
   useEffect(() => {
@@ -112,6 +113,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
     setUsersPage(0);
     setActiveTab('stats');
     if (_cache) setStats(_cache.data);
+    else setLoading(true);
     (async () => {
       try {
         const res = await fetch('/api/picross/stats');
@@ -149,6 +151,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
     if (!open || activeTab !== 'admin') return;
     if (_adminCache) { setAdminData(_adminCache); return; }
     setAdminLoading(true);
+    setAdminError(false);
     (async () => {
       try {
         const res = await fetch('/api/picross/admin-stats');
@@ -156,7 +159,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
         const data: AdminData = await res.json();
         _adminCache = data;
         setAdminData(data);
-      } catch { /* leave null */ } finally {
+      } catch { setAdminError(true); } finally {
         setAdminLoading(false);
       }
     })();
@@ -243,7 +246,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                       <div key={i} onClick={() => setLeaderboardDiffPage(i)} style={{ width: 6, height: 6, borderRadius: '50%', background: i === page ? '#cca3ff' : '#555', cursor: 'pointer' }} />
                     ))}
                   </div>
-                  <div style={{ fontSize: 11, color: '#ffffff', letterSpacing: '0.12em', marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.12em', marginBottom: 10 }}>
                     FASTEST SOLVERS IN {leaderboard.month.toUpperCase()}
                   </div>
                   {entries.length === 0 && (
@@ -330,7 +333,8 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
 
         {activeTab === 'admin' && isAdmin && (() => {
           if (adminLoading) return <div style={{ color: '#888', fontSize: 13 }}>Loading...</div>;
-          if (!adminData) return <div style={{ color: '#f88', fontSize: 13 }}>Could not load admin stats.</div>;
+          if (adminError) return <div style={{ color: '#f88', fontSize: 13 }}>Could not load admin stats.</div>;
+          if (!adminData) return null;
           const admin = adminData;
           const users = [...admin.today.users].sort((a, b) => {
             if (!a.updatedAt || !b.updatedAt) return 0;
@@ -431,7 +435,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                       </tr>
                     </thead>
                     <tbody>
-                      {admin.perDate.map((row: AdminData['perDate'][number]) => (
+                      {admin.perDate.map((row) => (
                         <tr key={row.date} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                           <td style={{ paddingTop: 5, paddingBottom: 5, color: '#fff' }}>{row.date.slice(5)}</td>
                           <td style={{ textAlign: 'center', color: '#fff' }}>{row.easy}</td>
