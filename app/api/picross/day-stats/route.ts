@@ -7,9 +7,10 @@ import { ADMIN_EMAIL } from "@/lib/constants";
 // GET /api/picross/day-stats?date=YYYY-MM-DD
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!session?.user?.email) {
     return new Response("Unauthorized", { status: 401 });
   }
+  const isAdmin = session.user.email.toLowerCase() === ADMIN_EMAIL;
 
   const { searchParams } = new URL(req.url);
   const dateStr = searchParams.get("date");
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
     const gold = medals.filter((m) => m.difficulty === diff && m.type === "gold");
     const silver = medals.filter((m) => m.difficulty === diff && m.type === "silver");
     return {
-      gold: gold.length > 0 ? { seconds: gold[0].seconds, emails: gold.map((m) => m.user.email) } : null,
+      gold: gold.length > 0 ? { seconds: gold[0].seconds, emails: isAdmin ? gold.map((m) => m.user.email) : [] } : null,
       silver: silver.length > 0 ? { seconds: silver[0].seconds, count: silver.length } : null,
     };
   };

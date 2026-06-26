@@ -470,7 +470,7 @@ function PicrossSplashInner() {
               ⚙
             </button>
           )}
-          {isTyler && (
+          {isAuthenticated && (
             <div style={{ position: 'relative' }}>
               <button
                 aria-label="Past Puzzles"
@@ -639,7 +639,7 @@ function PicrossSplashInner() {
           </div>
         </div>
       </div>
-      {isTyler && (
+      {isAuthenticated && (
         <PastPuzzlesModal
           open={showPastPuzzles}
           onClose={() => setShowPastPuzzles(false)}

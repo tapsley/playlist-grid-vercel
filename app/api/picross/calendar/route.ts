@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_EMAIL } from "@/lib/constants";
 
 type Status = "complete" | "in-progress" | "not-started";
 
@@ -23,9 +22,6 @@ function getDiffStatus(complete: boolean, grid: unknown): Status {
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return new Response("Unauthorized", { status: 401 });
-
-  const email = (session.user?.email ?? "").toLowerCase();
-  if (email !== ADMIN_EMAIL) return new Response("Forbidden", { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const year = parseInt(searchParams.get("year") ?? "", 10);

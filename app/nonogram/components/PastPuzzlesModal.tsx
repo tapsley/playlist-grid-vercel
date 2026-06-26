@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import SolveHistogram, { fmtTime } from "./SolveHistogram";
 import DifficultyIcon from "./DifficultyIcon";
 import type { CellState } from "../PicrossPrefetchContext";
@@ -75,17 +75,24 @@ export default function PastPuzzlesModal({
   const [loading, setLoading] = useState(false);
   const [dayStats, setDayStats] = useState<DayStatsData | null>(null);
   const [dayStatsLoading, setDayStatsLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadMonth = useCallback(async (y: number, m: number) => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const { signal } = abortRef.current;
     setLoading(true);
     try {
-      const res = await fetch(`/api/picross/calendar?year=${y}&month=${m}`);
+      const res = await fetch(`/api/picross/calendar?year=${y}&month=${m}`, { signal });
       if (res.ok) {
         const data = await res.json();
         setDays(data.days ?? []);
       }
-    } catch {}
-    finally { setLoading(false); }
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return;
+    } finally {
+      if (!signal.aborted) setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -100,18 +107,21 @@ export default function PastPuzzlesModal({
 
   if (!open) return null;
 
+  const isPrevDisabled = year === 2026 && month <= 4;
+  const isNextDisabled =
+    year > today.getFullYear() ||
+    (year === today.getFullYear() && month >= today.getMonth() + 1);
+
   const prevMonth = () => {
+    if (isPrevDisabled) return;
     if (month === 1) { setYear((y) => y - 1); setMonth(12); }
     else setMonth((m) => m - 1);
   };
   const nextMonth = () => {
+    if (isNextDisabled) return;
     if (month === 12) { setYear((y) => y + 1); setMonth(1); }
     else setMonth((m) => m + 1);
   };
-
-  const isNextDisabled =
-    year > today.getFullYear() ||
-    (year === today.getFullYear() && month >= today.getMonth() + 1);
 
   // Leading empty slots + filled day slots
   const firstDayOfWeek = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
@@ -158,7 +168,8 @@ export default function PastPuzzlesModal({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexShrink: 0 }}>
           <button
             onClick={prevMonth}
-            style={{ background: "transparent", border: "none", fontSize: 28, fontWeight: 800, cursor: "pointer", color: "#7c3aed", lineHeight: 1, padding: "0 8px" }}
+            disabled={isPrevDisabled}
+            style={{ background: "transparent", border: "none", fontSize: 28, fontWeight: 800, cursor: isPrevDisabled ? "default" : "pointer", color: "#7c3aed", lineHeight: 1, padding: "0 8px", opacity: isPrevDisabled ? 0.3 : 1 }}
           >
             ‹
           </button>
@@ -209,6 +220,7 @@ export default function PastPuzzlesModal({
                 if (!day) return <div key={`e-${i}`} />;
 
                 const isToday = day.date === todayStr;
+                const isFuture = day.date > todayStr;
                 const dayNum = parseInt(day.date.slice(8), 10);
                 const exists = day.puzzleExists;
                 const status: Status = day[activeDiff];
@@ -226,11 +238,11 @@ export default function PastPuzzlesModal({
                 let borderColor = "#e5e7eb";
                 let borderWidth = 1;
                 if (isToday) { borderColor = "#7c3aed"; borderWidth = 2; }
-                else if (status === "complete") { borderColor = "#7c3aed"; borderWidth = 2; }
+                else if (status === "complete") { borderColor = "#d4af37"; borderWidth = 2; }
                 else if (status === "in-progress") { borderColor = "#d97706"; borderWidth = 2; }
 
                 const medal = day.medals?.[activeDiff] ?? null;
-                const isPast = !isToday && exists;
+                const isPast = day.date < todayStr && exists;
 
                 return (
                   <div
@@ -246,15 +258,16 @@ export default function PastPuzzlesModal({
                     {/* Clickable puzzle area */}
                     <div
                       role="button"
-                      tabIndex={exists && grid ? 0 : -1}
-                      onClick={() => exists && grid && onSelectPuzzle(day.date, activeDiff)}
+                      tabIndex={exists && grid && day.date <= todayStr ? 0 : -1}
+                      onClick={() => exists && grid && day.date <= todayStr && onSelectPuzzle(day.date, activeDiff)}
                       title={exists ? `${day.date} · ${activeDiff} · ${status}` : undefined}
                       style={{
-                        cursor: exists && grid ? "pointer" : "default",
+                        cursor: exists && grid && day.date <= todayStr ? "pointer" : "default",
                         display: "flex", flexDirection: "column",
                         alignItems: "center",
                         padding: "4px 4px 2px",
                         gap: 2,
+                        opacity: isFuture ? 0.4 : 1,
                       }}
                     >
                       {/* Top row: date number + medal + stats icon */}

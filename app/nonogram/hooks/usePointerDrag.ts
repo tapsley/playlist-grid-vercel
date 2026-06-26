@@ -42,7 +42,8 @@ export function usePointerDrag({
     if (isCelebratingRef.current) return;
     if (cleared) return;
     setPrefetch(prev => {
-      const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
+      const rawCur = prev.progress?.[difficulty];
+      const cur: CellState[][] = (Array.isArray(rawCur) && rawCur.length > 0) ? rawCur : createEmptyGrid(size, CellState.EMPTY);
       const next: CellState[][] = cur.map((row: CellState[]) =>
         row.map(v => clampCellState(v))
       );
