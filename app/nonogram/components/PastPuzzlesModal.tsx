@@ -77,6 +77,12 @@ export default function PastPuzzlesModal({
   const [dayStatsLoading, setDayStatsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  const handleClose = () => {
+    setDayStats(null);
+    setDayStatsLoading(false);
+    onClose();
+  };
+
   const loadMonth = useCallback(async (y: number, m: number) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -143,7 +149,7 @@ export default function PastPuzzlesModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleClose}
       style={{
         position: "fixed", inset: 0, display: "flex",
         alignItems: "center", justifyContent: "center",
@@ -364,7 +370,7 @@ export default function PastPuzzlesModal({
         {/* Close */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, flexShrink: 0 }}>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             style={{ fontFamily: COURIER_FONT, fontWeight: 700, fontSize: 14, padding: "8px 20px", borderRadius: 8, border: "1px solid #ccc", background: "#fff", cursor: "pointer", color: "#333" }}
           >
             Close

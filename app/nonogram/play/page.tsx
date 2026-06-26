@@ -138,6 +138,7 @@ function PicrossPlayInner() {
   const [startAnimationDone, setStartAnimationDone] = useState<boolean>(() => !detectFirstStart(dateStr, difficulty, effectiveProgress));
   // For past puzzles: show a loading overlay until we've confirmed the correct puzzle is in context.
   const [pastPuzzleLoaded, setPastPuzzleLoaded] = useState(!isPastPuzzle);
+  const [replayMode, setReplayMode] = useState(false);
   const userIsLoggedIn = !!session?.user?.email;
 
   const [inputMode, setInputMode] = useState<'fill' | 'maybe' | 'x'>('fill');
@@ -183,8 +184,9 @@ function PicrossPlayInner() {
     deactivateEditorMode,
   } = useEditorMode({ isEditorAllowed, size, difficulty, prefetchPuzzle: effectivePuzzle, setPrefetch: effectiveSetPrefetch });
 
-  const { elapsedSec, saveSecondsNow } = useTimer({
+  const { elapsedSec, setElapsedSec, saveSecondsNow } = useTimer({
     dateStr, difficulty, userIsLoggedIn, startAnimationDone, cleared, editorMode, grid,
+    disableSave: isPastPuzzle && replayMode,
   });
 
   const {
@@ -402,6 +404,16 @@ function PicrossPlayInner() {
     }).catch(() => { /* clipboard unavailable */ });
   };
 
+  const handleReplay = () => {
+    setReplayMode(true);
+    effectiveSetPrefetch(prev => ({
+      ...prev,
+      progress: { ...prev.progress, [difficulty]: createEmptyGrid(size, CellState.EMPTY) },
+    }));
+    setElapsedSec(0);
+    clearCelebration();
+  };
+
   const handleClearBoard = () => {
     effectiveSetPrefetch(prev => ({
       ...prev,
@@ -451,6 +463,7 @@ function PicrossPlayInner() {
       return;
     }
     if (!clearedWasFalseRef.current) return;
+    if (isPastPuzzle && replayMode) return;
     (async () => {
       try {
         if (userIsLoggedIn) {
@@ -486,6 +499,7 @@ function PicrossPlayInner() {
   const debounceTimeout = useRef<number | null>(null);
   useEffect(() => {
     if (editorMode) return;
+    if (isPastPuzzle && replayMode) return;
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     debounceTimeout.current = window.setTimeout(() => {
       try {
@@ -504,7 +518,7 @@ function PicrossPlayInner() {
       } catch (err) { console.debug('localStorage write error', err); }
     }, 400) as unknown as number;
     return () => { if (debounceTimeout.current) clearTimeout(debounceTimeout.current); };
-  }, [grid, cleared, difficulty, editorMode, dateStr]);
+  }, [grid, cleared, difficulty, editorMode, dateStr, replayMode]);
 
   // For past puzzles: always fetch the correct puzzle + progress from the server.
   // Store result in local pastData (NOT the shared context) so splash-page icons
@@ -634,12 +648,21 @@ function PicrossPlayInner() {
               ))}
             </div>
           )}
-          <button
-            onClick={handleShare}
-            style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
-          >
-            {copied ? '✓ Copied!' : '📋 Share'}
-          </button>
+          {isPastPuzzle ? (
+            <button
+              onClick={handleReplay}
+              style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: '#fff', color: '#5a2b8a', cursor: 'pointer', letterSpacing: 0.5 }}
+            >
+              ↩ Replay
+            </button>
+          ) : (
+            <button
+              onClick={handleShare}
+              style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
+            >
+              {copied ? '✓ Copied!' : '📋 Share'}
+            </button>
+          )}
         </div>
       ) : (
         <Controls

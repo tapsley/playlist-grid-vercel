@@ -2,7 +2,27 @@
 import React, { useEffect, useState } from 'react';
 import SolveHistogram, { fmtTime } from './SolveHistogram';
 
+interface LeaderboardEntry {
+  rank: number;
+  displayName: string;
+  gold: number;
+  isMe: boolean;
+}
+interface LeaderboardData {
+  easy: LeaderboardEntry[];
+  medium: LeaderboardEntry[];
+  hard: LeaderboardEntry[];
+  month: string;
+}
+
 interface Streak { current: number; max: number; }
+
+interface AdminData {
+  today: { easy: number; medium: number; hard: number; total: number; pastSolves: { easy: number; medium: number; hard: number }; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null; updatedAt?: string }> };
+  monthlyUniqueUsers: number;
+  newUsersThisMonth: number;
+  perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null }>;
+}
 
 interface StatsData {
   easy: number;
@@ -18,12 +38,6 @@ interface StatsData {
   todayDistribution?: { easy: number[]; medium: number[]; hard: number[] };
   todayAvg?: { easy: { avg: number | null; count: number }; medium: { avg: number | null; count: number }; hard: { avg: number | null; count: number } };
   myTodaySeconds?: { easy: number | null; medium: number | null; hard: number | null };
-  admin?: {
-    today: { easy: number; medium: number; hard: number; total: number; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null; updatedAt?: string }> };
-    monthlyUniqueUsers: number;
-    newUsersThisMonth: number;
-    perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null }>;
-  };
 }
 
 interface Props {
@@ -53,14 +67,24 @@ function StatCell({ value, label }: { value: number | null | undefined; label: s
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Module-level cache — populated by prefetchStats() on splash mount
+// Module-level caches
 let _cache: { data: StatsData } | null = null;
+let _leaderboardCache: LeaderboardData | null = null;
+let _adminCache: AdminData | null = null;
 
 /** Call this on splash page mount to warm the cache before the popup opens. */
 export async function prefetchStats(): Promise<void> {
   try {
     const res = await fetch('/api/picross/stats');
     if (res.ok) _cache = { data: await res.json() };
+  } catch { /* ignore */ }
+}
+
+/** Call this on splash page mount to warm the leaderboard cache in the background. */
+export async function prefetchLeaderboard(): Promise<void> {
+  try {
+    const res = await fetch('/api/picross/leaderboard');
+    if (res.ok) _leaderboardCache = await res.json();
   } catch { /* ignore */ }
 }
 
@@ -74,15 +98,19 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usersPage, setUsersPage] = useState(0);
-  const [histPage, setHistPage] = useState(0);
+  const [activeTab, setActiveTab] = useState<'stats' | 'leaderboard' | 'admin'>('stats');
+  const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(() => _leaderboardCache);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardDiffPage, setLeaderboardDiffPage] = useState(0);
+  const [adminData, setAdminData] = useState<AdminData | null>(() => _adminCache);
+  const [adminLoading, setAdminLoading] = useState(false);
   const USERS_PER_PAGE = 10;
 
   useEffect(() => {
     if (!open) return;
     setError(null);
     setUsersPage(0);
-    setHistPage(0);
-    // If already cached from prefetch, show immediately and refresh in background
+    setActiveTab('stats');
     if (_cache) setStats(_cache.data);
     (async () => {
       try {
@@ -100,6 +128,40 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
     })();
   }, [open]);
 
+  useEffect(() => {
+    if (!open || activeTab !== 'leaderboard') return;
+    if (_leaderboardCache) { setLeaderboard(_leaderboardCache); return; }
+    setLeaderboardLoading(true);
+    (async () => {
+      try {
+        const res = await fetch('/api/picross/leaderboard');
+        if (!res.ok) throw new Error('failed');
+        const data: LeaderboardData = await res.json();
+        _leaderboardCache = data;
+        setLeaderboard(data);
+      } catch { /* leave null */ } finally {
+        setLeaderboardLoading(false);
+      }
+    })();
+  }, [open, activeTab]);
+
+  useEffect(() => {
+    if (!open || activeTab !== 'admin') return;
+    if (_adminCache) { setAdminData(_adminCache); return; }
+    setAdminLoading(true);
+    (async () => {
+      try {
+        const res = await fetch('/api/picross/admin-stats');
+        if (!res.ok) throw new Error('failed');
+        const data: AdminData = await res.json();
+        _adminCache = data;
+        setAdminData(data);
+      } catch { /* leave null */ } finally {
+        setAdminLoading(false);
+      }
+    })();
+  }, [open, activeTab]);
+
   if (!open) return null;
 
   const visibleDiffs = isAdmin
@@ -113,6 +175,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
     minWidth: 300,
     maxWidth: 420,
     width: '90vw',
+    minHeight: 420,
     border: '1px solid rgba(255,255,255,0.06)',
     fontFamily: 'Courier New',
     color: '#fff',
@@ -126,12 +189,108 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
       style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', zIndex: 2000 }}
     >
       <div onClick={e => e.stopPropagation()} style={modalStyle}>
-        <div style={{ fontWeight: 700, marginBottom: 16, color: '#fff', letterSpacing: '0.2em', fontSize: 16 }}>STATS</div>
+        {/* Tab bar */}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+          {(['stats', 'leaderboard', ...(isAdmin ? ['admin'] : [])] as ('stats' | 'leaderboard' | 'admin')[]).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '4px 16px 10px',
+                fontFamily: 'Courier New', fontWeight: 700, fontSize: 13,
+                letterSpacing: '0.15em', textTransform: 'uppercase',
+                color: activeTab === tab ? '#cca3ff' : '#888',
+                borderBottom: activeTab === tab ? '2px solid #cca3ff' : '2px solid transparent',
+                marginBottom: -1,
+              }}
+            >
+              {tab === 'stats' ? 'My Stats' : tab === 'leaderboard' ? 'Leaderboard' : 'Admin'}
+            </button>
+          ))}
+        </div>
 
-        {loading && <div style={{ color: '#fff', fontSize: 14 }}>Loading...</div>}
-        {error && <div style={{ color: '#f88', fontSize: 14 }}>{error}</div>}
+        {activeTab === 'leaderboard' && (
+          <div>
+            {leaderboardLoading && <div style={{ color: '#888', fontSize: 13 }}>Loading...</div>}
+            {!leaderboardLoading && !leaderboard && <div style={{ color: '#f88', fontSize: 13 }}>Could not load leaderboard.</div>}
+            {leaderboard && (() => {
+              const LDIFFS = ['easy', 'medium', 'hard'] as const;
+              const page = leaderboardDiffPage;
+              const diff = LDIFFS[page];
+              const entries = leaderboard[diff];
+              return (
+                <>
+                  {/* Difficulty pager — matches histogram style */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <button
+                      onClick={() => setLeaderboardDiffPage(p => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                      style={{ background: 'none', border: 'none', color: page === 0 ? '#444' : '#fff', cursor: page === 0 ? 'default' : 'pointer', fontSize: 18, padding: 0, lineHeight: 1 }}
+                    >&#8592;</button>
+                    <span style={{ fontSize: 13, color: '#fff', fontWeight: 600, letterSpacing: '0.08em' }}>
+                      {diff.toUpperCase()}
+                    </span>
+                    <button
+                      onClick={() => setLeaderboardDiffPage(p => Math.min(LDIFFS.length - 1, p + 1))}
+                      disabled={page === LDIFFS.length - 1}
+                      style={{ background: 'none', border: 'none', color: page === LDIFFS.length - 1 ? '#444' : '#fff', cursor: page === LDIFFS.length - 1 ? 'default' : 'pointer', fontSize: 18, padding: 0, lineHeight: 1 }}
+                    >&#8594;</button>
+                  </div>
+                  {/* Dot indicators */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginBottom: 10 }}>
+                    {LDIFFS.map((_, i) => (
+                      <div key={i} onClick={() => setLeaderboardDiffPage(i)} style={{ width: 6, height: 6, borderRadius: '50%', background: i === page ? '#cca3ff' : '#555', cursor: 'pointer' }} />
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#ffffff', letterSpacing: '0.12em', marginBottom: 10 }}>
+                    FASTEST SOLVERS IN {leaderboard.month.toUpperCase()}
+                  </div>
+                  {entries.length === 0 && (
+                    <div style={{ color: '#888', fontSize: 13 }}>No gold medals yet this month.</div>
+                  )}
+                  {entries.map((entry: LeaderboardEntry) => (
+                    <div
+                      key={entry.rank}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '7px 8px', borderRadius: 6, marginBottom: 3,
+                        background: entry.isMe ? 'rgba(204,163,255,0.12)' : 'transparent',
+                      }}
+                    >
+                      <span style={{ width: 24, textAlign: 'right', fontSize: 13, color: '#888', flexShrink: 0 }}>
+                        {`#${entry.rank}`}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 14, fontWeight: entry.isMe ? 700 : 400, color: entry.isMe ? '#cca3ff' : '#fff', letterSpacing: 0.2 }}>
+                        {entry.displayName}
+                      </span>
+                      <span style={{ fontSize: 15, color: '#d4af37', flexShrink: 0 }}>
+                        🥇 {entry.gold}
+                      </span>
+                    </div>
+                  ))}
+                  {/* Solve Distribution — uses same difficulty pager */}
+                  {stats?.todayDistribution && (() => {
+                    const times = stats.todayDistribution[diff as keyof typeof stats.todayDistribution] ?? [];
+                    const myTime = stats.myTodaySeconds?.[diff as keyof typeof stats.myTodaySeconds] ?? null;
+                    const avg = stats.todayAvg?.[diff as keyof typeof stats.todayAvg]?.avg ?? null;
+                    return (
+                      <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em', marginBottom: 10 }}>TODAY&apos;S DISTRIBUTION</div>
+                        <SolveHistogram key={diff} times={times} myTime={myTime} avg={avg} />
+                      </div>
+                    );
+                  })()}
+                </>
+              );
+            })()}
+          </div>
+        )}
 
-        {stats && !loading && (
+        {activeTab === 'stats' && loading && <div style={{ color: '#fff', fontSize: 14 }}>Loading...</div>}
+        {activeTab === 'stats' && error && <div style={{ color: '#f88', fontSize: 14 }}>{error}</div>}
+
+        {activeTab === 'stats' && stats && !loading && (
           <>
             {/* Difficulty rows */}
             {visibleDiffs.map(({ key, label, icon }) => {
@@ -143,7 +302,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
               return (
                 <div
                   key={key}
-                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '27px 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
                 >
                   <img
                     src={icon}
@@ -166,162 +325,131 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                 </div>
               );
             })}
-
-            {/* Solve Distribution */}
-            {stats.todayDistribution && (
-              <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em', marginBottom: 10 }}>TODAY&apos;S DISTRIBUTION</div>
-                {/* Difficulty pager */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <button
-                    onClick={() => setHistPage(p => Math.max(0, p - 1))}
-                    disabled={histPage === 0}
-                    style={{ background: 'none', border: 'none', color: histPage === 0 ? '#444' : '#fff', cursor: histPage === 0 ? 'default' : 'pointer', fontSize: 18, padding: 0, lineHeight: 1 }}
-                  >&#8592;</button>
-                  <span style={{ fontSize: 13, color: '#fff', fontWeight: 600, letterSpacing: '0.08em' }}>
-                    {visibleDiffs[histPage]?.label.toUpperCase()}
-                  </span>
-                  <button
-                    onClick={() => setHistPage(p => Math.min(visibleDiffs.length - 1, p + 1))}
-                    disabled={histPage === visibleDiffs.length - 1}
-                    style={{ background: 'none', border: 'none', color: histPage === visibleDiffs.length - 1 ? '#444' : '#fff', cursor: histPage === visibleDiffs.length - 1 ? 'default' : 'pointer', fontSize: 18, padding: 0, lineHeight: 1 }}
-                  >&#8594;</button>
-                </div>
-                {/* Dot indicators */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginBottom: 8 }}>
-                  {visibleDiffs.map((_, i) => (
-                    <div key={i} onClick={() => setHistPage(i)} style={{ width: 6, height: 6, borderRadius: '50%', background: i === histPage ? '#cca3ff' : '#555', cursor: 'pointer' }} />
-                  ))}
-                </div>
-                {/* Chart — key on diff so it remounts (and re-animates) per page */}
-                {(() => {
-                  const diff = visibleDiffs[histPage]?.key;
-                  if (!diff) return null;
-                  const times = stats.todayDistribution[diff as keyof typeof stats.todayDistribution] ?? [];
-                  const myTime = stats.myTodaySeconds?.[diff as keyof typeof stats.myTodaySeconds] ?? null;
-                  const avg = stats.todayAvg?.[diff as keyof typeof stats.todayAvg]?.avg ?? null;
-                  return <SolveHistogram key={diff} times={times} myTime={myTime} avg={avg} />;
-                })()}
-              </div>
-            )}
-
-            {/* Admin section */}
-            {isAdmin && stats.admin && (
-              <div style={{ marginTop: 20, paddingTop: 14, borderTop: '2px solid rgba(255,255,255,0.15)' }}>
-                <div style={{ fontWeight: 700, letterSpacing: '0.15em', fontSize: 13, color: '#cca3ff', marginBottom: 12 }}>
-                  ADMIN
-                </div>
-
-                {/* Today's counts */}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, color: '#fff', marginBottom: 8, letterSpacing: '0.1em' }}>TODAY</div>
-                  <div style={{ display: 'flex', gap: 20 }}>
-                    {(['easy', 'medium', 'hard'] as const).map(d => (
-                      <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>
-                          {stats.admin!.today[d]}
-                        </span>
-                        <span style={{ fontSize: 11, color: '#fff', marginTop: 3, textTransform: 'capitalize' }}>{d}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Monthly unique players */}
-                {stats.admin.monthlyUniqueUsers != null && (
-                  <div style={{ marginBottom: 4, fontSize: 12, color: '#aaa' }}>
-                    THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{stats.admin.monthlyUniqueUsers}</span> unique {stats.admin.monthlyUniqueUsers === 1 ? 'player' : 'players'}
-                  </div>
-                )}
-                {stats.admin.newUsersThisMonth != null && (
-                  <div style={{ marginBottom: 14, fontSize: 12, color: '#aaa' }}>
-                    NEW THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{stats.admin.newUsersThisMonth}</span>
-                  </div>
-                )}
-
-                {/* Users who solved today */}
-                {stats.admin.today.users && stats.admin.today.users.length > 0 && (() => {
-                  const users = [...stats.admin.today.users].sort((a, b) => {
-                    if (!a.updatedAt || !b.updatedAt) return 0;
-                    return a.updatedAt < b.updatedAt ? -1 : a.updatedAt < b.updatedAt ? 1 : 0;
-                  });
-                  const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
-                  const page = Math.min(usersPage, totalPages - 1);
-                  const visible = users.slice(page * USERS_PER_PAGE, (page + 1) * USERS_PER_PAGE);
-                  const fastestEasy   = users.reduce((m, u) => u.easy   != null && (m == null || u.easy   < m) ? u.easy   : m, null as number | null);
-                  const fastestMedium = users.reduce((m, u) => u.medium != null && (m == null || u.medium < m) ? u.medium : m, null as number | null);
-                  const fastestHard   = users.reduce((m, u) => u.hard   != null && (m == null || u.hard   < m) ? u.hard   : m, null as number | null);
-                  const fastestByDiff = [fastestEasy, fastestMedium, fastestHard];
-                  return (
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em' }}>SOLVED TODAY ({users.length})</div>
-                        {totalPages > 1 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#cca3ff' }}>
-                            <button onClick={() => setUsersPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ background: 'none', border: 'none', color: page === 0 ? '#555' : '#cca3ff', cursor: page === 0 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8592;</button>
-                            <span>{page + 1} / {totalPages}</span>
-                            <button onClick={() => setUsersPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ background: 'none', border: 'none', color: page === totalPages - 1 ? '#555' : '#cca3ff', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8594;</button>
-                          </div>
-                        )}
-                      </div>
-                      {visible.map((u) => (
-                        <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff', paddingBottom: 4 }}>
-                          <span>{u.email}</span>
-                          <span style={{ fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
-                            {([u.easy, u.medium, u.hard] as (number | null)[]).map((s, i) => {
-                              if (s == null) return null;
-                              const isFastest = fastestByDiff[i] != null && s === fastestByDiff[i];
-                              return (
-                                <span key={i} style={{ color: isFastest ? '#f9c74f' : '#cca3ff', marginLeft: i > 0 ? 8 : 0 }}>
-                                  {['E','M','H'][i]} {fmtTime(s)}
-                                </span>
-                              );
-                            })}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {/* Last 7 days */}
-                {stats.admin.perDate && stats.admin.perDate.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 11, color: '#fff', marginBottom: 6, letterSpacing: '0.1em' }}>LAST 7 DAYS</div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                      <thead>
-                        <tr style={{ color: '#fff' }}>
-                          <th style={{ textAlign: 'left', paddingBottom: 6, fontWeight: 400 }}>Date</th>
-                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Easy</th>
-                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Med</th>
-                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Hard</th>
-                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Total</th>
-                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg E</th>
-                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg M</th>
-                          <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg H</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stats.admin.perDate.map(row => (
-                          <tr key={row.date} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                            <td style={{ paddingTop: 5, paddingBottom: 5, color: '#fff' }}>{row.date.slice(5)}</td>
-                            <td style={{ textAlign: 'center', color: '#fff' }}>{row.easy}</td>
-                            <td style={{ textAlign: 'center', color: '#fff' }}>{row.medium}</td>
-                            <td style={{ textAlign: 'center', color: '#fff' }}>{row.hard}</td>
-                            <td style={{ textAlign: 'center', color: '#fff', fontWeight: 700 }}>{row.total}</td>
-                            <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgEasy)}</td>
-                            <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgMedium)}</td>
-                            <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgHard)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
           </>
         )}
+
+        {activeTab === 'admin' && isAdmin && (() => {
+          if (adminLoading) return <div style={{ color: '#888', fontSize: 13 }}>Loading...</div>;
+          if (!adminData) return <div style={{ color: '#f88', fontSize: 13 }}>Could not load admin stats.</div>;
+          const admin = adminData;
+          const users = [...admin.today.users].sort((a, b) => {
+            if (!a.updatedAt || !b.updatedAt) return 0;
+            return a.updatedAt < b.updatedAt ? -1 : a.updatedAt > b.updatedAt ? 1 : 0;
+          });
+          const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
+          const page = Math.min(usersPage, totalPages - 1);
+          const visible = users.slice(page * USERS_PER_PAGE, (page + 1) * USERS_PER_PAGE);
+          const fastestEasy   = users.reduce((m, u) => u.easy   != null && (m == null || u.easy   < m) ? u.easy   : m, null as number | null);
+          const fastestMedium = users.reduce((m, u) => u.medium != null && (m == null || u.medium < m) ? u.medium : m, null as number | null);
+          const fastestHard   = users.reduce((m, u) => u.hard   != null && (m == null || u.hard   < m) ? u.hard   : m, null as number | null);
+          const fastestByDiff = [fastestEasy, fastestMedium, fastestHard];
+          return (
+            <div>
+              {/* Today's counts */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: '#fff', marginBottom: 8, letterSpacing: '0.1em' }}>TODAY</div>
+                <div style={{ display: 'flex', gap: 20 }}>
+                  {(['easy', 'medium', 'hard'] as const).map(d => (
+                    <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{admin.today[d]}</span>
+                      <span style={{ fontSize: 11, color: '#fff', marginTop: 3, textTransform: 'capitalize' }}>{d}</span>
+                    </div>
+                  ))}
+                  {(['easy', 'medium', 'hard'] as const).some(d => admin.today.pastSolves[d] > 0) && (
+                    <>
+                      <div style={{ width: 1, background: 'rgba(255,255,255,0.15)', alignSelf: 'stretch', margin: '0 8px' }} />
+                      {(['easy', 'medium', 'hard'] as const).map(d => admin.today.pastSolves[d] > 0 && (
+                        <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: '#cca3ff' }}>{admin.today.pastSolves[d]}</span>
+                          <span style={{ fontSize: 11, color: '#cca3ff', marginTop: 3, textTransform: 'capitalize' }}>↩{d.slice(0, 1).toUpperCase()}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Monthly stats */}
+              {admin.monthlyUniqueUsers != null && (
+                <div style={{ marginBottom: 4, fontSize: 12, color: '#aaa' }}>
+                  THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{admin.monthlyUniqueUsers}</span> unique {admin.monthlyUniqueUsers === 1 ? 'player' : 'players'}
+                </div>
+              )}
+              {admin.newUsersThisMonth != null && (
+                <div style={{ marginBottom: 14, fontSize: 12, color: '#aaa' }}>
+                  NEW THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{admin.newUsersThisMonth}</span>
+                </div>
+              )}
+
+              {/* Users who solved today */}
+              {users.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em' }}>SOLVED TODAY ({users.length})</div>
+                    {totalPages > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#cca3ff' }}>
+                        <button onClick={() => setUsersPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ background: 'none', border: 'none', color: page === 0 ? '#555' : '#cca3ff', cursor: page === 0 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8592;</button>
+                        <span>{page + 1} / {totalPages}</span>
+                        <button onClick={() => setUsersPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ background: 'none', border: 'none', color: page === totalPages - 1 ? '#555' : '#cca3ff', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8594;</button>
+                      </div>
+                    )}
+                  </div>
+                  {visible.map((u) => (
+                    <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff', paddingBottom: 4 }}>
+                      <span>{u.email}</span>
+                      <span style={{ fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
+                        {([u.easy, u.medium, u.hard] as (number | null)[]).map((s, i) => {
+                          if (s == null) return null;
+                          const isFastest = fastestByDiff[i] != null && s === fastestByDiff[i];
+                          return (
+                            <span key={i} style={{ color: isFastest ? '#f9c74f' : '#cca3ff', marginLeft: i > 0 ? 8 : 0 }}>
+                              {['E','M','H'][i]} {fmtTime(s)}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Last 7 days */}
+              {admin.perDate && admin.perDate.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, color: '#fff', marginBottom: 6, letterSpacing: '0.1em' }}>LAST 7 DAYS</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: '#fff' }}>
+                        <th style={{ textAlign: 'left', paddingBottom: 6, fontWeight: 400 }}>Date</th>
+                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Easy</th>
+                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Med</th>
+                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Hard</th>
+                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Total</th>
+                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg E</th>
+                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg M</th>
+                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg H</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {admin.perDate.map((row: AdminData['perDate'][number]) => (
+                        <tr key={row.date} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          <td style={{ paddingTop: 5, paddingBottom: 5, color: '#fff' }}>{row.date.slice(5)}</td>
+                          <td style={{ textAlign: 'center', color: '#fff' }}>{row.easy}</td>
+                          <td style={{ textAlign: 'center', color: '#fff' }}>{row.medium}</td>
+                          <td style={{ textAlign: 'center', color: '#fff' }}>{row.hard}</td>
+                          <td style={{ textAlign: 'center', color: '#fff', fontWeight: 700 }}>{row.total}</td>
+                          <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgEasy)}</td>
+                          <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgMedium)}</td>
+                          <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgHard)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
           <button

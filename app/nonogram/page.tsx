@@ -15,7 +15,7 @@ import { getMSTDateString } from './time';
 import { ADMIN_EMAIL } from '../../lib/constants';
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
-import StatsModal, { prefetchStats, getYesterdayMedals } from './components/StatsModal';
+import StatsModal, { prefetchStats, prefetchLeaderboard, getYesterdayMedals } from './components/StatsModal';
 import PastPuzzlesModal from './components/PastPuzzlesModal';
 import { createEmptyGrid } from './runUtils';
 
@@ -228,6 +228,7 @@ function PicrossSplashInner() {
     if (!isAuthenticated) return;
     const todayStr = getMSTDateString();
     const notifKey = `picross:medalNotif:${todayStr}`;
+    prefetchLeaderboard();
     prefetchStats().then(() => {
       if (localStorage.getItem(notifKey)) return;
       const medals = getYesterdayMedals();
@@ -237,7 +238,7 @@ function PicrossSplashInner() {
       setNewMedalType(hasGold ? 'gold' : 'silver');
     });
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) prefetchStats();
+      if (e.persisted) { prefetchStats(); prefetchLeaderboard(); }
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
