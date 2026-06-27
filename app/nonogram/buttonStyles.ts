@@ -37,7 +37,8 @@ const raisedBase: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   userSelect: 'none' as const,
-  transition: 'transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease',
+  WebkitTapHighlightColor: 'transparent',
+  transition: 'transform 0.07s ease, box-shadow 0.07s ease, background 0.07s ease, border-color 0.07s ease',
 };
 
 export const raisedBtnStyle: React.CSSProperties = {
