@@ -44,7 +44,7 @@ const raisedBase: React.CSSProperties = {
 export const raisedBtnStyle: React.CSSProperties = {
   ...raisedBase,
   borderRadius: 8,
-  background: 'linear-gradient(to bottom, #f8f8f8, #ffffff)',
+  background: '#ffffff',
   boxShadow: '0 2px 0 #888, 0 4px 0 #333, 0 6px 0 #888, 0 8px 0 #333, 0 10px 0 #888, 0 12px 0 #333, 0 7px 10px rgba(0,0,0,0.2)',
 };
 
