@@ -547,7 +547,7 @@ function PicrossSplashInner() {
       <div className="difficulty-row">
         {difficulties.map(d => {
           const disabled = (d.value === 'hard' && !isTyler) || (d.value === 'medium' && !isAuthenticated);
-          const containerStyle: React.CSSProperties = { border: "3px solid #7c7c7c", borderRadius: 12, background: "#fff", padding: 12, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
+          const containerStyle: React.CSSProperties = { border: "3px solid #4e4e4e", borderRadius: 12, background: "#fff", padding: 13, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
           return (
             <div key={d.value} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               {disabled ? (
