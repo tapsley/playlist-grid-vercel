@@ -10,6 +10,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import DifficultyIcon from "./components/DifficultyIcon";
+import MedalIcon from "./components/MedalIcon";
 import { getPicrossSettings, setPicrossSettings } from './settings';
 import { getMSTDateString } from './time';
 import { ADMIN_EMAIL } from '../../lib/constants';
@@ -476,7 +477,7 @@ function PicrossSplashInner() {
               <button
                 aria-label="Past Puzzles"
                 title="Past Puzzles"
-                onClick={() => { setShowPastPuzzles(true); setNewMedalType(null); }}
+                onClick={() => setShowPastPuzzles(true)}
                 style={{
                   background: '#23272f', color: '#fff', border: 'none',
                   width: 40, height: 40, borderRadius: 8,
@@ -496,48 +497,50 @@ function PicrossSplashInner() {
                   <rect x="8.75" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
                 </svg>
               </button>
+            </div>
+          )}
+          {isAuthenticated && (
+            <div style={{ position: 'relative' }}>
+              <button
+                aria-label="Stats"
+                title="Stats"
+                onClick={() => { setShowStats(true); setNewMedalType(null); }}
+                style={{
+                  background: '#23272f',
+                  color: '#fff',
+                  border: 'none',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 8,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: 22,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="white">
+                  <rect x="1" y="11" width="4" height="8" rx="1"/>
+                  <rect x="7.5" y="6" width="4" height="13" rx="1"/>
+                  <rect x="14" y="1" width="4" height="18" rx="1"/>
+                </svg>
+              </button>
               {newMedalType && (
                 <span
                   ref={medalBadgeRef}
                   style={{
-                    position: 'absolute', top: -10, right: -10,
+                    position: 'absolute', top: -20, right: -10,
                     fontSize: 20, lineHeight: 1,
                     opacity: 0, display: 'block',
                     filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
                     pointerEvents: 'none',
                   }}
                 >
-                  {newMedalType === 'gold' ? '🥇' : newMedalType === 'silver' ? '🥈' : '🏆'}
+                  <MedalIcon type={newMedalType === 'gold' ? 'gold' : 'silver'} size={24} />
                 </span>
               )}
             </div>
-          )}
-          {isAuthenticated && (
-            <button
-              aria-label="Stats"
-              title="Stats"
-              onClick={() => setShowStats(true)}
-              style={{
-                background: '#23272f',
-                color: '#fff',
-                border: 'none',
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: 22,
-                boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="white">
-                <rect x="1" y="11" width="4" height="8" rx="1"/>
-                <rect x="7.5" y="6" width="4" height="13" rx="1"/>
-                <rect x="14" y="1" width="4" height="18" rx="1"/>
-              </svg>
-            </button>
           )}
           <UserMenu />
         </div>

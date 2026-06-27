@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import SolveHistogram, { fmtTime } from "./SolveHistogram";
 import DifficultyIcon from "./DifficultyIcon";
+import MedalIcon from "./MedalIcon";
 import type { CellState } from "../PicrossPrefetchContext";
 
 type Difficulty = "easy" | "medium" | "hard";
@@ -51,6 +52,13 @@ interface Props {
 }
 
 const COURIER_FONT = "var(--font-courier-prime), 'Courier New', monospace";
+const HARD_LAUNCH_DATE = '2026-07-01';
+
+const emptyGrids: Record<Difficulty, boolean[][]> = {
+  easy:   Array.from({ length: 5  }, () => Array(5).fill(false)),
+  medium: Array.from({ length: 10 }, () => Array(10).fill(false)),
+  hard:   Array.from({ length: 15 }, () => Array(15).fill(false)),
+};
 const MONTH_NAMES = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
@@ -129,9 +137,20 @@ export default function PastPuzzlesModal({
     else setMonth((m) => m + 1);
   };
 
-  // Leading empty slots + filled day slots
+  // For the current month, fill in all days (placeholder DayInfo for days without puzzles)
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth() + 1;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const dayMap = new Map(days.map(d => [d.date, d]));
+  const allDays: DayInfo[] = isCurrentMonth
+    ? Array.from({ length: daysInMonth }, (_, i) => {
+        const dayNum = i + 1;
+        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+        return dayMap.get(dateStr) ?? { date: dateStr, puzzleExists: false, easy: 'not-started' as Status, medium: 'not-started' as Status, hard: 'not-started' as Status };
+      })
+    : days;
+
   const firstDayOfWeek = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-  const cells: (DayInfo | null)[] = [...Array(firstDayOfWeek).fill(null), ...days];
+  const cells: (DayInfo | null)[] = [...Array(firstDayOfWeek).fill(null), ...allDays];
 
   const diffBtnStyle = (d: Difficulty): React.CSSProperties => ({
     fontFamily: COURIER_FONT,
@@ -228,15 +247,16 @@ export default function PastPuzzlesModal({
                 const isToday = day.date === todayStr;
                 const isFuture = day.date > todayStr;
                 const dayNum = parseInt(day.date.slice(8), 10);
-                const exists = day.puzzleExists;
-                const status: Status = day[activeDiff];
+                const isHardLocked = activeDiff === 'hard' && day.date < HARD_LAUNCH_DATE;
+                const exists = isHardLocked ? false : day.puzzleExists;
+                const status: Status = isHardLocked ? 'not-started' : day[activeDiff];
                 const celebrate = status === "complete";
 
-                const grid: boolean[][] | null | undefined =
+                const grid: boolean[][] | null | undefined = isHardLocked ? undefined :
                   activeDiff === "easy" ? day.easyGrid :
                   activeDiff === "medium" ? day.mediumGrid :
                   day.hardGrid;
-                const progress: CellState[][] | null | undefined =
+                const progress: CellState[][] | null | undefined = isHardLocked ? undefined :
                   activeDiff === "easy" ? day.easyProgress :
                   activeDiff === "medium" ? day.mediumProgress :
                   day.hardProgress;
@@ -258,7 +278,7 @@ export default function PastPuzzlesModal({
                       borderRadius: 6,
                       border: `${borderWidth}px solid ${borderColor}`,
                       background: "#fff",
-                      opacity: exists ? 1 : 0.2,
+                      opacity: isFuture ? 0.3 : (exists ? 1 : 0.2),
                     }}
                   >
                     {/* Clickable puzzle area */}
@@ -273,7 +293,7 @@ export default function PastPuzzlesModal({
                         alignItems: "center",
                         padding: "4px 4px 2px",
                         gap: 2,
-                        opacity: isFuture ? 0.4 : 1,
+                        opacity: 1,
                       }}
                     >
                       {/* Top row: date number + medal + stats icon */}
@@ -282,7 +302,7 @@ export default function PastPuzzlesModal({
                           {dayNum}
                         </span>
                         <span style={{ fontSize: 11, lineHeight: 1, opacity: medal ? 1 : 0.25, visibility: (medal || (isAdmin && status === "complete")) ? "visible" : "hidden" }}>
-                          {medal === "silver" ? "🥈" : "🥇"}
+                          <MedalIcon type={medal === "silver" ? "silver" : "gold"} size={12} />
                         </span>
                         {isPast && (
                           <button
@@ -313,13 +333,13 @@ export default function PastPuzzlesModal({
                       </div>
 
                       {/* Puzzle icon */}
-                      {grid ? (
-                        <div style={{ width: "100%" }}>
-                          <DifficultyIcon grid={grid} progress={progress ?? undefined} celebrate={celebrate} />
-                        </div>
-                      ) : (
-                        <div style={{ width: "100%", aspectRatio: "1", background: "#f3f4f6", borderRadius: 4 }} />
-                      )}
+                      <div style={{ width: "100%" }}>
+                        <DifficultyIcon
+                          grid={grid ?? emptyGrids[activeDiff]}
+                          progress={progress ?? undefined}
+                          celebrate={celebrate}
+                        />
+                      </div>
                     </div>
 
                   </div>
@@ -359,7 +379,7 @@ export default function PastPuzzlesModal({
                 })()}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, fontSize: 11, fontFamily: COURIER_FONT }}>
-                <span style={{ color: "#cca3ff" }}>🥇 {dayStats ? fmtTime(dayStats[activeDiff].fastest) : "—"}</span>
+                <span style={{ color: "#cca3ff", display: 'flex', alignItems: 'center', gap: 4 }}><MedalIcon type="gold" size={14} /> {dayStats ? fmtTime(dayStats[activeDiff].fastest) : "—"}</span>
                 <span style={{ color: "#f9c74f" }}>{dayStats?.[activeDiff]?.myTime != null ? `▼ Your time: ${fmtTime(dayStats[activeDiff].myTime)}` : ""}</span>
                 <span style={{ color: "#aaa" }}>Average:  {dayStats ? fmtTime(dayStats[activeDiff].avg) : "—"}</span>
               </div>

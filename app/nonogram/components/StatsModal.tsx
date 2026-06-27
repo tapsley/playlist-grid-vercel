@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import SolveHistogram, { fmtTime } from './SolveHistogram';
+import MedalIcon from './MedalIcon';
 
 interface LeaderboardEntry {
   rank: number;
@@ -267,8 +268,8 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                       <span style={{ flex: 1, fontSize: 14, fontWeight: entry.isMe ? 700 : 400, color: entry.isMe ? '#cca3ff' : '#fff', letterSpacing: 0.2 }}>
                         {entry.displayName}
                       </span>
-                      <span style={{ fontSize: 15, color: '#d4af37', flexShrink: 0 }}>
-                        🥇 {entry.gold}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        <MedalIcon type="gold" size={16} /> {entry.gold}
                       </span>
                     </div>
                   ))}
@@ -320,8 +321,8 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                     </div>
                     {(gold > 0 || silver > 0) && (
                       <div style={{ display: 'flex', justifyContent: 'center', gap: 35 }}>
-                        {gold > 0 && <span style={{ fontSize: 13 }}>🥇 {gold}</span>}
-                        {silver > 0 && <span style={{ fontSize: 13 }}>🥈 {silver}</span>}
+                        {gold > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}><MedalIcon type="gold" size={16} /> {gold}</span>}
+                        {silver > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}><MedalIcon type="silver" size={16} /> {silver}</span>}
                       </div>
                     )}
                   </div>
