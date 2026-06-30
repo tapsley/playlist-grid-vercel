@@ -549,7 +549,7 @@ function PicrossSplashInner() {
       <div ref={dailySubtitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
-          const disabled = (d.value === 'hard' && !isTyler) || (d.value === 'medium' && !isAuthenticated);
+          const disabled = (d.value === 'medium' || d.value === 'hard') && !isAuthenticated;
           const containerStyle: React.CSSProperties = { border: "3px solid #4e4e4e", borderRadius: 12, background: "#fff", padding: 13, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
           return (
             <div key={d.value} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -557,7 +557,7 @@ function PicrossSplashInner() {
                 <div className="nonogram-difficulty-btn disabled" style={containerStyle}>
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
                   <div style={{ fontFamily: COURIER_FONT, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333', boxSizing: 'border-box' }}>
-                    {d.value === 'hard' ? 'Coming soon!' : d.value === 'medium' ? 'Sign in to play!' : 'Locked'}
+                    Sign in to play!
                   </div>
                 </div>
               ) : (

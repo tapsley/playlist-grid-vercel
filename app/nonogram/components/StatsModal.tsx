@@ -168,9 +168,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
 
   if (!open) return null;
 
-  const visibleDiffs = isAdmin
-    ? DIFFICULTIES
-    : DIFFICULTIES.filter(d => d.key !== 'hard');
+  const visibleDiffs = DIFFICULTIES;
 
   const modalStyle: React.CSSProperties = {
     background: '#2c2c2c',

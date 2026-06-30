@@ -44,33 +44,9 @@ export default function Controls({ celebrateGrid, editorMode, handleClearEditor,
   return (
     <div style={{ marginTop: 15, width: '100%', display: 'flex', justifyContent: 'center', gap: 12 }}>
       <style>{`
-        .controls-btn-group {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-        @media (max-width: 639px) {
-          .controls-btn-group > :nth-child(1) { order: 1; }
-          .controls-btn-group > :nth-child(2) { order: 3; }
-          .controls-btn-group > :nth-child(3) { order: 2; }
-          .controls-btn-group > :nth-child(4) { order: 4; }
-        }
-        @media (min-width: 640px) {
-          .controls-btn-group {
-            display: flex;
-            flex-direction: row;
-            gap: 16px;
-          }
-        }
-        /* Desktop: maybe=left-rounded, fill=square, x=right-rounded */
         .controls-btn-maybe { border-radius: 33px 8px 8px 33px; }
         .controls-btn-fill  { border-radius: 8px; }
         .controls-btn-x     { border-radius: 8px 33px 33px 8px; }
-        /* Mobile: fill=top-rounded, maybe=left-rounded, x=bottom-right-rounded */
-        @media (max-width: 639px) {
-          .controls-btn-fill  { border-radius: 33px 33px 8px 8px; }
-          .controls-btn-x     { border-radius: 8px 8px 33px 8px; }
-        }
       `}</style>
       {editorMode ? (
         <div style={{ display: 'flex', gap: 3, alignItems: 'center', color: '#000000' }}>
@@ -81,7 +57,7 @@ export default function Controls({ celebrateGrid, editorMode, handleClearEditor,
           <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle }}>+</button>
         </div>
       ) : (
-        <div className="controls-btn-group">
+        <div style={{ display: 'flex', gap: 16 }}>
           <button
             aria-label="Clear board"
             title="Clear board"

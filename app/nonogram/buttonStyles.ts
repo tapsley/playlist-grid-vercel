@@ -28,8 +28,8 @@ export const dangerBtnStyle: React.CSSProperties = {
 // ── Raised / 3-D input-mode buttons ──────────────────────────────────────────
 
 const raisedBase: React.CSSProperties = {
-  width: 75,
-  height: 75,
+  width: 85,
+  height: 85,
   padding: 0,
   border: '2px solid #000000',
   cursor: 'pointer',
