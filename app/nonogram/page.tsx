@@ -556,7 +556,7 @@ function PicrossSplashInner() {
       <div ref={dailySubtitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
-          const hardLaunched = getMSTDateString() >= HARD_LAUNCH_DATE;
+          const hardLaunched = isTyler || getMSTDateString() >= HARD_LAUNCH_DATE;
           const disabled = (d.value === 'medium' && !isAuthenticated) || (d.value === 'hard' && (!isAuthenticated || !hardLaunched));
           const containerStyle: React.CSSProperties = { border: "3px solid #4e4e4e", borderRadius: 12, background: "#fff", padding: 13, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
           return (

@@ -252,7 +252,7 @@ export default function PastPuzzlesModal({
                 const isToday = day.date === todayStr;
                 const isFuture = day.date > todayStr;
                 const dayNum = parseInt(day.date.slice(8), 10);
-                const isHardLocked = activeDiff === 'hard' && day.date < HARD_LAUNCH_DATE;
+                const isHardLocked = !isAdmin && activeDiff === 'hard' && day.date < HARD_LAUNCH_DATE;
                 const exists = isHardLocked ? false : day.puzzleExists;
                 const status: Status = isHardLocked ? 'not-started' : day[activeDiff];
                 const celebrate = status === "complete";
