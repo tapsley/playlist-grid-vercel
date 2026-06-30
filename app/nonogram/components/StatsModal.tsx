@@ -99,7 +99,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usersPage, setUsersPage] = useState(0);
-  const [activeTab, setActiveTab] = useState<'stats' | 'leaderboard' | 'admin'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'leaderboard' | 'admin'>('leaderboard');
   const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(() => _leaderboardCache);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardDiffPage, setLeaderboardDiffPage] = useState(0);
@@ -112,7 +112,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
     if (!open) return;
     setError(null);
     setUsersPage(0);
-    setActiveTab('stats');
+    setActiveTab('leaderboard');
     if (_cache) setStats(_cache.data);
     else setLoading(true);
     (async () => {
