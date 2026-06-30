@@ -721,8 +721,9 @@ function PicrossSplashInner() {
           -webkit-appearance: none;
           -moz-appearance: none;
           appearance: none;
-          width: 30px;
-          height: 25px;
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
           border: 2px solid #ffffff;
           background: #f3f3f3;
           display: inline-block;
