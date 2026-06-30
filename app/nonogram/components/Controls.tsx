@@ -24,6 +24,7 @@ type Props = {
   handleSave: () => void;
   inputMode: InputMode;
   setInputMode: (m: InputMode) => void;
+  leftHandMode?: boolean;
 };
 
 
@@ -36,7 +37,7 @@ function ModeIcon({ mode, active }: { mode: InputMode; active: boolean }) {
   return <div style={{ ...iconBox, color: active ? '#b91c1c' : '#e53e3e', fontWeight: 900, fontSize: 18, lineHeight: 1 }}>✕</div>;
 }
 
-export default function Controls({ celebrateGrid, editorMode, handleClearEditor, handlePrevDate, handleNextDate, saveDate, setSaveDate, handleSave, inputMode, setInputMode, clearBoard }: Props) {
+export default function Controls({ celebrateGrid, editorMode, handleClearEditor, handlePrevDate, handleNextDate, saveDate, setSaveDate, handleSave, inputMode, setInputMode, clearBoard, leftHandMode }: Props) {
   const [showConfirm, setShowConfirm] = React.useState(false);
 
   if (celebrateGrid) return null;
@@ -47,6 +48,8 @@ export default function Controls({ celebrateGrid, editorMode, handleClearEditor,
         .controls-btn-maybe { border-radius: 33px 8px 8px 33px; }
         .controls-btn-fill  { border-radius: 8px; }
         .controls-btn-x     { border-radius: 8px 33px 33px 8px; }
+        .controls-lhm .controls-btn-maybe { border-radius: 8px 33px 33px 8px; }
+        .controls-lhm .controls-btn-x     { border-radius: 33px 8px 8px 33px; }
       `}</style>
       {editorMode ? (
         <div style={{ display: 'flex', gap: 3, alignItems: 'center', color: '#000000' }}>
@@ -57,7 +60,7 @@ export default function Controls({ celebrateGrid, editorMode, handleClearEditor,
           <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle }}>+</button>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div className={leftHandMode ? 'controls-lhm' : undefined} style={{ display: 'flex', flexDirection: leftHandMode ? 'row-reverse' : 'row', gap: 16 }}>
           <button
             aria-label="Clear board"
             title="Clear board"

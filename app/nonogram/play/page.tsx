@@ -575,7 +575,7 @@ function PicrossPlayInner() {
             onClick={async () => {
               try { await saveSecondsNow(); } catch (err) { console.debug('picross:save on back err', err); }
               if (fromCalendar) {
-                router.push(`/nonogram?openCalendar=${fromCalendar}`);
+                router.push(`/nonogram?openCalendar=${fromCalendar}&openCalendarDiff=${difficulty}`);
               } else {
                 router.push('/nonogram?replay=1');
               }
@@ -677,6 +677,7 @@ function PicrossPlayInner() {
           setInputMode={setInputMode}
           celebrateGrid={celebrateGrid ? true : null}
           clearBoard={handleClearBoard}
+          leftHandMode={typeof window !== 'undefined' ? !!getPicrossSettings().leftHandMode : false}
         />
       )}
     </div>

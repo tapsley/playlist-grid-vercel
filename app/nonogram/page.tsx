@@ -160,6 +160,7 @@ const demoPuzzles: Record<string, boolean[][]> = {
 
 
 const COURIER_FONT = "var(--font-courier-prime), 'Courier New', monospace";
+const HARD_LAUNCH_DATE = '2026-07-01';
 
 function PicrossSplashInner() {
   const [difficulty] = useState("easy");
@@ -221,6 +222,7 @@ function PicrossSplashInner() {
   const [showPastPuzzles, setShowPastPuzzles] = useState(false);
   const [calendarYear, setCalendarYear] = useState<number | undefined>(undefined);
   const [calendarMonth, setCalendarMonth] = useState<number | undefined>(undefined);
+  const [calendarDiff, setCalendarDiff] = useState<'easy' | 'medium' | 'hard' | undefined>(undefined);
 
   // Prefetch stats in the background so the popup opens instantly.
   // Also listen for pageshow (fires on bfcache restore when using phone back)
@@ -256,6 +258,9 @@ function PicrossSplashInner() {
 
   const [playStartAnimation, setPlayStartAnimation] = useState<boolean>(() => {
     try { return !!getPicrossSettings().playStartAnimation; } catch { return true; }
+  });
+  const [leftHandMode, setLeftHandMode] = useState<boolean>(() => {
+    try { return !!getPicrossSettings().leftHandMode; } catch { return false; }
   });
 
   // If the user has the START animation enabled and they haven't started a
@@ -327,7 +332,7 @@ function PicrossSplashInner() {
     })();
   }, [playStartAnimation, progress, session?.user?.email]);
   const saveSettings = () => {
-    try { setPicrossSettings({ playStartAnimation }); } catch {}
+    try { setPicrossSettings({ playStartAnimation, leftHandMode }); } catch {}
     // If user enabled the START animation, clear today's shown flag so it can play
     try {
       if (playStartAnimation) {
@@ -431,6 +436,8 @@ function PicrossSplashInner() {
     if (!y || !m) return;
     setCalendarYear(y);
     setCalendarMonth(m);
+    const diff = searchParams?.get?.('openCalendarDiff');
+    if (diff === 'easy' || diff === 'medium' || diff === 'hard') setCalendarDiff(diff);
     setShowPastPuzzles(true);
     router.replace('/nonogram');
     fetchPrefetch();
@@ -549,7 +556,8 @@ function PicrossSplashInner() {
       <div ref={dailySubtitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
-          const disabled = (d.value === 'medium' || d.value === 'hard') && !isAuthenticated;
+          const hardLaunched = getMSTDateString() >= HARD_LAUNCH_DATE;
+          const disabled = (d.value === 'medium' && !isAuthenticated) || (d.value === 'hard' && (!isAuthenticated || !hardLaunched));
           const containerStyle: React.CSSProperties = { border: "3px solid #4e4e4e", borderRadius: 12, background: "#fff", padding: 13, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
           return (
             <div key={d.value} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -557,7 +565,7 @@ function PicrossSplashInner() {
                 <div className="nonogram-difficulty-btn disabled" style={containerStyle}>
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
                   <div style={{ fontFamily: COURIER_FONT, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333', boxSizing: 'border-box' }}>
-                    Sign in to play!
+                    {d.value === 'hard' && !hardLaunched ? 'Coming soon!' : 'Sign in to play!'}
                   </div>
                 </div>
               ) : (
@@ -585,6 +593,10 @@ function PicrossSplashInner() {
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 16, fontFamily: COURIER_FONT }}>
                 <input className="picross-checkbox" type="checkbox" checked={playStartAnimation} onChange={e => setPlayStartAnimation(e.target.checked)} />
                 <span>Play START animation when beginning a puzzle</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 16, fontFamily: COURIER_FONT }}>
+                <input className="picross-checkbox" type="checkbox" checked={leftHandMode} onChange={e => setLeftHandMode(e.target.checked)} />
+                <span>Left-hand mode</span>
               </label>
               {/* showTimer setting hidden for now */}
             </div>
@@ -650,6 +662,7 @@ function PicrossSplashInner() {
           onSelectPuzzle={handleSelectPuzzle}
           initialYear={calendarYear}
           initialMonth={calendarMonth}
+          initialDiff={calendarDiff}
           isAdmin={isTyler}
         />
       )}

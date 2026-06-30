@@ -165,6 +165,50 @@ function rowShuffle(filled: Cell[], size: number): Cell[] {
   return out;
 }
 
+function diagReverse(filled: Cell[], _size: number): Cell[] {
+  const copy = filled.slice();
+  copy.sort((a, b) => {
+    const sa = a[0] + a[1];
+    const sb = b[0] + b[1];
+    if (sa !== sb) return sb - sa;
+    if (a[1] !== b[1]) return b[1] - a[1];
+    return b[0] - a[0];
+  });
+  return copy;
+}
+
+function bottomUp(filled: Cell[], size: number): Cell[] {
+  const set = new Set(filled.map(([r, c]) => key(r, c)));
+  const out: Cell[] = [];
+  for (let c = 0; c < size; c++) {
+    for (let r = size - 1; r >= 0; r--) {
+      if (set.has(key(r, c))) out.push([r, c]);
+    }
+  }
+  return out;
+}
+
+function burst(filled: Cell[], _size: number): Cell[] {
+  if (filled.length === 0) return filled;
+  const [er, ec] = filled[Math.floor(Math.random() * filled.length)];
+  return filled.slice().sort((a, b) =>
+    ((a[0] - er) ** 2 + (a[1] - ec) ** 2) - ((b[0] - er) ** 2 + (b[1] - ec) ** 2)
+  );
+}
+
+function splitReveal(filled: Cell[], size: number): Cell[] {
+  const mid = size / 2;
+  const top = filled.filter(([r]) => r < mid).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const bot = filled.filter(([r]) => r >= mid).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  const out: Cell[] = [];
+  const maxLen = Math.max(top.length, bot.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (i < top.length) out.push(top[i]);
+    if (i < bot.length) out.push(bot[i]);
+  }
+  return out;
+}
+
 function waveSweep(filled: Cell[], size: number): Cell[] {
   // produce a wave-like ordering by using sin on row index to offset column priority
   const copy = filled.slice();
@@ -180,23 +224,25 @@ function waveSweep(filled: Cell[], size: number): Cell[] {
 
 export default function pickSequence(filled: Cell[], size: number): { order: Cell[]; name: string } {
   if (!filled || filled.length === 0) return { order: [], name: 'none' };
-  // Weighted pool including new sequences. Total ~= 100
   const r = Math.random() * 100;
   let fn: (f:Cell[], s:number)=>Cell[];
   let name = 'shuffle';
-  if (r < 15) { fn = snakeRows; name = 'snakeRows'; }            // 15
-  else if (r < 27) { fn = rainColumns; name = 'rainColumns'; }  // 12
-  else if (r < 37) { fn = verticalSnake; name = 'verticalSnake'; } // 10
-  else if (r < 47) { fn = spiralInward; name = 'spiralInward'; } // 10
-  else if (r < 53) { fn = spiralOutward; name = 'spiralOutward'; } // 6
-  else if (r < 61) { fn = diagRain; name = 'diagRain'; }        // 8
-  else if (r < 69) { fn = centerOut; name = 'centerOut'; }      // 8
-  else if (r < 75) { fn = zipColumns; name = 'zipColumns'; }    // 6
-  else if (r < 81) { fn = borderOut; name = 'borderOut'; }      // 6
-  else if (r < 87) { fn = rowShuffle; name = 'rowShuffle'; }    // 6
-  else if (r < 90) { fn = waveSweep; name = 'waveSweep'; }      // 3
-  else if (r < 94) { fn = checkerboard; name = 'checkerboard'; } // 4
-  else if (r < 98) { fn = shuffle; name = 'shuffle'; }          // 4
-  else { fn = spiralInward; name = 'spiralInward'; }             // fallback 2
+  if      (r < 12) { fn = waveSweep;     name = 'waveSweep'; }
+  else if (r < 22) { fn = checkerboard;  name = 'checkerboard'; }
+  else if (r < 30) { fn = shuffle;       name = 'shuffle'; }
+  else if (r < 37) { fn = diagRain;      name = 'diagRain'; }
+  else if (r < 44) { fn = centerOut;     name = 'centerOut'; }
+  else if (r < 50) { fn = diagReverse;   name = 'diagReverse'; }
+  else if (r < 56) { fn = burst;         name = 'burst'; }
+  else if (r < 61) { fn = spiralOutward; name = 'spiralOutward'; }
+  else if (r < 66) { fn = splitReveal;   name = 'splitReveal'; }
+  else if (r < 71) { fn = zipColumns;    name = 'zipColumns'; }
+  else if (r < 76) { fn = borderOut;     name = 'borderOut'; }
+  else if (r < 80) { fn = rowShuffle;    name = 'rowShuffle'; }
+  else if (r < 83) { fn = bottomUp;      name = 'bottomUp'; }
+  else if (r < 86) { fn = snakeRows;     name = 'snakeRows'; }
+  else if (r < 89) { fn = rainColumns;   name = 'rainColumns'; }
+  else if (r < 91) { fn = verticalSnake; name = 'verticalSnake'; }
+  else              { fn = spiralInward;  name = 'spiralInward'; }
   return { order: fn(filled, size), name };
 }

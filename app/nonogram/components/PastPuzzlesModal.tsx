@@ -48,6 +48,7 @@ interface Props {
   onSelectPuzzle: (date: string, difficulty: Difficulty) => void;
   initialYear?: number;
   initialMonth?: number;
+  initialDiff?: 'easy' | 'medium' | 'hard';
   isAdmin?: boolean;
 }
 
@@ -71,6 +72,7 @@ export default function PastPuzzlesModal({
   onSelectPuzzle,
   initialYear,
   initialMonth,
+  initialDiff,
   isAdmin,
 }: Props) {
   const today = new Date();
@@ -78,15 +80,17 @@ export default function PastPuzzlesModal({
 
   const [year, setYear] = useState(initialYear ?? today.getFullYear());
   const [month, setMonth] = useState(initialMonth ?? today.getMonth() + 1); // 1-based
-  const [activeDiff, setActiveDiff] = useState<Difficulty>("easy");
+  const [activeDiff, setActiveDiff] = useState<Difficulty>(initialDiff ?? "easy");
   const [days, setDays] = useState<DayInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [dayStats, setDayStats] = useState<DayStatsData | null>(null);
+  const [dayStatsDate, setDayStatsDate] = useState<string | null>(null);
   const [dayStatsLoading, setDayStatsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const handleClose = () => {
     setDayStats(null);
+    setDayStatsDate(null);
     setDayStatsLoading(false);
     onClose();
   };
@@ -117,7 +121,8 @@ export default function PastPuzzlesModal({
   useEffect(() => {
     if (initialYear) setYear(initialYear);
     if (initialMonth) setMonth(initialMonth);
-  }, [initialYear, initialMonth]);
+    if (initialDiff) setActiveDiff(initialDiff);
+  }, [initialYear, initialMonth, initialDiff]);
 
   if (!open) return null;
 
@@ -213,7 +218,7 @@ export default function PastPuzzlesModal({
         {/* Difficulty tabs */}
         <div style={{ display: "flex", gap: 6, marginBottom: 12, flexShrink: 0 }}>
           {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
-            <button key={d} onClick={() => { setActiveDiff(d); setDayStats(null); setDayStatsLoading(false); }} style={diffBtnStyle(d)}>
+            <button key={d} onClick={() => { setActiveDiff(d); setDayStats(null); setDayStatsDate(null); setDayStatsLoading(false); }} style={diffBtnStyle(d)}>
               {d}
             </button>
           ))}
@@ -309,6 +314,7 @@ export default function PastPuzzlesModal({
                             onClick={async (e) => {
                               e.stopPropagation();
                               setDayStats(null);
+                              setDayStatsDate(day.date);
                               setDayStatsLoading(true);
                               try {
                                 const res = await fetch(`/api/picross/day-stats?date=${day.date}`);
@@ -320,7 +326,7 @@ export default function PastPuzzlesModal({
                             style={{
                               background: "none", border: "none", padding: 0,
                               cursor: "pointer", display: "flex", alignItems: "center",
-                              opacity: 0.5, lineHeight: 1,
+                              opacity: dayStatsDate === day.date ? 1 : 0.5, lineHeight: 1,
                             }}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 20 20" fill="#7c3aed">
@@ -356,7 +362,7 @@ export default function PastPuzzlesModal({
               <span style={{ fontFamily: COURIER_FONT, fontWeight: 700, fontSize: 11, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 {dayStats ? (() => { const [y,m,d] = dayStats.date.split('-').map(Number); return `${MONTH_NAMES[m-1]} ${d}, ${y} — ${activeDiff.toUpperCase()}`; })() : ""}
               </span>
-              <button onClick={() => { setDayStats(null); setDayStatsLoading(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#999", fontSize: 14, lineHeight: 1, padding: 0 }}>✕</button>
+              <button onClick={() => { setDayStats(null); setDayStatsDate(null); setDayStatsLoading(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#999", fontSize: 14, lineHeight: 1, padding: 0 }}>✕</button>
             </div>
             <div style={{ background: "#2c2c2c", padding: "10px 12px", minHeight: 170, display: "flex", flexDirection: "column" }}>
               <div style={{ flex: 1 }}>
