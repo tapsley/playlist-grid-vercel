@@ -94,7 +94,7 @@ export function useCelebration({
 
     const pick = pickSequence(filled, size);
     if (isAdmin) console.log('picross: celebration sequence ->', pick.name);
-    const delay = 60;
+    const delay = difficulty === 'hard' ? 18 : difficulty === 'medium' ? 40 : 60;
     pick.order.forEach(([r, c], i) => {
       const t = window.setTimeout(() => {
         setCelebrateGrid(prev => {

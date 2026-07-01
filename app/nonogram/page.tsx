@@ -10,12 +10,13 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import DifficultyIcon from "./components/DifficultyIcon";
+import MedalIcon from "./components/MedalIcon";
 import { getPicrossSettings, setPicrossSettings } from './settings';
 import { getMSTDateString } from './time';
 import { ADMIN_EMAIL } from '../../lib/constants';
 import dynamic from "next/dynamic";
 const UserMenu = dynamic(() => import("../components/UserMenu"), { ssr: false });
-import StatsModal, { prefetchStats } from './components/StatsModal';
+import StatsModal, { prefetchStats, prefetchLeaderboard, getYesterdayMedals } from './components/StatsModal';
 import PastPuzzlesModal from './components/PastPuzzlesModal';
 import { createEmptyGrid } from './runUtils';
 
@@ -159,6 +160,7 @@ const demoPuzzles: Record<string, boolean[][]> = {
 
 
 const COURIER_FONT = "var(--font-courier-prime), 'Courier New', monospace";
+const HARD_LAUNCH_DATE = '2026-07-01';
 
 function PicrossSplashInner() {
   const [difficulty] = useState("easy");
@@ -211,27 +213,54 @@ function PicrossSplashInner() {
       // ignore
     }
   };
+  const medalBadgeRef = useRef<HTMLSpanElement | null>(null);
+  const [newMedalType, setNewMedalType] = useState<'gold' | 'silver' | 'preview' | null>(null);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [tutorialTab, setTutorialTab] = useState<'how' | 'tips'>('how');
   const [showPastPuzzles, setShowPastPuzzles] = useState(false);
   const [calendarYear, setCalendarYear] = useState<number | undefined>(undefined);
   const [calendarMonth, setCalendarMonth] = useState<number | undefined>(undefined);
+  const [calendarDiff, setCalendarDiff] = useState<'easy' | 'medium' | 'hard' | undefined>(undefined);
 
   // Prefetch stats in the background so the popup opens instantly.
   // Also listen for pageshow (fires on bfcache restore when using phone back)
   // so stats are refreshed even when the page isn't remounted.
   useEffect(() => {
-    if (isAuthenticated) prefetchStats();
+    if (!isAuthenticated) return;
+    const todayStr = getMSTDateString();
+    const notifKey = `picross:medalNotif:${todayStr}`;
+    prefetchLeaderboard();
+    prefetchStats().then(() => {
+      if (localStorage.getItem(notifKey)) return;
+      const medals = getYesterdayMedals();
+      if (medals.length === 0) return;
+      localStorage.setItem(notifKey, '1');
+      const hasGold = medals.some(m => m.type === 'gold');
+      setNewMedalType(hasGold ? 'gold' : 'silver');
+    });
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted && isAuthenticated) prefetchStats();
+      if (e.persisted) { prefetchStats(); prefetchLeaderboard(); }
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (!newMedalType || !medalBadgeRef.current) return;
+    gsap.fromTo(
+      medalBadgeRef.current,
+      { scale: 0, opacity: 0, rotate: -20 },
+      { scale: 1, opacity: 1, rotate: 0, duration: 0.55, ease: 'back.out(2.5)', delay: 0.6 }
+    );
+  }, [newMedalType]);
+
   const [playStartAnimation, setPlayStartAnimation] = useState<boolean>(() => {
     try { return !!getPicrossSettings().playStartAnimation; } catch { return true; }
+  });
+  const [leftHandMode, setLeftHandMode] = useState<boolean>(() => {
+    try { return !!getPicrossSettings().leftHandMode; } catch { return false; }
   });
 
   // If the user has the START animation enabled and they haven't started a
@@ -303,7 +332,7 @@ function PicrossSplashInner() {
     })();
   }, [playStartAnimation, progress, session?.user?.email]);
   const saveSettings = () => {
-    try { setPicrossSettings({ playStartAnimation }); } catch {}
+    try { setPicrossSettings({ playStartAnimation, leftHandMode }); } catch {}
     // If user enabled the START animation, clear today's shown flag so it can play
     try {
       if (playStartAnimation) {
@@ -407,6 +436,8 @@ function PicrossSplashInner() {
     if (!y || !m) return;
     setCalendarYear(y);
     setCalendarMonth(m);
+    const diff = searchParams?.get?.('openCalendarDiff');
+    if (diff === 'easy' || diff === 'medium' || diff === 'hard') setCalendarDiff(diff);
     setShowPastPuzzles(true);
     router.replace('/nonogram');
     fetchPrefetch();
@@ -448,57 +479,75 @@ function PicrossSplashInner() {
               ⚙
             </button>
           )}
-          {isTyler && (
-            <button
-              aria-label="Past Puzzles"
-              title="Past Puzzles"
-              onClick={() => setShowPastPuzzles(true)}
-              style={{
-                background: '#23272f', color: '#fff', border: 'none',
-                width: 40, height: 40, borderRadius: 8,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-                <rect x="1" y="4" width="18" height="14" rx="2" fill="none" stroke="white" strokeWidth="1.8"/>
-                <line x1="5" y1="2" x2="5" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="15" y1="2" x2="15" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="1" y1="8.5" x2="19" y2="8.5" stroke="white" strokeWidth="1.5"/>
-                <rect x="4" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
-                <rect x="8.75" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
-                <rect x="13.5" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
-                <rect x="4" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
-                <rect x="8.75" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
-              </svg>
-            </button>
+          {isAuthenticated && (
+            <div style={{ position: 'relative' }}>
+              <button
+                aria-label="Past Puzzles"
+                title="Past Puzzles"
+                onClick={() => setShowPastPuzzles(true)}
+                style={{
+                  background: '#23272f', color: '#fff', border: 'none',
+                  width: 40, height: 40, borderRadius: 8,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+                  <rect x="1" y="4" width="18" height="14" rx="2" fill="none" stroke="white" strokeWidth="1.8"/>
+                  <line x1="5" y1="2" x2="5" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="15" y1="2" x2="15" y2="6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="1" y1="8.5" x2="19" y2="8.5" stroke="white" strokeWidth="1.5"/>
+                  <rect x="4" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                  <rect x="8.75" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                  <rect x="13.5" y="11" width="2.5" height="2.5" rx="0.5" fill="white"/>
+                  <rect x="4" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
+                  <rect x="8.75" y="15" width="2.5" height="2" rx="0.5" fill="white"/>
+                </svg>
+              </button>
+            </div>
           )}
           {isAuthenticated && (
-            <button
-              aria-label="Stats"
-              title="Stats"
-              onClick={() => setShowStats(true)}
-              style={{
-                background: '#23272f',
-                color: '#fff',
-                border: 'none',
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: 22,
-                boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="white">
-                <rect x="1" y="11" width="4" height="8" rx="1"/>
-                <rect x="7.5" y="6" width="4" height="13" rx="1"/>
-                <rect x="14" y="1" width="4" height="18" rx="1"/>
-              </svg>
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                aria-label="Stats"
+                title="Stats"
+                onClick={() => { setShowStats(true); setNewMedalType(null); }}
+                style={{
+                  background: '#23272f',
+                  color: '#fff',
+                  border: 'none',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 8,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: 22,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="white">
+                  <rect x="1" y="11" width="4" height="8" rx="1"/>
+                  <rect x="7.5" y="6" width="4" height="13" rx="1"/>
+                  <rect x="14" y="1" width="4" height="18" rx="1"/>
+                </svg>
+              </button>
+              {newMedalType && (
+                <span
+                  ref={medalBadgeRef}
+                  style={{
+                    position: 'absolute', top: -20, right: -10,
+                    fontSize: 20, lineHeight: 1,
+                    opacity: 0, display: 'block',
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <MedalIcon type={newMedalType === 'gold' ? 'gold' : 'silver'} size={24} />
+                </span>
+              )}
+            </div>
           )}
           <UserMenu />
         </div>
@@ -507,15 +556,16 @@ function PicrossSplashInner() {
       <div ref={dailySubtitleRef} style={{ fontFamily: COURIER_FONT, fontSize: 14, fontWeight: 500,  marginTop: -8, marginBottom: 12, color: '#1f1f1f', opacity: 0, transform: 'translateY(8px)' }}>All puzzles designed by <Link href="/" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>Tyler Apsley</Link></div>
       <div className="difficulty-row">
         {difficulties.map(d => {
-          const disabled = (d.value === 'hard' && !isTyler) || (d.value === 'medium' && !isAuthenticated);
-          const containerStyle: React.CSSProperties = { border: "3px solid #7c7c7c", borderRadius: 12, background: "#fff", padding: 12, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
+          const hardLaunched = isTyler || getMSTDateString() >= HARD_LAUNCH_DATE;
+          const disabled = (d.value === 'medium' && !isAuthenticated) || (d.value === 'hard' && (!isAuthenticated || !hardLaunched));
+          const containerStyle: React.CSSProperties = { border: "3px solid #4e4e4e", borderRadius: 12, background: "#fff", padding: 13, cursor: disabled ? 'default' : 'pointer', display: "inline-block", position: 'relative' };
           return (
             <div key={d.value} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               {disabled ? (
                 <div className="nonogram-difficulty-btn disabled" style={containerStyle}>
                   <DifficultyIcon grid={typedPuzzle[d.value] ?? demoPuzzles[d.value]} progress={typedProgress[d.value] || undefined} size={140} celebrate={isCompleted(d.value)} />
                   <div style={{ fontFamily: COURIER_FONT, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: 'rgba(255,255,255,0.9)', borderRadius: 8, fontWeight: 800, color: '#333', boxSizing: 'border-box' }}>
-                    {d.value === 'hard' ? 'Coming soon!' : d.value === 'medium' ? 'Sign in to play!' : 'Locked'}
+                    {d.value === 'hard' && !hardLaunched ? 'Coming soon!' : 'Sign in to play!'}
                   </div>
                 </div>
               ) : (
@@ -544,11 +594,21 @@ function PicrossSplashInner() {
                 <input className="picross-checkbox" type="checkbox" checked={playStartAnimation} onChange={e => setPlayStartAnimation(e.target.checked)} />
                 <span>Play START animation when beginning a puzzle</span>
               </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 16, fontFamily: COURIER_FONT }}>
+                <input className="picross-checkbox" type="checkbox" checked={leftHandMode} onChange={e => setLeftHandMode(e.target.checked)} />
+                <span>Left-hand mode</span>
+              </label>
               {/* showTimer setting hidden for now */}
             </div>
             {isTyler && (
-              <div style={{ marginBottom: 12 }}>
-                <button onClick={resetStartShown} style={{ cursor: "pointer" ,padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}>Reset START shown for today</button>
+              <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={resetStartShown} style={{ cursor: "pointer", padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}>Reset START shown for today</button>
+                <button
+                  onClick={() => { setNewMedalType('preview'); setShowSettings(false); }}
+                  style={{ cursor: 'pointer', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: COURIER_FONT }}
+                >
+                  Preview medal badge 🏆
+                </button>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -595,13 +655,15 @@ function PicrossSplashInner() {
           </div>
         </div>
       </div>
-      {isTyler && (
+      {isAuthenticated && (
         <PastPuzzlesModal
           open={showPastPuzzles}
           onClose={() => setShowPastPuzzles(false)}
           onSelectPuzzle={handleSelectPuzzle}
           initialYear={calendarYear}
           initialMonth={calendarMonth}
+          initialDiff={calendarDiff}
+          isAdmin={isTyler}
         />
       )}
       <StatsModal open={showStats} onClose={() => setShowStats(false)} isAdmin={isTyler} />
@@ -659,8 +721,9 @@ function PicrossSplashInner() {
           -webkit-appearance: none;
           -moz-appearance: none;
           appearance: none;
-          width: 30px;
-          height: 25px;
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
           border: 2px solid #ffffff;
           background: #f3f3f3;
           display: inline-block;

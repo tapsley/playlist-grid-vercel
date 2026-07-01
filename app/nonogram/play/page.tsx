@@ -85,7 +85,7 @@ function PicrossPlayInner() {
 
   // Freeze dateStr at mount so a midnight rollover does not switch puzzles mid-session
   const [dateStr] = useState<string>(() => (searchParams?.get?.('date')) || getMSTDateString());
-  const isPastPuzzle = dateStr !== getMSTDateString();
+  const [isPastPuzzle] = useState<boolean>(() => dateStr !== getMSTDateString());
   const fromCalendar = searchParams?.get?.('fromCalendar') ?? null;
 
   // Local state for past-puzzle data — never written to the shared context so the
@@ -130,17 +130,25 @@ function PicrossPlayInner() {
   const size = DIFFICULTY_CONFIG[difficulty]?.size ?? 5;
 
   const puzzle = (effectivePuzzle?.[difficulty]) ?? getDefaultPuzzle(size);
-  const grid: CellState[][] = (effectiveProgress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
+  // Use length check rather than ?? so that an empty array [] (null progress from DB)
+  // falls through to createEmptyGrid the same as null/undefined would.
+  const rawGrid = effectiveProgress?.[difficulty];
+  const grid: CellState[][] = (Array.isArray(rawGrid) && rawGrid.length > 0) ? rawGrid : createEmptyGrid(size, CellState.EMPTY);
 
   const [startAnimationDone, setStartAnimationDone] = useState<boolean>(() => !detectFirstStart(dateStr, difficulty, effectiveProgress));
   // For past puzzles: show a loading overlay until we've confirmed the correct puzzle is in context.
   const [pastPuzzleLoaded, setPastPuzzleLoaded] = useState(!isPastPuzzle);
+  const [replayMode, setReplayMode] = useState(false);
   const userIsLoggedIn = !!session?.user?.email;
 
   const [inputMode, setInputMode] = useState<'fill' | 'maybe' | 'x'>('fill');
 
   // Solved state: every required cell filled, no incorrectly filled cells
   const cleared = useMemo(() => {
+    // Guard against empty/loading puzzle — an all-false puzzle trivially satisfies
+    // the loop below (nothing needs to be filled), causing a spurious cleared=true
+    // before actual puzzle data has loaded.
+    if (!puzzle.some(row => row.some(Boolean))) return false;
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         const shouldBeFilled = !!(puzzle[r]?.[c]);
@@ -176,8 +184,9 @@ function PicrossPlayInner() {
     deactivateEditorMode,
   } = useEditorMode({ isEditorAllowed, size, difficulty, prefetchPuzzle: effectivePuzzle, setPrefetch: effectiveSetPrefetch });
 
-  const { elapsedSec, saveSecondsNow } = useTimer({
+  const { elapsedSec, setElapsedSec, saveSecondsNow } = useTimer({
     dateStr, difficulty, userIsLoggedIn, startAnimationDone, cleared, editorMode, grid,
+    disableSave: isPastPuzzle && replayMode,
   });
 
   const {
@@ -395,8 +404,18 @@ function PicrossPlayInner() {
     }).catch(() => { /* clipboard unavailable */ });
   };
 
+  const handleReplay = () => {
+    setReplayMode(true);
+    effectiveSetPrefetch(prev => ({
+      ...prev,
+      progress: { ...prev.progress, [difficulty]: createEmptyGrid(size, CellState.EMPTY) },
+    }));
+    setElapsedSec(0);
+    clearCelebration();
+  };
+
   const handleClearBoard = () => {
-    setPrefetch(prev => ({
+    effectiveSetPrefetch(prev => ({
       ...prev,
       progress: {
         ...prev.progress,
@@ -444,6 +463,7 @@ function PicrossPlayInner() {
       return;
     }
     if (!clearedWasFalseRef.current) return;
+    if (isPastPuzzle && replayMode) return;
     (async () => {
       try {
         if (userIsLoggedIn) {
@@ -479,6 +499,7 @@ function PicrossPlayInner() {
   const debounceTimeout = useRef<number | null>(null);
   useEffect(() => {
     if (editorMode) return;
+    if (isPastPuzzle && replayMode) return;
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     debounceTimeout.current = window.setTimeout(() => {
       try {
@@ -497,7 +518,7 @@ function PicrossPlayInner() {
       } catch (err) { console.debug('localStorage write error', err); }
     }, 400) as unknown as number;
     return () => { if (debounceTimeout.current) clearTimeout(debounceTimeout.current); };
-  }, [grid, cleared, difficulty, editorMode, dateStr]);
+  }, [grid, cleared, difficulty, editorMode, dateStr, replayMode]);
 
   // For past puzzles: always fetch the correct puzzle + progress from the server.
   // Store result in local pastData (NOT the shared context) so splash-page icons
@@ -535,8 +556,8 @@ function PicrossPlayInner() {
             setTimeout(() => { try { triggerCelebration(); } catch {} }, 50);
           }
         } catch {}
-      } catch (err) { console.debug('past puzzle load err', err); }
-      setPastPuzzleLoaded(true);
+        setPastPuzzleLoaded(true);
+      } catch (err) { console.debug('past puzzle load err', err); setPastPuzzleLoaded(true); }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -554,7 +575,7 @@ function PicrossPlayInner() {
             onClick={async () => {
               try { await saveSecondsNow(); } catch (err) { console.debug('picross:save on back err', err); }
               if (fromCalendar) {
-                router.push(`/nonogram?openCalendar=${fromCalendar}`);
+                router.push(`/nonogram?openCalendar=${fromCalendar}&openCalendarDiff=${difficulty}`);
               } else {
                 router.push('/nonogram?replay=1');
               }
@@ -568,10 +589,10 @@ function PicrossPlayInner() {
         </div>
       </div>
 
-      <GridBoard
+      {(!isPastPuzzle || pastPuzzleLoaded) && <GridBoard
         layout={{ size, leftWidth, topHeight, cellPx, CLUE_FONT_PX, clueGap, fontFamily, fontWeight }}
         editor={{ editorMode, activateEditorMode, deactivateEditorMode, editorPuzzle, setEditorPuzzle, isEditorAllowed }}
-        prefetch={{ prefetchPuzzle, prefetchProgress, setPrefetch, difficulty }}
+        prefetch={{ prefetchPuzzle: effectivePuzzle, prefetchProgress: effectiveProgress, setPrefetch: effectiveSetPrefetch, difficulty }}
         pointer={{ pointerActiveRef, pointerActionRef, applyActionToCell, inputMode }}
         clues={{ rowClues, colClues, getRunsForCol, getRunsMetaForCol, getRunsForRow, getRunsMetaForRow, isFilledCell, isXCell }}
         puzzle={puzzle}
@@ -588,7 +609,7 @@ function PicrossPlayInner() {
         }}
         setSaveDate={setSaveDate}
         showTimer={(typeof window === 'undefined') ? true : (getPicrossSettings().showTimer !== false)}
-      />
+      />}
 
       {cleared && !editorMode ? (
         <div style={{ marginTop: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
@@ -627,12 +648,21 @@ function PicrossPlayInner() {
               ))}
             </div>
           )}
-          <button
-            onClick={handleShare}
-            style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
-          >
-            {copied ? '✓ Copied!' : '📋 Share'}
-          </button>
+          {isPastPuzzle ? (
+            <button
+              onClick={handleReplay}
+              style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: '#fff', color: '#5a2b8a', cursor: 'pointer', letterSpacing: 0.5 }}
+            >
+              ↩ Replay
+            </button>
+          ) : (
+            <button
+              onClick={handleShare}
+              style={{ fontFamily: DEFAULT_FONT, fontWeight: 700, fontSize: 15, padding: '8px 22px', borderRadius: 8, border: '2px solid #5a2b8a', background: copied ? '#5a2b8a' : '#fff', color: copied ? '#fff' : '#5a2b8a', cursor: 'pointer', transition: 'background 0.2s, color 0.2s', letterSpacing: 0.5 }}
+            >
+              {copied ? '✓ Copied!' : '📋 Share'}
+            </button>
+          )}
         </div>
       ) : (
         <Controls
@@ -647,16 +677,24 @@ function PicrossPlayInner() {
           setInputMode={setInputMode}
           celebrateGrid={celebrateGrid ? true : null}
           clearBoard={handleClearBoard}
+          leftHandMode={typeof window !== 'undefined' ? !!getPicrossSettings().leftHandMode : false}
         />
       )}
     </div>
   );
 }
 
+function PicrossPageInner() {
+  const searchParams = useSearchParams();
+  const date = searchParams?.get('date') ?? 'today';
+  const difficulty = searchParams?.get('difficulty') ?? 'easy';
+  return <PicrossPlayInner key={`${date}-${difficulty}`} />;
+}
+
 export default function PicrossPage() {
   return (
     <React.Suspense fallback={<div>Loading Nonogram...</div>}>
-      <PicrossPlayInner />
+      <PicrossPageInner />
     </React.Suspense>
   );
 }

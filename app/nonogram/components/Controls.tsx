@@ -4,8 +4,10 @@ import {
   baseBtnStyle,
   primaryBtnStyle,
   dangerBtnStyle,
-  selectedBtnStyle,
-  hoverBtnStyle,
+  raisedBtnStyle,
+  raisedBtnActiveStyle,
+  raisedCircleBtnStyle,
+  raisedCircleBtnActiveStyle,
 } from '../buttonStyles';
 
 type InputMode = 'fill' | 'maybe' | 'x';
@@ -22,30 +24,33 @@ type Props = {
   handleSave: () => void;
   inputMode: InputMode;
   setInputMode: (m: InputMode) => void;
+  leftHandMode?: boolean;
 };
 
-const INPUT_MODES: ReadonlyArray<{ id: InputMode; label: string }> = [
-  { id: 'fill', label: 'Fill' },
-  { id: 'maybe', label: 'Maybe' },
-  { id: 'x', label: 'X' },
-];
 
-const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const iconBox: React.CSSProperties = { width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
-function ModeIcon({ mode }: { mode: InputMode }) {
-  if (mode === 'fill') return <div style={{ ...iconBox, background: '#222', borderRadius: 2 }} />;
-  if (mode === 'maybe') return <div style={iconBox}><div style={{ width: 8, height: 8, borderRadius: 6, background: '#666' }} /></div>;
-  return <div style={{ ...iconBox, color: '#c53030', fontWeight: 800, fontSize: 16 }}>✕</div>;
+function ModeIcon({ mode, active }: { mode: InputMode; active: boolean }) {
+  const color = active ? '#111' : '#444';
+  if (mode === 'fill') return <div style={{ ...iconBox, background: color, borderRadius: 3 }} />;
+  if (mode === 'maybe') return <div style={iconBox}><div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} /></div>;
+  return <div style={{ ...iconBox, color: active ? '#b91c1c' : '#e53e3e', fontWeight: 900, fontSize: 18, lineHeight: 1 }}>✕</div>;
 }
 
-export default function Controls({ celebrateGrid, editorMode, handleClearEditor, handlePrevDate, handleNextDate, saveDate, setSaveDate, handleSave, inputMode, setInputMode, clearBoard }: Props) {
+export default function Controls({ celebrateGrid, editorMode, handleClearEditor, handlePrevDate, handleNextDate, saveDate, setSaveDate, handleSave, inputMode, setInputMode, clearBoard, leftHandMode }: Props) {
   const [showConfirm, setShowConfirm] = React.useState(false);
-  const [hoveredMode, setHoveredMode] = React.useState<InputMode | null>(null);
 
   if (celebrateGrid) return null;
 
   return (
     <div style={{ marginTop: 15, width: '100%', display: 'flex', justifyContent: 'center', gap: 12 }}>
+      <style>{`
+        .controls-btn-maybe { border-radius: 33px 8px 8px 33px; }
+        .controls-btn-fill  { border-radius: 8px; }
+        .controls-btn-x     { border-radius: 8px 33px 33px 8px; }
+        .controls-lhm .controls-btn-maybe { border-radius: 8px 33px 33px 8px; }
+        .controls-lhm .controls-btn-x     { border-radius: 33px 8px 8px 33px; }
+      `}</style>
       {editorMode ? (
         <div style={{ display: 'flex', gap: 3, alignItems: 'center', color: '#000000' }}>
           <button onClick={handleClearEditor} style={dangerBtnStyle}>x</button>
@@ -55,32 +60,35 @@ export default function Controls({ celebrateGrid, editorMode, handleClearEditor,
           <button onClick={handleSave} disabled={!saveDate} style={{ ...primaryBtnStyle }}>+</button>
         </div>
       ) : (
-        <>
-          <button aria-label="Clear board" title="Clear board" onClick={() => setShowConfirm(true)} style={{ ...dangerBtnStyle, minWidth: 56 }}>
-            <div style={{ fontSize: 16, transform: 'rotate(-20deg)', fontWeight: 1500 }}>↺</div>
+        <div className={leftHandMode ? 'controls-lhm' : undefined} style={{ display: 'flex', flexDirection: leftHandMode ? 'row-reverse' : 'row', gap: 16 }}>
+          <button
+            aria-label="Clear board"
+            title="Clear board"
+            onClick={() => setShowConfirm(true)}
+            style={showConfirm ? raisedCircleBtnActiveStyle : raisedCircleBtnStyle}
+          >
+            <div style={{ paddingTop: '6px', fontSize: 27, color: '#e53e3e', lineHeight: 2 }}>↺</div>
           </button>
-          {INPUT_MODES.map(({ id, label }) => {
+          {(['maybe', 'fill', 'x'] as InputMode[]).map(id => {
             const isSelected = inputMode === id;
-            const isHovered = hoveredMode === id;
-            const style: React.CSSProperties = { ...baseBtnStyle, minWidth: 56, textAlign: 'center' };
-            if (isSelected) Object.assign(style, selectedBtnStyle);
-            else if (isHovered) Object.assign(style, hoverBtnStyle);
+            const handleClick = () => {
+              if (id === 'fill' && inputMode === 'fill') setInputMode('x');
+              else if (id === 'x' && inputMode === 'x') setInputMode('fill');
+              else setInputMode(id);
+            };
             return (
               <button
                 key={id}
-                onClick={() => setInputMode(id)}
-                onMouseEnter={() => setHoveredMode(id)}
-                onMouseLeave={() => setHoveredMode(null)}
-                style={style}
-                aria-label={label}
+                onClick={handleClick}
+                className={`controls-btn-${id}`}
+                style={{ ...(isSelected ? raisedBtnActiveStyle : raisedBtnStyle), borderRadius: undefined }}
+                aria-label={id}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <ModeIcon mode={id} />
-                </div>
+                <ModeIcon mode={id} active={isSelected} />
               </button>
             );
           })}
-        </>
+        </div>
       )}
 
       {showConfirm && (

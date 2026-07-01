@@ -21,7 +21,7 @@ model PicrossStats {
   id           String   @id @default(uuid())
   user         User     @relation(fields: [userId], references: [id])
   userId       String   @unique
-  fastestEasy   Int?    
+  fastestEasy   Int?
   fastestMedium Int?
   fastestHard   Int?
   solvedEasy    Int     @default(0)
@@ -36,7 +36,28 @@ model PicrossStats {
   currentStreakHard    Int      @default(0)
   maxStreakHard        Int      @default(0)
   lastSolvedHard       DateTime?
+  goldMedalsEasy     Int @default(0)
+  goldMedalsMedium   Int @default(0)
+  goldMedalsHard     Int @default(0)
+  silverMedalsEasy   Int @default(0)
+  silverMedalsMedium Int @default(0)
+  silverMedalsHard   Int @default(0)
   updatedAt    DateTime @updatedAt
+}
+
+model PicrossMedal {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  date       DateTime
+  difficulty String
+  type       String
+  seconds    Int
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, date, difficulty])
+  @@index([userId])
+  @@index([date])
 }
 model PicrossPuzzle {
   id         String   @id @default(uuid())
@@ -67,6 +88,7 @@ model User {
   notes     Note[]   @relation("UserNotes")
   picrossProgresses PicrossProgress[]
   picrossStats PicrossStats?
+  picrossMedals PicrossMedal[]
 }
 
 model Note {

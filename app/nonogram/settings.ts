@@ -2,6 +2,7 @@
 export type PicrossSettings = {
   playStartAnimation?: boolean;
   showTimer?: boolean;
+  leftHandMode?: boolean;
 };
 
 const KEY = 'picross:settings:v1';
@@ -11,7 +12,7 @@ export function getPicrossSettings(): PicrossSettings {
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(KEY) : null;
     if (!raw) return { playStartAnimation: true, showTimer: true };
     const parsed = JSON.parse(raw || '{}');
-    return { playStartAnimation: parsed.playStartAnimation !== false, showTimer: parsed.showTimer !== false };
+    return { playStartAnimation: parsed.playStartAnimation !== false, showTimer: parsed.showTimer !== false, leftHandMode: !!parsed.leftHandMode };
   } catch {
     return { playStartAnimation: true, showTimer: true };
   }

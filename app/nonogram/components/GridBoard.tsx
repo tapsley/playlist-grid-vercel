@@ -161,7 +161,8 @@ export default function GridBoard(props: GridBoardProps) {
         applyActionToCell(r, c, 'erase');
       } else if (val === CellState.X) {
         setPrefetch(prev => {
-          const cur: CellState[][] = (prev.progress?.[difficulty]) ?? createEmptyGrid(size, CellState.EMPTY);
+          const rawCur = prev.progress?.[difficulty];
+          const cur: CellState[][] = (Array.isArray(rawCur) && rawCur.length > 0) ? rawCur : createEmptyGrid(size, CellState.EMPTY);
           const next: CellState[][] = cur.map(row => row.map(v => clampCellState(v)));
           next[r][c] = CellState.EMPTY;
           return { ...prev, progress: { ...prev.progress, [difficulty]: next } } as PrefetchState;

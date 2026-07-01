@@ -10,6 +10,7 @@ interface UseTimerOptions {
   cleared: boolean;
   editorMode: boolean;
   grid: CellState[][];
+  disableSave?: boolean;
 }
 
 export function useTimer({
@@ -20,10 +21,13 @@ export function useTimer({
   cleared,
   editorMode,
   grid,
+  disableSave = false,
 }: UseTimerOptions) {
   const timerRef = useRef<number | null>(null);
   const saveTimerDebounce = useRef<number | null>(null);
   const dirtyRef = useRef(false);
+  const disableSaveRef = useRef(disableSave);
+  useEffect(() => { disableSaveRef.current = disableSave; }, [disableSave]);
 
   const [elapsedSec, setElapsedSec] = useState<number>(() => {
     try {
@@ -64,6 +68,7 @@ export function useTimer({
 
   // Periodic local save (5s debounce, reads refs so values are fresh at fire time)
   useEffect(() => {
+    if (disableSave) return;
     if (saveTimerDebounce.current) clearTimeout(saveTimerDebounce.current);
     saveTimerDebounce.current = window.setTimeout(() => {
       try {
@@ -75,7 +80,7 @@ export function useTimer({
       } catch (err) { console.debug('picross:periodic local save err', err); }
     }, 5000) as unknown as number;
     return () => { if (saveTimerDebounce.current) clearTimeout(saveTimerDebounce.current); };
-  }, [elapsedSec, difficulty, dateStr, userIsLoggedIn]);
+  }, [elapsedSec, difficulty, dateStr, userIsLoggedIn, disableSave]);
 
   // Sync seconds from server when logged in
   useEffect(() => {
@@ -103,6 +108,7 @@ export function useTimer({
 
   // Stable save function — reads refs so it is safe to call from any handler
   const saveSecondsNow = useCallback(async () => {
+    if (disableSaveRef.current) return;
     const currentElapsed = elapsedSecRef.current;
     const currentGrid = gridRef.current;
     const currentCleared = clearedRef.current;
