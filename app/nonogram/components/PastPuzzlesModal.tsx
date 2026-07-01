@@ -86,13 +86,31 @@ export default function PastPuzzlesModal({
   const [dayStats, setDayStats] = useState<DayStatsData | null>(null);
   const [dayStatsDate, setDayStatsDate] = useState<string | null>(null);
   const [dayStatsLoading, setDayStatsLoading] = useState(false);
+  const [monthLeaderboard, setMonthLeaderboard] = useState<Record<string, { rank: number; displayName: string; gold: number; isMe: boolean }[]> | null>(null);
+  const [monthLeaderboardLoading, setMonthLeaderboardLoading] = useState(false);
+  const [showMonthLeaderboard, setShowMonthLeaderboard] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const handleClose = () => {
     setDayStats(null);
     setDayStatsDate(null);
     setDayStatsLoading(false);
+    setShowMonthLeaderboard(false);
+    setMonthLeaderboard(null);
     onClose();
+  };
+
+  const fetchMonthLeaderboard = async (y: number, m: number) => {
+    setDayStats(null);
+    setDayStatsDate(null);
+    setShowMonthLeaderboard(true);
+    setMonthLeaderboard(null);
+    setMonthLeaderboardLoading(true);
+    try {
+      const res = await fetch(`/api/picross/leaderboard?year=${y}&month=${m}`);
+      if (res.ok) setMonthLeaderboard(await res.json());
+    } catch {}
+    finally { setMonthLeaderboardLoading(false); }
   };
 
   const loadMonth = useCallback(async (y: number, m: number) => {
@@ -131,13 +149,16 @@ export default function PastPuzzlesModal({
     year > today.getFullYear() ||
     (year === today.getFullYear() && month >= today.getMonth() + 1);
 
+  const resetPanels = () => { setDayStats(null); setDayStatsDate(null); setShowMonthLeaderboard(false); setMonthLeaderboard(null); };
   const prevMonth = () => {
     if (isPrevDisabled) return;
+    resetPanels();
     if (month === 1) { setYear((y) => y - 1); setMonth(12); }
     else setMonth((m) => m - 1);
   };
   const nextMonth = () => {
     if (isNextDisabled) return;
+    resetPanels();
     if (month === 12) { setYear((y) => y + 1); setMonth(1); }
     else setMonth((m) => m + 1);
   };
@@ -215,13 +236,26 @@ export default function PastPuzzlesModal({
           </button>
         </div>
 
-        {/* Difficulty tabs */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 12, flexShrink: 0 }}>
-          {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
-            <button key={d} onClick={() => { setActiveDiff(d); setDayStats(null); setDayStatsDate(null); setDayStatsLoading(false); }} style={diffBtnStyle(d)}>
-              {d}
-            </button>
-          ))}
+        {/* Difficulty tabs + monthly leaderboard button */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
+              <button key={d} onClick={() => { setActiveDiff(d); setDayStats(null); setDayStatsDate(null); setDayStatsLoading(false); }} style={diffBtnStyle(d)}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => showMonthLeaderboard ? setShowMonthLeaderboard(false) : fetchMonthLeaderboard(year, month)}
+            title={`Top solvers — ${MONTH_NAMES[month - 1]} ${year}`}
+            style={{ background: showMonthLeaderboard ? "#7c3aed" : "#fff", border: "2px solid #7c3aed", borderRadius: 6, padding: "4px 8px", cursor: "pointer", display: "flex", alignItems: "center", transition: "background 0.15s" }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill={showMonthLeaderboard ? "#fff" : "#7c3aed"}>
+              <rect x="1" y="11" width="4" height="8" rx="1"/>
+              <rect x="7.5" y="6" width="4" height="13" rx="1"/>
+              <rect x="14" y="1" width="4" height="18" rx="1"/>
+            </svg>
+          </button>
         </div>
 
         {/* Day-of-week headers */}
@@ -315,6 +349,7 @@ export default function PastPuzzlesModal({
                               e.stopPropagation();
                               setDayStats(null);
                               setDayStatsDate(day.date);
+                              setShowMonthLeaderboard(false);
                               setDayStatsLoading(true);
                               try {
                                 const res = await fetch(`/api/picross/day-stats?date=${day.date}`);
@@ -355,8 +390,43 @@ export default function PastPuzzlesModal({
           )}
         </div>
 
+        {/* Monthly leaderboard panel */}
+        {showMonthLeaderboard && (
+          <div style={{ marginTop: 10, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #e5d8ff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "#f9f5ff" }}>
+              <span style={{ fontFamily: COURIER_FONT, fontWeight: 700, fontSize: 11, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {MONTH_NAMES[month - 1]} {year} — {activeDiff.toUpperCase()} leaders
+              </span>
+              <button onClick={() => setShowMonthLeaderboard(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#999", fontSize: 14, lineHeight: 1, padding: 0 }}>✕</button>
+            </div>
+            <div style={{ background: "#2c2c2c", padding: "10px 12px" }}>
+              {monthLeaderboardLoading ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 60 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", border: "3px solid rgba(204,163,255,0.2)", borderTopColor: "#cca3ff", animation: "pp-spin 0.8s linear infinite" }} />
+                </div>
+              ) : (() => {
+                const entries = monthLeaderboard?.[activeDiff] ?? [];
+                if (entries.length === 0) return <div style={{ color: "#888", fontSize: 12, fontFamily: COURIER_FONT }}>No data yet.</div>;
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {entries.map(e => (
+                      <div key={e.rank} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: COURIER_FONT, fontSize: 13 }}>
+                        <span style={{ color: "#888", width: 16, textAlign: "right", flexShrink: 0 }}>#{e.rank}</span>
+                        <span style={{ color: e.isMe ? "#cca3ff" : "#fff", fontWeight: e.isMe ? 700 : 400, flex: 1 }}>{e.displayName}</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#D4AF37", flexShrink: 0 }}>
+                          <MedalIcon type="gold" size={13} /> {e.gold}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* Day stats panel */}
-        {(dayStats || dayStatsLoading) && (
+        {!showMonthLeaderboard && (dayStats || dayStatsLoading) && (
           <div style={{ marginTop: 10, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #e5d8ff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "#f9f5ff" }}>
               <span style={{ fontFamily: COURIER_FONT, fontWeight: 700, fontSize: 11, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.08em" }}>

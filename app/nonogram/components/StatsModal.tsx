@@ -248,29 +248,31 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                   <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.12em', marginBottom: 10 }}>
                     FASTEST SOLVERS IN {leaderboard.month.toUpperCase()}
                   </div>
-                  {entries.length === 0 && (
-                    <div style={{ color: '#888', fontSize: 13 }}>No gold medals yet this month.</div>
-                  )}
-                  {entries.map((entry: LeaderboardEntry) => (
-                    <div
-                      key={entry.rank}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '7px 8px', borderRadius: 6, marginBottom: 3,
-                        background: entry.isMe ? 'rgba(204,163,255,0.12)' : 'transparent',
-                      }}
-                    >
-                      <span style={{ width: 24, textAlign: 'right', fontSize: 13, color: '#888', flexShrink: 0 }}>
-                        {`#${entry.rank}`}
-                      </span>
-                      <span style={{ flex: 1, fontSize: 14, fontWeight: entry.isMe ? 700 : 400, color: entry.isMe ? '#cca3ff' : '#fff', letterSpacing: 0.2 }}>
-                        {entry.displayName}
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                        <MedalIcon type="gold" size={16} /> {entry.gold}
-                      </span>
-                    </div>
-                  ))}
+                  <div style={{ minHeight: 202 }}>
+                    {entries.length === 0 && (
+                      <div style={{ color: '#888', fontSize: 13 }}>No gold medals yet this month.</div>
+                    )}
+                    {entries.map((entry: LeaderboardEntry) => (
+                      <div
+                        key={entry.rank}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '7px 8px', borderRadius: 6, marginBottom: 3,
+                          background: entry.isMe ? 'rgba(204,163,255,0.12)' : 'transparent',
+                        }}
+                      >
+                        <span style={{ width: 24, textAlign: 'right', fontSize: 13, color: '#888', flexShrink: 0 }}>
+                          {`#${entry.rank}`}
+                        </span>
+                        <span style={{ flex: 1, fontSize: 14, fontWeight: entry.isMe ? 700 : 400, color: entry.isMe ? '#cca3ff' : '#fff', letterSpacing: 0.2 }}>
+                          {entry.displayName}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                          <MedalIcon type="gold" size={16} /> {entry.gold}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                   {/* Solve Distribution — uses same difficulty pager */}
                   {stats?.todayDistribution && (() => {
                     const times = stats.todayDistribution[diff as keyof typeof stats.todayDistribution] ?? [];
@@ -457,7 +459,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
           <button
             onClick={onClose}
-            style={{ cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: '#111', color: '#fff', fontFamily: 'Courier New' }}
+            style={{ cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: 'none', background: '#cca3ff', color: '#1a0a2e', fontFamily: 'Courier New', fontWeight: 700 }}
           >
             Close
           </button>
