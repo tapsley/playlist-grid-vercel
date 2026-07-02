@@ -20,7 +20,7 @@ import { createEmptyGrid, computeClues } from '../runUtils';
 const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number; cellPxDefault?: number; autoScaleEnabled?: boolean; minCellPx?: number; maxCellPx?: number; minClueFontPx?: number; clueGap?: number }> = {
   easy:   { size: 5,  leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20, cellPxDefault: 32, autoScaleEnabled: false, minCellPx: 12, maxCellPx: 48, minClueFontPx: 12, clueGap: 12 },
   medium: { size: 10, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 16, cellPxDefault: 28, autoScaleEnabled: false, minCellPx: 10, maxCellPx: 40, minClueFontPx: 11, clueGap: 12 },
-  hard:   { size: 15, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 9,  cellPxDefault: 24, autoScaleEnabled: true,  minCellPx: 19, maxCellPx: 25, minClueFontPx: 10, clueGap: 8  },
+  hard:   { size: 15, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 12, cellPxDefault: 24, autoScaleEnabled: true,  minCellPx: 19, maxCellPx: 25, minClueFontPx: 10, clueGap: 8  },
 };
 
 function getDefaultPuzzle(size: number): boolean[][] {
@@ -599,7 +599,6 @@ function PicrossPlayInner() {
         grid={grid}
         elapsedSec={elapsedSec}
         cleared={cleared}
-        //showNewPB={showNewPB}
         showNewPB={false}
         celebrateGrid={celebrateGrid}
         firstStart={!startAnimationDone}
