@@ -69,7 +69,7 @@ export async function GET(_req: NextRequest) {
   });
   const userById = new Map(users.map((u) => [u.id, u]));
 
-  const monthLabel = monthStart.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "America/Denver" });
+  const monthLabel = new Date(`${y}-${String(m).padStart(2, '0')}-01T12:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "America/Denver" });
 
   const exclude = (rows: typeof easyRows) => rows.filter(r => !EXCLUDED_EMAILS.has(userById.get(r.userId)?.email ?? '')).slice(0, 5);
 

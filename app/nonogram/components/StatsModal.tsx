@@ -19,10 +19,15 @@ interface LeaderboardData {
 interface Streak { current: number; max: number; }
 
 interface AdminData {
-  today: { easy: number; medium: number; hard: number; total: number; pastSolves: { easy: number; medium: number; hard: number }; users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null; updatedAt?: string }> };
+  today: {
+    easy: number; medium: number; hard: number; total: number;
+    pastSolves: { easy: number; medium: number; hard: number };
+    pastUsers: Array<{ email: string; easy: number; medium: number; hard: number }>;
+    users: Array<{ email: string; easy: number | null; medium: number | null; hard: number | null; updatedAt?: string }>;
+  };
   monthlyUniqueUsers: number;
   newUsersThisMonth: number;
-  perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null }>;
+  perDate: Array<{ date: string; easy: number; medium: number; hard: number; total: number; avgEasy: number | null; avgMedium: number | null; avgHard: number | null; pastEasy: number; pastMedium: number; pastHard: number; pastTotal: number }>;
 }
 
 interface StatsData {
@@ -106,6 +111,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
   const [adminData, setAdminData] = useState<AdminData | null>(() => _adminCache);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState(false);
+  const [adminSubTab, setAdminSubTab] = useState<'today' | 'past'>('today');
   const USERS_PER_PAGE = 10;
 
   useEffect(() => {
@@ -133,7 +139,9 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
 
   useEffect(() => {
     if (!open || activeTab !== 'leaderboard') return;
-    if (_leaderboardCache) { setLeaderboard(_leaderboardCache); return; }
+    const expectedMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'America/Denver' });
+    if (_leaderboardCache && _leaderboardCache.month === expectedMonth) { setLeaderboard(_leaderboardCache); return; }
+    _leaderboardCache = null;
     setLeaderboardLoading(true);
     (async () => {
       try {
@@ -348,109 +356,181 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
           const fastestMedium = users.reduce((m, u) => u.medium != null && (m == null || u.medium < m) ? u.medium : m, null as number | null);
           const fastestHard   = users.reduce((m, u) => u.hard   != null && (m == null || u.hard   < m) ? u.hard   : m, null as number | null);
           const fastestByDiff = [fastestEasy, fastestMedium, fastestHard];
+          const subTabStyle = (active: boolean): React.CSSProperties => ({
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '3px 12px 8px', fontFamily: 'Courier New', fontWeight: 700,
+            fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: active ? '#cca3ff' : '#888',
+            borderBottom: active ? '2px solid #cca3ff' : '2px solid transparent',
+          });
           return (
             <div>
-              {/* Today's counts */}
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, color: '#fff', marginBottom: 8, letterSpacing: '0.1em' }}>TODAY</div>
-                <div style={{ display: 'flex', gap: 20 }}>
-                  {(['easy', 'medium', 'hard'] as const).map(d => (
-                    <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{admin.today[d]}</span>
-                      <span style={{ fontSize: 11, color: '#fff', marginTop: 3, textTransform: 'capitalize' }}>{d}</span>
-                    </div>
-                  ))}
-                  {(['easy', 'medium', 'hard'] as const).some(d => admin.today.pastSolves[d] > 0) && (
-                    <>
-                      <div style={{ width: 1, background: 'rgba(255,255,255,0.15)', alignSelf: 'stretch', margin: '0 8px' }} />
-                      {(['easy', 'medium', 'hard'] as const).map(d => admin.today.pastSolves[d] > 0 && (
-                        <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: '#cca3ff' }}>{admin.today.pastSolves[d]}</span>
-                          <span style={{ fontSize: 11, color: '#cca3ff', marginTop: 3, textTransform: 'capitalize' }}>↩{d.slice(0, 1).toUpperCase()}</span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
+              {/* Sub-tab bar */}
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.12)', marginBottom: 14 }}>
+                <button style={subTabStyle(adminSubTab === 'today')} onClick={() => setAdminSubTab('today')}>Today</button>
+                <button style={subTabStyle(adminSubTab === 'past')} onClick={() => setAdminSubTab('past')}>Past Puzzles</button>
               </div>
 
-              {/* Monthly stats */}
-              {admin.monthlyUniqueUsers != null && (
-                <div style={{ marginBottom: 4, fontSize: 12, color: '#aaa' }}>
-                  THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{admin.monthlyUniqueUsers}</span> unique {admin.monthlyUniqueUsers === 1 ? 'player' : 'players'}
-                </div>
-              )}
-              {admin.newUsersThisMonth != null && (
-                <div style={{ marginBottom: 14, fontSize: 12, color: '#aaa' }}>
-                  NEW THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{admin.newUsersThisMonth}</span>
-                </div>
-              )}
-
-              {/* Users who solved today */}
-              {users.length > 0 && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em' }}>SOLVED TODAY ({users.length})</div>
-                    {totalPages > 1 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#cca3ff' }}>
-                        <button onClick={() => setUsersPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ background: 'none', border: 'none', color: page === 0 ? '#555' : '#cca3ff', cursor: page === 0 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8592;</button>
-                        <span>{page + 1} / {totalPages}</span>
-                        <button onClick={() => setUsersPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ background: 'none', border: 'none', color: page === totalPages - 1 ? '#555' : '#cca3ff', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8594;</button>
-                      </div>
-                    )}
-                  </div>
-                  {visible.map((u) => (
-                    <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff', paddingBottom: 4 }}>
-                      <span>{u.email}</span>
-                      <span style={{ fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
-                        {([u.easy, u.medium, u.hard] as (number | null)[]).map((s, i) => {
-                          if (s == null) return null;
-                          const isFastest = fastestByDiff[i] != null && s === fastestByDiff[i];
-                          return (
-                            <span key={i} style={{ color: isFastest ? '#f9c74f' : '#cca3ff', marginLeft: i > 0 ? 8 : 0 }}>
-                              {['E','M','H'][i]} {fmtTime(s)}
-                            </span>
-                          );
-                        })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Last 7 days */}
-              {admin.perDate && admin.perDate.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, color: '#fff', marginBottom: 6, letterSpacing: '0.1em' }}>LAST 7 DAYS</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ color: '#fff' }}>
-                        <th style={{ textAlign: 'left', paddingBottom: 6, fontWeight: 400 }}>Date</th>
-                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Easy</th>
-                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Med</th>
-                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Hard</th>
-                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Total</th>
-                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg E</th>
-                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg M</th>
-                        <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg H</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {admin.perDate.map((row) => (
-                        <tr key={row.date} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                          <td style={{ paddingTop: 5, paddingBottom: 5, color: '#fff' }}>{row.date.slice(5)}</td>
-                          <td style={{ textAlign: 'center', color: '#fff' }}>{row.easy}</td>
-                          <td style={{ textAlign: 'center', color: '#fff' }}>{row.medium}</td>
-                          <td style={{ textAlign: 'center', color: '#fff' }}>{row.hard}</td>
-                          <td style={{ textAlign: 'center', color: '#fff', fontWeight: 700 }}>{row.total}</td>
-                          <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgEasy)}</td>
-                          <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgMedium)}</td>
-                          <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgHard)}</td>
-                        </tr>
+              {adminSubTab === 'today' && (
+                <>
+                  {/* Today's counts */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: '#fff', marginBottom: 8, letterSpacing: '0.1em' }}>TODAY</div>
+                    <div style={{ display: 'flex', gap: 20 }}>
+                      {(['easy', 'medium', 'hard'] as const).map(d => (
+                        <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{admin.today[d]}</span>
+                          <span style={{ fontSize: 11, color: '#fff', marginTop: 3, textTransform: 'capitalize' }}>{d}</span>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  </div>
+
+                  {/* Monthly stats */}
+                  {admin.monthlyUniqueUsers != null && (
+                    <div style={{ marginBottom: 4, fontSize: 12, color: '#aaa' }}>
+                      THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{admin.monthlyUniqueUsers}</span> unique {admin.monthlyUniqueUsers === 1 ? 'player' : 'players'}
+                    </div>
+                  )}
+                  {admin.newUsersThisMonth != null && (
+                    <div style={{ marginBottom: 14, fontSize: 12, color: '#aaa' }}>
+                      NEW THIS MONTH: <span style={{ color: '#cca3ff', fontWeight: 700 }}>{admin.newUsersThisMonth}</span>
+                    </div>
+                  )}
+
+                  {/* Users who solved today */}
+                  {users.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em' }}>SOLVED TODAY ({users.length})</div>
+                        {totalPages > 1 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#cca3ff' }}>
+                            <button onClick={() => setUsersPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ background: 'none', border: 'none', color: page === 0 ? '#555' : '#cca3ff', cursor: page === 0 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8592;</button>
+                            <span>{page + 1} / {totalPages}</span>
+                            <button onClick={() => setUsersPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ background: 'none', border: 'none', color: page === totalPages - 1 ? '#555' : '#cca3ff', cursor: page === totalPages - 1 ? 'default' : 'pointer', fontSize: 14, padding: 0 }}>&#8594;</button>
+                          </div>
+                        )}
+                      </div>
+                      {visible.map((u) => (
+                        <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff', paddingBottom: 4 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{u.email}</span>
+                          <span style={{ fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
+                            {([u.easy, u.medium, u.hard] as (number | null)[]).map((s, i) => {
+                              const isFastest = s != null && fastestByDiff[i] != null && s === fastestByDiff[i];
+                              return (
+                                <span key={i} style={{ display: 'inline-block', width: 58, color: s != null ? (isFastest ? '#f9c74f' : '#cca3ff') : 'transparent' }}>
+                                  {s != null ? `${['E','M','H'][i]} ${fmtTime(s)}` : '-'}
+                                </span>
+                              );
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Last 7 days */}
+                  {admin.perDate && admin.perDate.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, color: '#fff', marginBottom: 6, letterSpacing: '0.1em' }}>LAST 7 DAYS</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ color: '#fff' }}>
+                            <th style={{ textAlign: 'left', paddingBottom: 6, fontWeight: 400 }}>Date</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Easy</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Med</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Hard</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Total</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg E</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg M</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400, color: '#cca3ff' }}>Avg H</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {admin.perDate.map((row) => (
+                            <tr key={row.date} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                              <td style={{ paddingTop: 5, paddingBottom: 5, color: '#fff' }}>{row.date.slice(5)}</td>
+                              <td style={{ textAlign: 'center', color: '#fff' }}>{row.easy}</td>
+                              <td style={{ textAlign: 'center', color: '#fff' }}>{row.medium}</td>
+                              <td style={{ textAlign: 'center', color: '#fff' }}>{row.hard}</td>
+                              <td style={{ textAlign: 'center', color: '#fff', fontWeight: 700 }}>{row.total}</td>
+                              <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgEasy)}</td>
+                              <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgMedium)}</td>
+                              <td style={{ textAlign: 'center', color: '#cca3ff' }}>{fmtTime(row.avgHard)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {adminSubTab === 'past' && (
+                <>
+                  {/* Past puzzle totals */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: '#fff', marginBottom: 8, letterSpacing: '0.1em' }}>PAST PUZZLES SOLVED TODAY</div>
+                    <div style={{ display: 'flex', gap: 20 }}>
+                      {(['easy', 'medium', 'hard'] as const).map(d => (
+                        <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: '#cca3ff' }}>{admin.today.pastSolves[d]}</span>
+                          <span style={{ fontSize: 11, color: '#cca3ff', marginTop: 3, textTransform: 'capitalize' }}>{d}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Per-user past puzzle breakdown */}
+                  {admin.today.pastUsers.length === 0 ? (
+                    <div style={{ color: '#888', fontSize: 13, marginBottom: 14 }}>No past puzzles solved today.</div>
+                  ) : (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.1em', marginBottom: 6 }}>PLAYERS ({admin.today.pastUsers.length})</div>
+                      {admin.today.pastUsers.map(u => (
+                        <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff', paddingBottom: 4 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{u.email}</span>
+                          <span style={{ fontFamily: 'Courier New', marginLeft: 12, whiteSpace: 'nowrap' }}>
+                            {([u.easy, u.medium, u.hard] as number[]).map((count, i) => (
+                              <span key={i} style={{ display: 'inline-block', width: 36, color: count > 0 ? '#cca3ff' : 'transparent' }}>
+                                {count > 0 ? `${['E','M','H'][i]} ${count}` : '-'}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Last 7 days */}
+                  {admin.perDate && admin.perDate.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: '#fff', marginBottom: 6, letterSpacing: '0.1em' }}>LAST 7 DAYS</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ color: '#fff' }}>
+                            <th style={{ textAlign: 'left', paddingBottom: 6, fontWeight: 400 }}>Date</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Easy</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Med</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Hard</th>
+                            <th style={{ textAlign: 'center', paddingBottom: 6, fontWeight: 400 }}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {admin.perDate.map((row) => (
+                            <tr key={row.date} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                              <td style={{ paddingTop: 5, paddingBottom: 5, color: '#fff' }}>{row.date.slice(5)}</td>
+                              <td style={{ textAlign: 'center', color: '#cca3ff' }}>{row.pastEasy}</td>
+                              <td style={{ textAlign: 'center', color: '#cca3ff' }}>{row.pastMedium}</td>
+                              <td style={{ textAlign: 'center', color: '#cca3ff' }}>{row.pastHard}</td>
+                              <td style={{ textAlign: 'center', color: '#cca3ff', fontWeight: 700 }}>{row.pastTotal}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           );
