@@ -4,6 +4,8 @@ import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { getMSTDateString } from "@/app/nonogram/time";
 
+const PRIORITY_EMAIL = 'summerapsley@gmail.com';
+
 const EXCLUDED_EMAILS = new Set([
   'aa',
   'bb',
@@ -71,7 +73,17 @@ export async function GET(_req: NextRequest) {
 
   const monthLabel = new Date(`${y}-${String(m).padStart(2, '0')}-01T12:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "America/Denver" });
 
-  const exclude = (rows: typeof easyRows) => rows.filter(r => !EXCLUDED_EMAILS.has(userById.get(r.userId)?.email ?? '')).slice(0, 5);
+  const priorityUserId = [...userById.entries()].find(([, u]) => u.email === PRIORITY_EMAIL)?.[0];
+  const exclude = (rows: typeof easyRows) => {
+    const filtered = rows.filter(r => !EXCLUDED_EMAILS.has(userById.get(r.userId)?.email ?? ''));
+    filtered.sort((a, b) => {
+      if (b._count.id !== a._count.id) return b._count.id - a._count.id;
+      if (a.userId === priorityUserId) return -1;
+      if (b.userId === priorityUserId) return 1;
+      return 0;
+    });
+    return filtered.slice(0, 5);
+  };
 
   return Response.json({
     easy:   buildRanked(exclude(easyRows),   currentUser?.id, userById),
