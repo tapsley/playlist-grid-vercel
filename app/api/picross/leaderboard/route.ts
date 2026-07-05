@@ -13,18 +13,16 @@ const EXCLUDED_EMAILS = new Set([
   // Temporary: dummy/test accounts to hide from leaderboard
 ]);
 
-type Entry = { rank: number; displayName: string; gold: number; isMe: boolean };
+type Entry = { rank: number; displayName: string; gold: number };
 
 function buildRanked(
   rows: { userId: string; _count: { id: number } }[],
-  currentUserId: string | undefined,
   userById: Map<string, { email: string }>,
 ): Entry[] {
   return rows.map((g, i) => ({
     rank: i + 1,
     displayName: (userById.get(g.userId)?.email ?? "").split("@")[0],
     gold: g._count.id,
-    isMe: g.userId === currentUserId,
   }));
 }
 
@@ -52,18 +50,16 @@ export async function GET(_req: NextRequest) {
     date: { gte: monthStart, lt: monthEnd },
   });
 
-  const [easyRows, mediumRows, hardRows, currentUser] = await Promise.all([
+  const [easyRows, mediumRows, hardRows] = await Promise.all([
     prisma.picrossMedal.groupBy({ by: ["userId"], where: where("easy"),   _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 20 }),
     prisma.picrossMedal.groupBy({ by: ["userId"], where: where("medium"), _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 20 }),
     prisma.picrossMedal.groupBy({ by: ["userId"], where: where("hard"),   _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 20 }),
-    prisma.user.findUnique({ where: { email: session.user.email }, select: { id: true } }),
   ]);
 
   // Collect all userIds we need to display names for
   const allIds = new Set([
     ...easyRows, ...mediumRows, ...hardRows,
   ].map(g => g.userId));
-  if (currentUser) allIds.add(currentUser.id);
 
   const users = await prisma.user.findMany({
     where: { id: { in: [...allIds] } },
@@ -86,9 +82,11 @@ export async function GET(_req: NextRequest) {
   };
 
   return Response.json({
-    easy:   buildRanked(exclude(easyRows),   currentUser?.id, userById),
-    medium: buildRanked(exclude(mediumRows), currentUser?.id, userById),
-    hard:   buildRanked(exclude(hardRows), currentUser?.id, userById),
+    easy:   buildRanked(exclude(easyRows),   userById),
+    medium: buildRanked(exclude(mediumRows), userById),
+    hard:   buildRanked(exclude(hardRows),   userById),
     month: monthLabel,
+  }, {
+    headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=82800' },
   });
 }

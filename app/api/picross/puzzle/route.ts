@@ -12,7 +12,9 @@ export async function GET(req: NextRequest) {
   const date = new Date(dateStr);
   const puzzle = await prisma.picrossPuzzle.findUnique({ where: { date } });
   if (!puzzle) return new Response("Not found", { status: 404 });
-  return Response.json(puzzle);
+  return Response.json(puzzle, {
+    headers: { 'Cache-Control': 's-maxage=86400, stale-while-revalidate=86400' },
+  });
 }
 
 // POST /api/picross/puzzle

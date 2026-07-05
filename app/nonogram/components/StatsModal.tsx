@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import SolveHistogram, { fmtTime } from './SolveHistogram';
 import MedalIcon from './MedalIcon';
 
@@ -7,7 +8,6 @@ interface LeaderboardEntry {
   rank: number;
   displayName: string;
   gold: number;
-  isMe: boolean;
 }
 interface LeaderboardData {
   easy: LeaderboardEntry[];
@@ -100,6 +100,8 @@ export function getYesterdayMedals(): Array<{ difficulty: string; type: string }
 }
 
 export default function StatsModal({ open, onClose, isAdmin }: Props) {
+  const { data: session } = useSession();
+  const myDisplayName = session?.user?.email?.split('@')[0] ?? null;
   const [stats, setStats] = useState<StatsData | null>(() => _cache?.data ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -266,13 +268,13 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                         style={{
                           display: 'flex', alignItems: 'center', gap: 10,
                           padding: '7px 8px', borderRadius: 6, marginBottom: 3,
-                          background: entry.isMe ? 'rgba(204,163,255,0.12)' : 'transparent',
+                          background: entry.displayName === myDisplayName ? 'rgba(204,163,255,0.12)' : 'transparent',
                         }}
                       >
                         <span style={{ width: 24, textAlign: 'right', fontSize: 13, color: '#888', flexShrink: 0 }}>
                           {`#${entry.rank}`}
                         </span>
-                        <span style={{ flex: 1, fontSize: 14, fontWeight: entry.isMe ? 700 : 400, color: entry.isMe ? '#cca3ff' : '#fff', letterSpacing: 0.2 }}>
+                        <span style={{ flex: 1, fontSize: 14, fontWeight: entry.displayName === myDisplayName ? 700 : 400, color: entry.displayName === myDisplayName ? '#cca3ff' : '#fff', letterSpacing: 0.2 }}>
                           {entry.displayName}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
