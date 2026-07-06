@@ -17,10 +17,10 @@ import { usePointerDrag } from '../hooks/usePointerDrag';
 import { useEditorMode } from '../hooks/useEditorMode';
 import { createEmptyGrid, computeClues } from '../runUtils';
 
-const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number; cellPxDefault?: number; autoScaleEnabled?: boolean; minCellPx?: number; maxCellPx?: number; minClueFontPx?: number; clueGap?: number }> = {
-  easy:   { size: 5,  leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20, cellPxDefault: 32, autoScaleEnabled: false, minCellPx: 12, maxCellPx: 48, minClueFontPx: 12, clueGap: 12 },
-  medium: { size: 10, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 16, cellPxDefault: 28, autoScaleEnabled: false, minCellPx: 10, maxCellPx: 40, minClueFontPx: 11, clueGap: 12 },
-  hard:   { size: 15, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 12, cellPxDefault: 24, autoScaleEnabled: true,  minCellPx: 10, maxCellPx: 25, minClueFontPx: 6, clueGap: 8  },
+const DIFFICULTY_CONFIG: Record<string, { size: number; leftWidthPx: number; topHeightPx: number; clueFontPx: number; cellPxDefault?: number; autoScaleEnabled?: boolean; minCellPx?: number; maxCellPx?: number; minClueFontPx?: number; clueGap?: number; minLeftWidthPx?: number }> = {
+  easy:   { size: 5,  leftWidthPx: 100, topHeightPx: 100, clueFontPx: 20, cellPxDefault: 32, autoScaleEnabled: false, minCellPx: 12, maxCellPx: 48, minClueFontPx: 12, clueGap: 12, minLeftWidthPx: 100  },
+  medium: { size: 10, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 16, cellPxDefault: 28, autoScaleEnabled: false, minCellPx: 10, maxCellPx: 40, minClueFontPx: 11, clueGap: 12, minLeftWidthPx: 110  },
+  hard:   { size: 15, leftWidthPx: 125, topHeightPx: 125, clueFontPx: 12, cellPxDefault: 24, autoScaleEnabled: false,  minCellPx: 12, maxCellPx: 25, minClueFontPx: 8,  clueGap: 8,  minLeftWidthPx: 100  },
 };
 
 function getDefaultPuzzle(size: number): boolean[][] {
@@ -214,10 +214,26 @@ function PicrossPlayInner() {
   const [minClueFontPx, setMinClueFontPx] = useState<number>(10);
   const CLUE_FONT_PX = Math.max((DIFFICULTY_CONFIG[difficulty]?.clueFontPx ?? 18), minClueFontPx);
   const clueGap = DIFFICULTY_CONFIG[difficulty]?.clueGap ?? 12;
-  const topHeight = DIFFICULTY_CONFIG[difficulty]?.topHeightPx ?? 120;
-  const leftWidth = DIFFICULTY_CONFIG[difficulty]?.leftWidthPx ?? 120;
+  const { rows: rowClues, cols: colClues } = useMemo(() => computeClues(puzzle), [puzzle]);
+  const leftWidth = useMemo(() => {
+    const fallback = DIFFICULTY_CONFIG[difficulty]?.leftWidthPx ?? 125;
+    if (!rowClues.some(c => c.length > 0)) return fallback;
+    const maxWidth = Math.max(...rowClues.map(clue => {
+      if (clue.length === 0) return 0;
+      const digitPx = clue.reduce((sum, n) => sum + String(n).length, 0) * CLUE_FONT_PX * 0.62;
+      const gapPx = Math.max(0, clue.length - 1) * clueGap;
+      return digitPx + gapPx;
+    }));
+    const minLeft = DIFFICULTY_CONFIG[difficulty]?.minLeftWidthPx ?? 20;
+    return Math.max(minLeft, Math.ceil(maxWidth) + 18);
+  }, [rowClues, CLUE_FONT_PX, clueGap, difficulty]);
+  const topHeight = useMemo(() => {
+    const fallback = DIFFICULTY_CONFIG[difficulty]?.topHeightPx ?? 125;
+    if (!colClues.some(c => c.length > 0)) return fallback;
+    const maxEntries = Math.max(...colClues.map(c => c.length));
+    return Math.max(20, Math.ceil(maxEntries * CLUE_FONT_PX * 1.35) + 6);
+  }, [colClues, CLUE_FONT_PX, difficulty]);
   const [cellPx, setCellPx] = useState<number>(32);
-  const [autoScaleEnabled, setAutoScaleEnabled] = useState<boolean>(true);
   const [minCellPx, setMinCellPx] = useState<number>(12);
   const [maxCellPx, setMaxCellPx] = useState<number>(48);
   const [fontFamily] = useState<string>(DEFAULT_FONT);
@@ -227,23 +243,22 @@ function PicrossPlayInner() {
     try {
       const cfg = DIFFICULTY_CONFIG[difficulty] ?? DIFFICULTY_CONFIG['easy'];
       if (cfg.cellPxDefault) setCellPx(cfg.cellPxDefault);
-      if (typeof cfg.autoScaleEnabled !== 'undefined') setAutoScaleEnabled(cfg.autoScaleEnabled as boolean);
       if (cfg.minCellPx) setMinCellPx(cfg.minCellPx);
       if (cfg.maxCellPx) setMaxCellPx(cfg.maxCellPx);
       if (cfg.minClueFontPx) setMinClueFontPx(cfg.minClueFontPx);
     } catch {}
     const compute = () => {
       try {
-        const avail = Math.max(120, window.innerWidth - 32 - leftWidth - 24);
+        const avail = Math.max(0, window.innerWidth - leftWidth - size * 2);
         const candidate = Math.floor(avail / size);
         const newPx = Math.max(minCellPx ?? 12, Math.min(maxCellPx ?? 48, candidate || (minCellPx ?? 12)));
-        if (autoScaleEnabled && difficulty === 'hard') setCellPx(newPx);
+        setCellPx(newPx);
       } catch {}
     };
     compute();
     window.addEventListener('resize', compute);
     return () => window.removeEventListener('resize', compute);
-  }, [difficulty, leftWidth, size, autoScaleEnabled, minCellPx, maxCellPx]);
+  }, [difficulty, leftWidth, size, minCellPx, maxCellPx]);
 
   useEffect(() => {
     const calc = () => {
@@ -260,9 +275,6 @@ function PicrossPlayInner() {
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
   }, [size]);
-
-  // ------ Clues ------
-  const { rows: rowClues, cols: colClues } = useMemo(() => computeClues(puzzle), [puzzle]);
 
   // ------ Grid helpers ------
   const isFilledCell = (r: number, c: number): boolean => {
