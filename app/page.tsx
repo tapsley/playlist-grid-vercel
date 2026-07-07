@@ -16,7 +16,7 @@ const featuredCard: ProjectCard = {
   title: "Daily Nonograms",
   description:
     "Take a break with some Nonograms!\nCome back every day for new puzzles!\n\nSign in to track your stats and see how you stack up against other solvers!",
-  imageSrc: "/dailyPicrossHero.png",
+  imageSrc: "/dailyPicrossHero2.png",
   imageAlt: "Daily Nonogram page preview",
 };
 
