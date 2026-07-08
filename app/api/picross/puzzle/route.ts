@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { ADMIN_EMAIL } from "@/lib/constants";
+import { getMSTDateString } from "@/app/nonogram/time";
 
 // GET /api/picross/puzzle?date=YYYY-MM-DD
 export async function GET(req: NextRequest) {
@@ -12,8 +13,9 @@ export async function GET(req: NextRequest) {
   const date = new Date(dateStr);
   const puzzle = await prisma.picrossPuzzle.findUnique({ where: { date } });
   if (!puzzle) return new Response("Not found", { status: 404 });
+  const isFuture = dateStr > getMSTDateString();
   return Response.json(puzzle, {
-    headers: { 'Cache-Control': 's-maxage=86400, stale-while-revalidate=86400' },
+    headers: isFuture ? {} : { 'Cache-Control': 's-maxage=86400, stale-while-revalidate=86400' },
   });
 }
 

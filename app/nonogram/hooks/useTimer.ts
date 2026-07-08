@@ -11,6 +11,7 @@ interface UseTimerOptions {
   editorMode: boolean;
   grid: CellState[][];
   disableSave?: boolean;
+  disableTimer?: boolean;
 }
 
 export function useTimer({
@@ -22,6 +23,7 @@ export function useTimer({
   editorMode,
   grid,
   disableSave = false,
+  disableTimer = false,
 }: UseTimerOptions) {
   const timerRef = useRef<number | null>(null);
   const saveTimerDebounce = useRef<number | null>(null);
@@ -47,9 +49,9 @@ export function useTimer({
   useEffect(() => { clearedRef.current = cleared; }, [cleared]);
   useEffect(() => { userIsLoggedInRef.current = userIsLoggedIn; }, [userIsLoggedIn]);
 
-  // Start timer when animation done, puzzle not cleared, not in editor
+  // Start timer when animation done, puzzle not cleared, not in editor, not in editor-test mode
   useEffect(() => {
-    if (editorMode || cleared || !startAnimationDone) return;
+    if (editorMode || disableTimer || cleared || !startAnimationDone) return;
     if (timerRef.current) return;
     timerRef.current = window.setInterval(() => {
       dirtyRef.current = true;
@@ -58,7 +60,7 @@ export function useTimer({
     return () => {
       if (timerRef.current) { window.clearInterval(timerRef.current as unknown as number); timerRef.current = null; }
     };
-  }, [editorMode, cleared, startAnimationDone]);
+  }, [editorMode, disableTimer, cleared, startAnimationDone]);
 
   // Stop timer when puzzle is cleared
   useEffect(() => {

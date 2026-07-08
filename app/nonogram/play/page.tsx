@@ -184,9 +184,12 @@ function PicrossPlayInner() {
     deactivateEditorMode,
   } = useEditorMode({ isEditorAllowed, size, difficulty, prefetchPuzzle: effectivePuzzle, setPrefetch: effectiveSetPrefetch });
 
+  const [wasInEditorMode, setWasInEditorMode] = useState(false);
+
   const { elapsedSec, setElapsedSec, saveSecondsNow } = useTimer({
     dateStr, difficulty, userIsLoggedIn, startAnimationDone, cleared, editorMode, grid,
     disableSave: isPastPuzzle && replayMode,
+    disableTimer: wasInEditorMode,
   });
 
   const {
@@ -456,9 +459,12 @@ function PicrossPlayInner() {
 
   // ------ Bridging effects ------
 
-  // Clear celebration when entering editor mode
+  // Clear celebration when entering editor mode; reset timer when returning to play
   useEffect(() => {
-    if (editorMode) clearCelebration();
+    if (editorMode) {
+      clearCelebration();
+      setWasInEditorMode(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorMode]);
 
