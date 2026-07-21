@@ -78,7 +78,7 @@ export async function GET(_req: NextRequest) {
       if (b.userId === priorityUserId) return 1;
       return 0;
     });
-    return filtered.slice(0, 5);
+    return filtered.slice(0, 10);
   };
 
   return Response.json({

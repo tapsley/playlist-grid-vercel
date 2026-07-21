@@ -258,7 +258,7 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
                   <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.12em', marginBottom: 10 }}>
                     FASTEST SOLVERS IN {leaderboard.month.toUpperCase()}
                   </div>
-                  <div style={{ minHeight: 202 }}>
+                  <div style={{ minHeight: 202, maxHeight: 202, overflowY: 'auto' }}>
                     {entries.length === 0 && (
                       <div style={{ color: '#888', fontSize: 13 }}>No gold medals yet this month.</div>
                     )}
@@ -538,7 +538,16 @@ export default function StatsModal({ open, onClose, isAdmin }: Props) {
           );
         })()}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16 }}>
+          
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#888' }}>
+                <MedalIcon type="gold" size={12} /><span>Fastest solve of the day</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#888' }}>
+                <MedalIcon type="silver" size={12} /><span>Faster than the daily average</span>
+              </div>
+            </div>
           <button
             onClick={onClose}
             style={{ cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: 'none', background: '#cca3ff', color: '#1a0a2e', fontFamily: 'Courier New', fontWeight: 700 }}
